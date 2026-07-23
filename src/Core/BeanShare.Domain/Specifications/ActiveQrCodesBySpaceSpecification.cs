@@ -13,6 +13,6 @@ public sealed class ActiveQrCodesBySpaceSpecification : Spec<ActiveQrCode>
         _spaceId = spaceId;
     }
 
-    public override Expression<Func<ActiveQrCode, bool>> Criteria => qr => qr.SpaceId == _spaceId;
+    public override Expression<Func<ActiveQrCode, bool>> Criteria => qr => qr.SpaceId == _spaceId && qr.IsActive;
     public override string? Reason => $"Active QR codes for space {_spaceId}";
 }

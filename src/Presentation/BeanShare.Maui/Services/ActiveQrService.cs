@@ -53,14 +53,18 @@ public class ActiveQrService : IActiveQrService
 
     public async Task<ActiveQrCodeDto?> ResolveActiveQrCodeAsync(Guid qrCodeId)
     {
-        try
-        {
-            return await _httpClient.GetFromJsonAsync<ActiveQrCodeDto>($"/api/qr-codes/{qrCodeId}/resolve");
-        }
-        catch
+        // Do NOT swallow transport failures: let HttpRequestException / TaskCanceledException
+        // (timeout) propagate so callers can fall back to the offline cache and show an accurate
+        // "check your connection" message. Only a real HTTP response that resolved to nothing
+        // (non-success status, e.g. 400/404 for a deactivated/unknown code) returns null, which
+        // callers correctly surface as "deactivated / not found".
+        var response = await _httpClient.GetAsync($"/api/qr-codes/{qrCodeId}/resolve");
+        if (!response.IsSuccessStatusCode)
         {
             return null;
         }
+
+        return await response.Content.ReadFromJsonAsync<ActiveQrCodeDto>();
     }
 
     public async Task<ActiveQrCodeDto?> ReassignActiveQrCodeAsync(Guid qrCodeId, string productName, string productBrand, string productType, string recipeName, int defaultGrams)
@@ -77,6 +81,28 @@ public class ActiveQrService : IActiveQrService
             };
 
             var response = await _httpClient.PutAsJsonAsync($"/api/qr-codes/{qrCodeId}/reassign", request);
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<ActiveQrCodeDto>();
+            }
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<ActiveQrCodeDto?> RenameActiveQrCodeAsync(Guid qrCodeId, string label)
+    {
+        try
+        {
+            var request = new
+            {
+                Label = label
+            };
+
+            var response = await _httpClient.PutAsJsonAsync($"/api/qr-codes/{qrCodeId}/rename", request);
             if (response.IsSuccessStatusCode)
             {
                 return await response.Content.ReadFromJsonAsync<ActiveQrCodeDto>();

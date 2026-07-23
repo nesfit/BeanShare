@@ -31,7 +31,7 @@ public sealed class ActiveQrCodeRepository : IActiveQrCodeRepository
     public async Task<IReadOnlyList<ActiveQrCode>> GetBySpaceIdAsync(SpaceId spaceId, CancellationToken cancellationToken = default)
     {
         return await _context.ActiveQrCodes
-            .Where(q => q.SpaceId == spaceId)
+            .Where(q => q.SpaceId == spaceId && q.IsActive)
             .OrderByDescending(q => q.CreatedAt)
             .ToListAsync(cancellationToken);
     }

@@ -51,6 +51,27 @@ public sealed class CreateActiveQrCodeCommandHandler : IRequestHandler<CreateAct
         {
             var product = CoffeeProduct.Create(command.ProductName, command.ProductBrand, coffeeType);
 
+            // Replace semantics: if an active code for the same product + label already exists,
+            // update it in place instead of minting a duplicate. This keeps the already-printed
+            // physical QR (a stable /scan/{id} URL) working after a "regenerate", and stops the
+            // list from accumulating duplicate codes for the same spot.
+            var label = command.Label?.Trim() ?? string.Empty;
+            var existing = (await _qrCodeRepository.GetBySpaceIdAsync(spaceId, cancellationToken))
+                .FirstOrDefault(q => q.IsActive
+                    && string.Equals(q.Product.Name, product.Name, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(q.Product.Brand, product.Brand, StringComparison.OrdinalIgnoreCase)
+                    && q.Product.Type == product.Type
+                    && string.Equals(q.Label, label, StringComparison.OrdinalIgnoreCase));
+
+            if (existing is not null)
+            {
+                existing.Reassign(product, command.RecipeName, command.DefaultGrams);
+                existing.UpdateLabel(command.Label);
+                await _qrCodeRepository.UpdateAsync(existing, cancellationToken);
+
+                return Result<ActiveQrCodeDto>.Success(ActiveQrCodeMapper.ToDto(existing));
+            }
+
             var qrCode = ActiveQrCode.Create(
                 spaceId,
                 command.Label,

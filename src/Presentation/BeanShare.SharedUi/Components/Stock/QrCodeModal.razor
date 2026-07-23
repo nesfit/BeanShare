@@ -51,7 +51,7 @@
                     <div class="bs-form-group" style="margin-bottom: 1rem;">
                         <label class="bs-label">Label</label>
                         <input type="text" class="bs-input" placeholder="e.g., Kitchen, Meeting room, Break area"
-                               @bind="label" @bind:event="oninput" maxlength="50" />
+                               @bind="label" @bind:event="oninput" maxlength="100" />
                     </div>
 
                     <div class="bs-form-group" style="margin-bottom: 1rem;">
@@ -215,6 +215,15 @@
             RecipeName = recipeName,
             DefaultGrams = grams
         });
+
+        // On success the parent sets CreatedQrCodeId and OnParametersSet renders qrDataUri.
+        // On failure it only shows a toast and never clears isGenerating, so re-enable the
+        // button here so the user can retry without closing and reopening the modal.
+        if (string.IsNullOrEmpty(qrDataUri))
+        {
+            isGenerating = false;
+            StateHasChanged();
+        }
     }
 
     private async Task DownloadPng()

@@ -114,6 +114,33 @@ else
                             </div>
                         </div>
                     }
+                    else if (renamingQrId == qr.Id)
+                    {
+                        <!-- Inline rename form -->
+                        <div>
+                            <p class="bs-font-bold" style="margin: 0 0 0.75rem 0; font-size: 1rem;">
+                                Rename QR code
+                            </p>
+
+                            <div class="bs-form-group" style="margin-bottom: 0.75rem;">
+                                <label class="bs-label">Label</label>
+                                <input type="text" class="bs-input" maxlength="100"
+                                       placeholder="e.g., Kitchen, Meeting room, Break area"
+                                       @bind="renameLabel" @bind:event="oninput" />
+                            </div>
+
+                            <div class="bs-flex bs-gap-2" style="justify-content: flex-end;">
+                                <button class="bs-btn bs-btn-secondary bs-btn-sm" @onclick="CancelRename">
+                                    Cancel
+                                </button>
+                                <button class="bs-btn bs-btn-primary bs-btn-sm"
+                                        disabled="@(string.IsNullOrWhiteSpace(renameLabel))"
+                                        @onclick="@(() => HandleRename(qr.Id))">
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    }
                     else
                     {
                         <!-- Normal display -->
@@ -138,6 +165,12 @@ else
                                         title="Show QR code"
                                         aria-label="Show QR code">
                                     <span class="material-symbols-outlined" style="font-size: 1rem;">qr_code_2</span>
+                                </button>
+                                <button class="bs-btn bs-btn-secondary bs-btn-sm"
+                                        @onclick="@(() => StartRename(qr))"
+                                        title="Rename QR code"
+                                        aria-label="Rename QR code">
+                                    <span class="material-symbols-outlined" style="font-size: 1rem;">edit</span>
                                 </button>
                                 <button class="bs-btn bs-btn-secondary bs-btn-sm"
                                         @onclick="@(() => StartReassign(qr))"
@@ -178,6 +211,9 @@ else
     public EventCallback<ReassignModel> OnReassign { get; set; }
 
     [Parameter]
+    public EventCallback<RenameModel> OnRename { get; set; }
+
+    [Parameter]
     public EventCallback<Guid> OnDeactivate { get; set; }
 
     [Parameter]
@@ -194,6 +230,9 @@ else
     private string reassignRecipe = "UserChooses";
     private int reassignCustomGrams = 10;
 
+    private Guid? renamingQrId;
+    private string renameLabel = "";
+
     public sealed class ReassignModel
     {
         public Guid QrCodeId { get; set; }
@@ -204,8 +243,43 @@ else
         public int DefaultGrams { get; set; }
     }
 
+    public sealed class RenameModel
+    {
+        public Guid QrCodeId { get; set; }
+        public string Label { get; set; } = "";
+    }
+
+    private void StartRename(ActiveQrCodeDto qr)
+    {
+        reassigningQrId = null;
+        renamingQrId = qr.Id;
+        renameLabel = qr.Label;
+    }
+
+    private void CancelRename()
+    {
+        renamingQrId = null;
+        renameLabel = "";
+    }
+
+    private async Task HandleRename(Guid qrCodeId)
+    {
+        var label = renameLabel?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(label))
+            return;
+
+        await OnRename.InvokeAsync(new RenameModel
+        {
+            QrCodeId = qrCodeId,
+            Label = label
+        });
+
+        CancelRename();
+    }
+
     private void StartReassign(ActiveQrCodeDto qr)
     {
+        renamingQrId = null;
         reassigningQrId = qr.Id;
         reassignSelectedProductIndex = -1;
         if (qr.DefaultGrams == 0)

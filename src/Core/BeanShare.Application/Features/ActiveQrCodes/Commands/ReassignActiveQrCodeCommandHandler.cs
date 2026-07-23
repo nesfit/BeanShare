@@ -33,6 +33,11 @@ public sealed class ReassignActiveQrCodeCommandHandler : IRequestHandler<Reassig
             return Result<ActiveQrCodeDto>.Failure(Error.NotFound("ActiveQrCode", $"QR code {command.QrCodeId} not found"));
         }
 
+        if (!qrCode.IsActive)
+        {
+            return Result<ActiveQrCodeDto>.Failure(Error.NotFound("ActiveQrCode", $"QR code {command.QrCodeId} is no longer active"));
+        }
+
         var space = await _spaceRepository.GetByIdAsync(qrCode.SpaceId, cancellationToken);
 
         if (space is null)

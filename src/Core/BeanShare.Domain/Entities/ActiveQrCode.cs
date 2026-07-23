@@ -5,6 +5,8 @@ namespace BeanShare.Domain.Entities;
 
 public sealed class ActiveQrCode : Entity
 {
+    public const int MaxLabelLength = 100;
+
     public ActiveQrCodeId Id { get; private set; }
     public SpaceId SpaceId { get; private set; }
     public string Label { get; private set; }
@@ -56,6 +58,11 @@ public sealed class ActiveQrCode : Entity
         ArgumentNullException.ThrowIfNull(product);
         ArgumentNullException.ThrowIfNull(clock);
 
+        if (label.Trim().Length > MaxLabelLength)
+        {
+            throw new ArgumentException($"Label cannot exceed {MaxLabelLength} characters", nameof(label));
+        }
+
         if (defaultGrams < 0)
         {
             throw new ArgumentException("Default grams cannot be negative", nameof(defaultGrams));
@@ -99,7 +106,13 @@ public sealed class ActiveQrCode : Entity
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
 
-        Label = label.Trim();
+        var trimmed = label.Trim();
+        if (trimmed.Length > MaxLabelLength)
+        {
+            throw new ArgumentException($"Label cannot exceed {MaxLabelLength} characters", nameof(label));
+        }
+
+        Label = trimmed;
     }
 
     public void Deactivate()

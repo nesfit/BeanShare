@@ -17,6 +17,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @inject IUserContext UserContext
+@inject BeanShare.SharedUi.Services.QrCodeResolveCache QrResolveCache
 
 <PageTitle>Stock - @spaceName - BeanShare</PageTitle>
 
@@ -133,6 +134,7 @@ else
                                  StockLevels="@stockLevels"
                                  IsLoading="@isLoadingActiveQrs"
                                  OnReassign="HandleReassignQr"
+                                 OnRename="HandleRenameQr"
                                  OnDeactivate="HandleDeactivateQr"
                                  OnShowQr="HandleShowExistingQr"
                                  SpaceName="@spaceName"
@@ -647,6 +649,8 @@ else
 
             if (result.IsSuccess)
             {
+                // The scan payload (product/recipe) changed; drop any cached resolution.
+                QrResolveCache.Remove(model.QrCodeId);
                 ShowToast(false, "Success", "QR code reassigned successfully!");
                 await LoadActiveQrCodes();
             }
@@ -661,6 +665,30 @@ else
         }
     }
 
+    private async Task HandleRenameQr(ActiveQrCodesSection.RenameModel model)
+    {
+        try
+        {
+            var result = await Mediator.Send(new RenameActiveQrCodeCommand(model.QrCodeId, model.Label));
+
+            if (result.IsSuccess)
+            {
+                // The scan payload label changed; drop any cached resolution.
+                QrResolveCache.Remove(model.QrCodeId);
+                ShowToast(false, "Success", "QR code renamed successfully!");
+                await LoadActiveQrCodes();
+            }
+            else
+            {
+                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Failed to rename QR code: {ex.Message}");
+        }
+    }
+
     private async Task HandleDeactivateQr(Guid qrCodeId)
     {
         try
@@ -669,6 +697,7 @@ else
 
             if (result.IsSuccess)
             {
+                QrResolveCache.Remove(qrCodeId);
                 ShowToast(false, "Success", "QR code deactivated.");
                 await LoadActiveQrCodes();
             }
