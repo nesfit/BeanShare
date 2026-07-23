@@ -41,6 +41,8 @@ public sealed class WeightedAverageCostingPolicy : ICostingPolicy
         var costPerGram = totalCost / totalWeight;
         var totalCostForConsumed = costPerGram * totalConsumed.Grams;
 
-        return Money.Create(Math.Round(totalCostForConsumed, 2), currency);
+        // Round only once, to the currency's own precision. Rounding to a hardcoded 2 places
+        // would drop the third decimal for 3-decimal currencies (KWD, BHD, OMR).
+        return Money.Create(totalCostForConsumed, currency);
     }
 }

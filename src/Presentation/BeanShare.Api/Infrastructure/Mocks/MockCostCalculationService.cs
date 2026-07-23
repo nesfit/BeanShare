@@ -26,12 +26,27 @@ public sealed class MockCostCalculationService : ICostCalculationService
         decimal quantityGrams,
         CancellationToken cancellationToken = default)
     {
-        var costPerGram = await GetAverageCostPerGramAsync(spaceId, cancellationToken);
+        var spaceSpec = new SpaceByIdSpecification(spaceId);
+        var space = await _spaceRepository.GetSingleBySpecAsync(spaceSpec, cancellationToken);
 
-        if (costPerGram == null)
+        if (space == null)
             return null;
 
-        return costPerGram.Multiply(quantityGrams);
+        var stock = await _coffeeStockRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
+
+        if (stock == null || !stock.Purchases.Any())
+            return null;
+
+        var totalCostAmount = stock.Purchases.Sum(p => p.Cost.Amount);
+        var totalGrams = stock.Purchases.Sum(p => p.Quantity.Grams);
+
+        if (totalGrams <= 0)
+            return null;
+
+        // Round the final amount only; rounding the per-gram rate first inflates the total.
+        var cost = totalCostAmount / totalGrams * quantityGrams;
+
+        return Money.Create(cost, space.Currency);
     }
 
     public async Task<Money?> GetAverageCostPerGramAsync(

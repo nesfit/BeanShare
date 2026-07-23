@@ -138,8 +138,9 @@ public sealed class GetSpaceAnalyticsQueryHandler : IRequestHandler<GetSpaceAnal
 
         var stock = await _coffeeStockRepository.GetBySpaceIdAsync(request.SpaceId, cancellationToken);
         var stockGrams = stock?.StockLevels.Sum(sl => sl.CurrentStock.Grams) ?? 0;
-        var costPerGram = await _costCalculationService.GetAverageCostPerGramAsync(request.SpaceId, cancellationToken);
-        var stockValue = costPerGram?.Multiply(stockGrams);
+        // Value the stock via the total-cost method rather than multiplying a per-gram rate
+        // that has already been rounded to whole cents (which inflates the total).
+        var stockValue = await _costCalculationService.CalculateTotalCostAsync(request.SpaceId, stockGrams, cancellationToken);
 
         var totalGramsThisMonth = consumptionsThisMonth.Sum(c => c.Quantity.Grams);
         var totalCostThisMonth = await _costCalculationService.CalculateTotalCostAsync(

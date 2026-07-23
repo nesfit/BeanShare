@@ -101,7 +101,10 @@ public sealed class Settlement : AggregateRoot
         );
 
         _lines.Add(line);
-        TotalAmount += amountDue;
+
+        // Accumulate the rounded line amount so the settlement total always equals the sum
+        // of what members are actually billed (each line is rounded to the currency's precision).
+        TotalAmount += line.AmountDue.Amount;
     }
 
     public SettlementLine? GetLineForUser(UserId userId)
