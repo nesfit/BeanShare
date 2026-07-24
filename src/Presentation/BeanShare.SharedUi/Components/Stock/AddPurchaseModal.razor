@@ -43,7 +43,7 @@
                 </div>
 
                 <div class="bs-form-group">
-                    <label class="bs-label" for="quantity">Quantity (grams)</label>
+                    <label class="bs-label" for="quantity">Bag size (grams)</label>
                     <InputNumber id="quantity"
                                 class="bs-input"
                                 @bind-Value="model.QuantityGrams"
@@ -52,7 +52,19 @@
                 </div>
 
                 <div class="bs-form-group">
-                    <label class="bs-label" for="totalCost">Total Cost</label>
+                    <label class="bs-label" for="bagCount">Number of bags</label>
+                    <InputNumber id="bagCount"
+                                class="bs-input"
+                                @bind-Value="model.BagCount"
+                                placeholder="1" />
+                    <p style="margin: 0.25rem 0 0 0; font-size: 0.75rem; color: var(--bs-text-subtle);">
+                        Each bag is tracked separately (same size &amp; price).
+                    </p>
+                    <ValidationMessage For="@(() => model.BagCount)" class="bs-validation-message" />
+                </div>
+
+                <div class="bs-form-group">
+                    <label class="bs-label" for="totalCost">Cost per bag</label>
                     <InputNumber id="totalCost"
                                 class="bs-input"
                                 @bind-Value="model.TotalCost"
@@ -212,6 +224,9 @@
         [Required(ErrorMessage = "Quantity is required")]
         [Range(1, 10000, ErrorMessage = "Quantity must be between 1 and 10000 grams")]
         public int QuantityGrams { get; set; }
+
+        [Range(1, 100, ErrorMessage = "Number of bags must be between 1 and 100")]
+        public int BagCount { get; set; } = 1;
 
         [Required(ErrorMessage = "Total cost is required")]
         [Range(0.01, 100000, ErrorMessage = "Total cost must be greater than 0")]

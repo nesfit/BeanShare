@@ -1,0 +1,144 @@
+@using BeanShare.Application.Features.CoffeeStock.Dtos
+
+<div class="bs-mb-6">
+    <h2 class="bs-font-bold" style="margin: 0 0 1rem 0; font-size: 1.25rem;">Current Stock</h2>
+
+    @if (!CurrentBags.Any())
+    {
+        <EmptyState Icon="inventory_2" Title="No open stock" Message="Add a purchase to start tracking bags." />
+    }
+    else
+    {
+        <div class="bs-flex bs-flex-col bs-gap-4">
+            @foreach (var group in Grouped)
+            {
+                var level = LevelFor(group.Key);
+                var displayName = level?.ProductDisplayName ?? group.First().ProductName;
+                var onHand = group.Sum(b => b.RemainingGrams);
+                <div class="bs-card">
+                    <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 0.75rem;">
+                        <div>
+                            <p class="bs-font-bold" style="margin: 0; font-size: 1rem;">@displayName</p>
+                            <p class="bs-text-subtle" style="margin: 0.25rem 0 0 0; font-size: 0.8125rem;">
+                                @group.First().ProductType · @group.Count() bag@(group.Count() == 1 ? "" : "s") · @onHand.ToString("0.#") g on hand
+                            </p>
+                        </div>
+                        <button class="bs-btn bs-btn-secondary bs-btn-sm" title="Generate a QR code for this coffee"
+                                @onclick="@(() => level != null ? OnShowQr.InvokeAsync(level) : Task.CompletedTask)">
+                            <span class="material-symbols-outlined" style="font-size: 1rem;">qr_code_2</span>
+                        </button>
+                    </div>
+
+                    <div style="overflow-x: auto;">
+                        <table style="border-collapse: collapse; width: 100%; font-size: 0.8125rem; min-width: 520px;">
+                            <tbody>
+                                @foreach (var bag in group.OrderBy(b => LabelOrder(b.Label)))
+                                {
+                                    var pct = bag.QuantityGrams > 0 ? (int)Math.Round(bag.RemainingGrams / bag.QuantityGrams * 100) : 0;
+                                    <tr style="border-top: 1px solid var(--bs-border);">
+                                        <td style="padding: 0.5rem 0.5rem; font-family: monospace; font-weight: 600; white-space: nowrap;">Bag @bag.Label</td>
+                                        <td style="padding: 0.5rem 0.5rem; white-space: nowrap;">@StatusPill(bag)</td>
+                                        <td style="padding: 0.5rem 0.5rem; min-width: 160px;">
+                                            <div class="bs-flex bs-items-center bs-gap-2">
+                                                <span class="bs-text-subtle" style="font-variant-numeric: tabular-nums; white-space: nowrap;">@bag.RemainingGrams.ToString("0.#") / @bag.QuantityGrams.ToString("0.#") g</span>
+                                                <span style="flex: 1; height: 6px; border-radius: 9999px; background: var(--bs-gray-200); overflow: hidden; min-width: 60px;">
+                                                    <span style="display: block; height: 100%; width: @pct%; background: var(--bs-primary);"></span>
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td style="padding: 0.5rem 0.5rem; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;">@FormatCurrency(bag.CostAmount, bag.CostCurrency)</td>
+                                        <td style="padding: 0.5rem 0.5rem; text-align: right; white-space: nowrap;">
+                                            @if (IsAdmin)
+                                            {
+                                                @if (_confirmingEmpty.Contains(bag.Id))
+                                                {
+                                                    <span class="bs-text-subtle" style="font-size: 0.75rem; margin-right: 0.5rem;">Bill remainder to drinkers?</span>
+                                                    <button class="bs-btn bs-btn-error bs-btn-sm" @onclick="@(() => ConfirmEmpty(bag.Id))">Empty</button>
+                                                    <button class="bs-btn bs-btn-secondary bs-btn-sm" @onclick="@(() => _confirmingEmpty.Remove(bag.Id))">Cancel</button>
+                                                }
+                                                else
+                                                {
+                                                    @if (!bag.IsOpen)
+                                                    {
+                                                        <button class="bs-btn bs-btn-secondary bs-btn-sm" title="Mark this bag as the one currently in use"
+                                                                @onclick="@(() => OnOpenBag.InvokeAsync(bag.Id))">Open</button>
+                                                    }
+                                                    <button class="bs-btn bs-btn-secondary bs-btn-sm" title="Empty this bag — the remainder is billed to its drinkers"
+                                                            @onclick="@(() => _confirmingEmpty.Add(bag.Id))">
+                                                        <span class="material-symbols-outlined" style="font-size: 1rem;">delete_sweep</span>
+                                                    </button>
+                                                }
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IEnumerable<StockPurchaseDto> Purchases { get; set; } = Array.Empty<StockPurchaseDto>();
+    [Parameter] public IReadOnlyList<StockLevelDto> StockLevels { get; set; } = Array.Empty<StockLevelDto>();
+    [Parameter] public bool IsAdmin { get; set; }
+    [Parameter] public EventCallback<Guid> OnOpenBag { get; set; }
+    [Parameter] public EventCallback<Guid> OnMarkBagEmpty { get; set; }
+    [Parameter] public EventCallback<StockLevelDto> OnShowQr { get; set; }
+
+    private readonly HashSet<Guid> _confirmingEmpty = new();
+
+    // Current stock = bags that still hold coffee (Empty bags are history, hidden here).
+    private IEnumerable<StockPurchaseDto> CurrentBags =>
+        Purchases.Where(p => p.RemainingGrams > 0 && !string.Equals(p.Status, "Empty", StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<IGrouping<(string, string, string), StockPurchaseDto>> Grouped =>
+        CurrentBags
+            .GroupBy(p => (p.ProductName.ToLowerInvariant(), p.ProductBrand.ToLowerInvariant(), p.ProductType.ToLowerInvariant()))
+            .OrderBy(g => g.First().ProductName);
+
+    private StockLevelDto? LevelFor((string name, string brand, string type) key) =>
+        StockLevels.FirstOrDefault(s =>
+            s.ProductName.Equals(key.name, StringComparison.OrdinalIgnoreCase) &&
+            s.ProductBrand.Equals(key.brand, StringComparison.OrdinalIgnoreCase) &&
+            s.ProductType.Equals(key.type, StringComparison.OrdinalIgnoreCase));
+
+    private async Task ConfirmEmpty(Guid bagId)
+    {
+        _confirmingEmpty.Remove(bagId);
+        await OnMarkBagEmpty.InvokeAsync(bagId);
+    }
+
+    private static int LabelOrder(string label) =>
+        int.TryParse(label.TrimStart('#'), out var n) ? n : int.MaxValue;
+
+    private RenderFragment StatusPill(StockPurchaseDto bag) => builder =>
+    {
+        var (bg, fg, text) = bag.Status?.ToLowerInvariant() switch
+        {
+            "open" => ("var(--bs-primary-light)", "var(--bs-primary)", "Open"),
+            "empty" => ("var(--bs-error-light)", "var(--bs-error)", "Empty"),
+            _ => ("var(--bs-gray-100)", "var(--bs-text-subtle)", "Sealed"),
+        };
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", "bs-pill");
+        builder.AddAttribute(2, "style", $"background: {bg}; color: {fg};");
+        builder.AddContent(3, text);
+        builder.CloseElement();
+    };
+
+    private static string FormatCurrency(decimal amount, string currencyCode)
+    {
+        try
+        {
+            return BeanShare.Domain.ValueObjects.Currency.Create(currencyCode).FormatAmount(amount);
+        }
+        catch
+        {
+            return amount.ToString("0.00");
+        }
+    }
+}

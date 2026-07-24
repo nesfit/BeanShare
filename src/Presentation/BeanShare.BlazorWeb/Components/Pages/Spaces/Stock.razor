@@ -61,74 +61,12 @@ else
 
     <div class="bs-container" style="padding: 2rem 0;">
         <div>
-            @if (stockLevels.Any())
-            {
-                <div class="bs-mb-6">
-                    <h2 class="bs-font-bold" style="margin: 0 0 1rem 0; font-size: 1.25rem;">Current Stock</h2>
-                    <div class="bs-flex bs-flex-col bs-gap-4">
-                        @foreach (var stockLevel in stockLevels)
-                        {
-                            <div class="bs-card" style="@(stockLevel.IsCurrentlyUsed ? "border: 2px solid var(--bs-primary);" : "")">
-                                <div class="bs-flex bs-items-center bs-justify-between">
-                                    <div>
-                                        <div class="bs-flex bs-items-center bs-gap-2">
-                                            <p class="bs-font-bold" style="margin: 0; font-size: 1rem;">@stockLevel.ProductDisplayName</p>
-                                            @if (stockLevel.IsCurrentlyUsed)
-                                            {
-                                                <span class="bs-badge" style="background: var(--bs-primary); color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">In Use</span>
-                                            }
-                                        </div>
-                                        <p class="bs-text-subtle" style="margin: 0.25rem 0 0 0; font-size: 0.875rem;">@stockLevel.ProductType</p>
-                                    </div>
-                                    <div class="bs-flex bs-items-center bs-gap-3">
-                                        <div style="text-align: right;">
-                                            <p class="bs-font-bold" style="margin: 0; font-size: 1.25rem;">@stockLevel.CurrentStockGrams g</p>
-                                            <p class="bs-text-subtle" style="margin: 0; font-size: 0.75rem;">@stockLevel.ConsumptionPercentage.ToString("F0")% consumed</p>
-                                        </div>
-                                        @if (stockLevel.CurrentStockGrams > 0)
-                                        {
-                                            <button class="bs-btn bs-btn-secondary bs-btn-sm"
-                                                    @onclick="@(() => ShowQrModal(stockLevel))"
-                                                    title="Generate QR code for this product">
-                                                <span class="material-symbols-outlined" style="font-size: 1rem;">qr_code_2</span>
-                                            </button>
-                                        }
-                                        @if (isAdmin && stockLevel.CurrentStockGrams > 0)
-                                        {
-                                            <button class="bs-btn bs-btn-secondary bs-btn-sm"
-                                                    @onclick="@(() => ShowSplitModal(stockLevel))"
-                                                    title="Split remaining stock among members">
-                                                <span class="material-symbols-outlined" style="font-size: 1rem;">call_split</span>
-                                            </button>
-                                        }
-                                        @if (isAdmin && stockLevel.CurrentStockGrams > 0 && !stockLevel.IsCurrentlyUsed)
-                                        {
-                                            <button class="bs-btn bs-btn-sm bs-btn-secondary"
-                                                    @onclick="@(() => HandleToggleCurrentlyUsed(stockLevel))"
-                                                    title="Mark as currently used coffee">
-                                                <span class="material-symbols-outlined" style="font-size: 1rem;">coffee</span>
-                                            </button>
-                                        }
-                                        @if (isAdmin && stockLevel.CurrentStockGrams == 0)
-                                        {
-                                            <button class="bs-btn bs-btn-secondary bs-btn-sm"
-                                                    @onclick="@(() => HandleArchiveStockLevel(stockLevel))"
-                                                    title="Archive this fully consumed product">
-                                                <span class="material-symbols-outlined" style="font-size: 1rem;">archive</span>
-                                            </button>
-                                        }
-                                    </div>
-                                </div>
-                                <div style="margin-top: 0.75rem;">
-                                    <div style="background: var(--bs-gray-200); border-radius: 9999px; height: 0.5rem; overflow: hidden;">
-                                        <div style="background: var(--bs-primary); height: 100%; width: @(stockLevel.ConsumptionPercentage.ToString("F0"))%; transition: width 0.3s;"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
+            <StockBagsGrid Purchases="@purchases"
+                           StockLevels="@stockLevels"
+                           IsAdmin="@isAdmin"
+                           OnOpenBag="HandleOpenBag"
+                           OnMarkBagEmpty="HandleMarkBagEmpty"
+                           OnShowQr="ShowQrModal" />
 
             <ActiveQrCodesSection ActiveQrCodes="@activeQrCodes"
                                  StockLevels="@stockLevels"
@@ -310,7 +248,7 @@ else
 
         try
         {
-            var result = await Mediator.Send(new GetSpaceStockQuery(Guid.Parse(SpaceId)));
+            var result = await Mediator.Send(new GetSpaceStockQuery(Guid.Parse(SpaceId), 1, 500));
             if (result.IsSuccess)
             {
                 purchases = result.Value.RecentPurchases.ToList();
@@ -384,7 +322,8 @@ else
                 model.TotalCost,
                 model.Currency,
                 "Store",
-                model.PurchasedAt.ToUniversalTime()
+                model.PurchasedAt.ToUniversalTime(),
+                model.BagCount
             ));
 
             if (result.IsSuccess)
@@ -538,6 +477,49 @@ else
         catch (Exception ex)
         {
             ShowToast(true, "Error", $"Failed to update currently used coffee: {ex.Message}");
+        }
+    }
+
+    private async Task HandleOpenBag(Guid bagId)
+    {
+        try
+        {
+            var result = await Mediator.Send(new OpenBagCommand(Guid.Parse(SpaceId), bagId));
+            if (result.IsSuccess)
+            {
+                ShowToast(false, "Opened", "Bag opened — cups now draw from it.");
+                await LoadStock();
+            }
+            else
+            {
+                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Failed to open bag: {ex.Message}");
+        }
+    }
+
+    private async Task HandleMarkBagEmpty(Guid bagId)
+    {
+        try
+        {
+            var result = await Mediator.Send(new MarkBagEmptyCommand(Guid.Parse(SpaceId), bagId));
+            if (result.IsSuccess)
+            {
+                var r = result.Value;
+                ShowToast(false, "Emptied", $"{r.ProductDisplayName} {r.BagLabel} emptied — {r.DistributedGrams:0.#} g billed to {r.MemberCount} member(s).");
+                await LoadStock();
+            }
+            else
+            {
+                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Failed to empty bag: {ex.Message}");
         }
     }
 
