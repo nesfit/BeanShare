@@ -34,7 +34,8 @@ public sealed class ReassignActiveQrCodeEndpoint : Endpoint<ReassignActiveQrCode
             req.ProductBrand,
             req.ProductType,
             req.RecipeName,
-            req.DefaultGrams);
+            req.DefaultGrams,
+            req.StockLotId);
 
         var result = await _mediator.Send(command, ct);
 
@@ -53,7 +54,8 @@ public sealed class ReassignActiveQrCodeEndpoint : Endpoint<ReassignActiveQrCode
                 RecipeName = dto.RecipeName,
                 DefaultGrams = dto.DefaultGrams,
                 CreatedAt = dto.CreatedAt,
-                IsActive = dto.IsActive
+                IsActive = dto.IsActive,
+                StockLotId = dto.StockLotId
             };
 
             await SendOkAsync(response, ct);

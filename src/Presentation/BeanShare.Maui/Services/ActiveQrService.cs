@@ -12,7 +12,7 @@ public class ActiveQrService : IActiveQrService
         _httpClient = httpClient;
     }
 
-    public async Task<ActiveQrCodeDto?> CreateActiveQrCodeAsync(Guid spaceId, string label, string productName, string productBrand, string productType, string recipeName, int defaultGrams)
+    public async Task<ActiveQrCodeDto?> CreateActiveQrCodeAsync(Guid spaceId, string label, string productName, string productBrand, string productType, string recipeName, int defaultGrams, Guid? stockLotId = null)
     {
         try
         {
@@ -23,7 +23,8 @@ public class ActiveQrService : IActiveQrService
                 ProductBrand = productBrand,
                 ProductType = productType,
                 RecipeName = recipeName,
-                DefaultGrams = defaultGrams
+                DefaultGrams = defaultGrams,
+                StockLotId = stockLotId
             };
 
             var response = await _httpClient.PostAsJsonAsync($"/api/spaces/{spaceId}/qr-codes", request);
@@ -67,7 +68,7 @@ public class ActiveQrService : IActiveQrService
         return await response.Content.ReadFromJsonAsync<ActiveQrCodeDto>();
     }
 
-    public async Task<ActiveQrCodeDto?> ReassignActiveQrCodeAsync(Guid qrCodeId, string productName, string productBrand, string productType, string recipeName, int defaultGrams)
+    public async Task<ActiveQrCodeDto?> ReassignActiveQrCodeAsync(Guid qrCodeId, string productName, string productBrand, string productType, string recipeName, int defaultGrams, Guid? stockLotId = null)
     {
         try
         {
@@ -77,7 +78,8 @@ public class ActiveQrService : IActiveQrService
                 ProductBrand = productBrand,
                 ProductType = productType,
                 RecipeName = recipeName,
-                DefaultGrams = defaultGrams
+                DefaultGrams = defaultGrams,
+                StockLotId = stockLotId
             };
 
             var response = await _httpClient.PutAsJsonAsync($"/api/qr-codes/{qrCodeId}/reassign", request);

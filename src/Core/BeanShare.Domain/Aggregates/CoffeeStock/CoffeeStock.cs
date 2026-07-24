@@ -67,6 +67,8 @@ public sealed class CoffeeStock : AggregateRoot
         IClock clock,
         int bagCount = 1)
     {
+        ArgumentNullException.ThrowIfNull(product);
+
         if (bagCount < 1)
             throw new ArgumentException("Bag count must be at least 1", nameof(bagCount));
 
@@ -75,11 +77,19 @@ public sealed class CoffeeStock : AggregateRoot
         for (var i = 0; i < bagCount; i++)
         {
             var label = $"#{baseIndex + i + 1}";
-            var lot = Purchase.Create(product, quantity, cost, vendor, purchasedBy, purchasedAt, clock, label);
+
+            // Each lot must own its OWN value-object instances: Product/Quantity/Cost are EF owned
+            // types, and one instance cannot be shared across multiple owner rows (the extra rows
+            // would persist with null owned columns). Clone per lot.
+            var lotProduct = CoffeeProduct.Create(product.Name, product.Brand, product.Type);
+            var lotQuantity = Weight.FromGrams(quantity.Grams);
+            var lotCost = Money.Create(cost.Amount, cost.Currency);
+
+            var lot = Purchase.Create(lotProduct, lotQuantity, lotCost, vendor, purchasedBy, purchasedAt, clock, label);
             _purchases.Add(lot);
 
             RaiseDomainEvent(new StockPurchaseAdded(
-                Id, SpaceId, lot.Id, product, quantity, cost, vendor, purchasedBy, purchasedAt, clock.UtcNow));
+                Id, SpaceId, lot.Id, lotProduct, lotQuantity, lotCost, vendor, purchasedBy, purchasedAt, clock.UtcNow));
         }
 
         UpdatedAt = clock.UtcNow;

@@ -9,4 +9,8 @@ public sealed record RecordConsumptionResponse
     public required decimal ConsumedGrams { get; init; }
     public required decimal RemainingGrams { get; init; }
     public required DateTime ConsumedAt { get; init; }
+
+    // Cost stamped from the drawn bag's price at log time (null for legacy/unattributed cups).
+    public decimal? CostAmount { get; init; }
+    public string? CostCurrency { get; init; }
 }

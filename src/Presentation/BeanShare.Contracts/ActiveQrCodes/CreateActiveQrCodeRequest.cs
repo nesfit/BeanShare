@@ -9,4 +9,7 @@ public sealed record CreateActiveQrCodeRequest
     public required string ProductType { get; init; }
     public required string RecipeName { get; init; }
     public required int DefaultGrams { get; init; }
+
+    // Optional bag (Purchase lot) to bind this QR to; scans fall back to the open bag if empty/gone.
+    public Guid? StockLotId { get; init; }
 }

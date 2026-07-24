@@ -40,7 +40,8 @@ public sealed class RecordConsumptionEndpoint(IMediator mediator)
             req.QuantityGrams,
             req.ConsumedAt,
             req.PresetName,
-            req.ForUserId);
+            req.ForUserId,
+            req.StockLotId);
 
         var result = await mediator.Send(command, ct);
 
@@ -55,7 +56,9 @@ public sealed class RecordConsumptionEndpoint(IMediator mediator)
                 ProductType = consumption.ProductType,
                 ConsumedGrams = consumption.QuantityGrams,
                 RemainingGrams = consumption.RemainingGrams,
-                ConsumedAt = consumption.ConsumedAt
+                ConsumedAt = consumption.ConsumedAt,
+                CostAmount = consumption.CostAmount,
+                CostCurrency = consumption.CostCurrency
             };
             await SendAsync(response, 201, ct);
         }

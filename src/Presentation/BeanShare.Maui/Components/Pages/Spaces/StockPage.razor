@@ -55,58 +55,12 @@ else
 
     <div class="bs-container" style="padding: 2rem 0;">
         <div>
-            @if (stockLevels.Any())
-            {
-                <div class="bs-mb-6">
-                    <h2 class="bs-font-bold" style="margin: 0 0 1rem 0; font-size: 1.25rem;">Current Stock</h2>
-                    <div class="bs-flex bs-flex-col bs-gap-4">
-                        @foreach (var stockLevel in stockLevels)
-                        {
-                            <div class="bs-card" style="@(stockLevel.IsCurrentlyUsed ? "border: 2px solid var(--bs-primary);" : "")">
-                                <div class="bs-flex bs-items-center bs-justify-between">
-                                    <div style="min-width: 0; flex: 1;">
-                                        <div class="bs-flex bs-items-center bs-gap-2">
-                                            <p class="bs-font-bold" style="margin: 0; font-size: 1rem;">@stockLevel.ProductDisplayName</p>
-                                            @if (stockLevel.IsCurrentlyUsed)
-                                            {
-                                                <span class="bs-badge" style="background: var(--bs-primary); color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">In Use</span>
-                                            }
-                                        </div>
-                                        <p class="bs-text-subtle" style="margin: 0.25rem 0 0 0; font-size: 0.875rem;">@stockLevel.ProductType</p>
-                                    </div>
-                                    <div class="bs-flex bs-items-center bs-gap-3">
-                                        <div style="text-align: right;">
-                                            <p class="bs-font-bold" style="margin: 0; font-size: 1.25rem;">@stockLevel.CurrentStockGrams g</p>
-                                            <p class="bs-text-subtle" style="margin: 0; font-size: 0.75rem;">@stockLevel.ConsumptionPercentage.ToString("F0")% consumed</p>
-                                        </div>
-                                        @if (stockLevel.CurrentStockGrams > 0)
-                                        {
-                                            <button class="bs-btn bs-btn-secondary bs-btn-sm"
-                                                    @onclick="@(() => ShowQrModal(stockLevel))"
-                                                    title="Generate QR code for this product">
-                                                <span class="material-symbols-outlined" style="font-size: 1rem;">qr_code_2</span>
-                                            </button>
-                                        }
-                                        @if (isAdmin && stockLevel.CurrentStockGrams > 0 && !stockLevel.IsCurrentlyUsed)
-                                        {
-                                            <button class="bs-btn bs-btn-sm bs-btn-secondary"
-                                                    @onclick="@(() => HandleToggleCurrentlyUsed(stockLevel))"
-                                                    title="Mark as currently used coffee">
-                                                <span class="material-symbols-outlined" style="font-size: 1rem;">coffee</span>
-                                            </button>
-                                        }
-                                    </div>
-                                </div>
-                                <div style="margin-top: 0.75rem;">
-                                    <div style="background: var(--bs-gray-200); border-radius: 9999px; height: 0.5rem; overflow: hidden;">
-                                        <div style="background: var(--bs-primary); height: 100%; width: @(stockLevel.ConsumptionPercentage.ToString("F0"))%; transition: width 0.3s;"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
+            <StockBagsGrid Purchases="@purchases"
+                           StockLevels="@stockLevels"
+                           IsAdmin="@isAdmin"
+                           OnOpenBag="HandleOpenBag"
+                           OnMarkBagEmpty="HandleMarkBagEmpty"
+                           OnShowQr="ShowQrModal" />
 
             <ActiveQrCodesSection ActiveQrCodes="@activeQrCodes"
                                  StockLevels="@stockLevels"
@@ -117,14 +71,11 @@ else
                                  SpaceName="@spaceName"
                                  QuickPresets="@quickPresets" />
 
-            <StockPurchases Purchases="@purchases"
+            <StockPurchaseHistory Purchases="@purchases"
                            IsLoading="@isLoadingStock"
                            CurrencyCode="@(space?.CurrencyCode ?? "USD")"
+                           IsAdmin="@isAdmin"
                            TotalPurchaseCount="@totalPurchaseCount"
-                           TotalStockGrams="@totalStockGrams"
-                           TotalInvestmentAmount="@totalInvestmentAmount"
-                           IsLoadingMore="@isLoadingMorePurchases"
-                           OnLoadMore="HandleLoadMorePurchases"
                            OnEditPurchase="HandleEditPurchase"
                            OnDeletePurchase="HandleDeletePurchase"
                            OnClonePurchase="HandleClonePurchase" />
@@ -155,7 +106,8 @@ else
             OnClose="HandleQrModalClose"
             OnCreate="HandleQrCreate"
             CreatedQrCodeId="@createdQrCodeId"
-            QuickPresets="@quickPresets" />
+            QuickPresets="@quickPresets"
+            ProductBags="@BagsForSelectedQr()" />
 
 <Toast IsVisible="@showToast"
        IsError="@isToastError"
@@ -173,13 +125,13 @@ else
     private bool isAdmin;
     private bool isLoadingStock;
 
+    private const int AllPurchasesPageSize = 100_000;
+
     private List<StockPurchaseDto> purchases = new();
     private List<StockLevelDto> stockLevels = new();
     private int totalPurchaseCount;
     private decimal totalStockGrams;
     private decimal totalInvestmentAmount;
-    private int currentPurchasePage = 1;
-    private bool isLoadingMorePurchases;
 
     private bool showAddPurchaseModal;
     private AddPurchaseModal.PurchasePrefill? purchasePrefill;
@@ -240,12 +192,13 @@ else
         }
 
         isLoadingStock = true;
-        currentPurchasePage = 1;
         StateHasChanged();
 
         try
         {
-            var stockData = await StockService.GetSpaceStockAsync(spaceGuid);
+            // Load all bags in one call (mirrors web): StockBagsGrid + the QR bag picker need the
+            // complete set, not a capped page.
+            var stockData = await StockService.GetSpaceStockAsync(spaceGuid, 1, AllPurchasesPageSize);
             if (stockData != null)
             {
                 purchases = stockData.RecentPurchases.ToList();
@@ -262,35 +215,6 @@ else
         finally
         {
             isLoadingStock = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task HandleLoadMorePurchases()
-    {
-        if (!Guid.TryParse(SpaceId, out var spaceGuid)) return;
-
-        isLoadingMorePurchases = true;
-        StateHasChanged();
-
-        try
-        {
-            currentPurchasePage++;
-            var stockData = await StockService.GetSpaceStockAsync(spaceGuid, currentPurchasePage);
-            if (stockData != null)
-            {
-                purchases.AddRange(stockData.RecentPurchases);
-                totalPurchaseCount = stockData.TotalPurchaseCount;
-            }
-        }
-        catch (Exception ex)
-        {
-            currentPurchasePage--;
-            ShowToast(true, "Error", $"Failed to load more purchases: {ex.Message}");
-        }
-        finally
-        {
-            isLoadingMorePurchases = false;
             StateHasChanged();
         }
     }
@@ -324,7 +248,8 @@ else
                 model.QuantityGrams,
                 model.TotalCost,
                 model.Currency,
-                model.PurchasedAt
+                model.PurchasedAt,
+                model.BagCount
             );
 
             if (success)
@@ -377,6 +302,62 @@ else
     {
         selectedQrStockLevel = stockLevel;
         showQrModal = true;
+    }
+
+    // Bags of the product the QR modal is open for, so the modal can offer a bind-to-bag picker.
+    private List<StockPurchaseDto>? BagsForSelectedQr()
+    {
+        if (selectedQrStockLevel == null) return null;
+        return purchases
+            .Where(p =>
+                string.Equals(p.ProductName, selectedQrStockLevel.ProductName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.ProductBrand, selectedQrStockLevel.ProductBrand, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.ProductType, selectedQrStockLevel.ProductType, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private async Task HandleOpenBag(Guid lotId)
+    {
+        if (!Guid.TryParse(SpaceId, out var spaceGuid)) return;
+        try
+        {
+            var success = await StockService.OpenBagAsync(spaceGuid, lotId);
+            if (success)
+            {
+                ShowToast(false, "Opened", "Bag is now the one in use.");
+                await LoadStock();
+            }
+            else
+            {
+                ShowToast(true, "Error", "Failed to open bag.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Failed to open bag: {ex.Message}");
+        }
+    }
+
+    private async Task HandleMarkBagEmpty(Guid lotId)
+    {
+        if (!Guid.TryParse(SpaceId, out var spaceGuid)) return;
+        try
+        {
+            var success = await StockService.MarkBagEmptyAsync(spaceGuid, lotId);
+            if (success)
+            {
+                ShowToast(false, "Emptied", "Bag emptied; the remainder was billed to its drinkers.");
+                await LoadStock();
+            }
+            else
+            {
+                ShowToast(true, "Error", "Failed to empty bag.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Failed to empty bag: {ex.Message}");
+        }
     }
 
     private async Task LoadActiveQrCodes()
@@ -432,7 +413,8 @@ else
                 selectedQrStockLevel.ProductBrand,
                 selectedQrStockLevel.ProductType,
                 model.RecipeName,
-                model.DefaultGrams);
+                model.DefaultGrams,
+                model.StockLotId);
 
             if (result != null)
             {

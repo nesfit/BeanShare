@@ -45,7 +45,8 @@ public sealed class GetActiveQrCodesEndpoint : EndpointWithoutRequest<List<Activ
                 RecipeName = dto.RecipeName,
                 DefaultGrams = dto.DefaultGrams,
                 CreatedAt = dto.CreatedAt,
-                IsActive = dto.IsActive
+                IsActive = dto.IsActive,
+                StockLotId = dto.StockLotId
             }).ToList();
 
             await SendOkAsync(response, ct);

@@ -47,7 +47,7 @@ public class ConsumptionService : IConsumptionService
         return await RecordConsumptionAsync(spaceId, "Coffee", "Generic", "Ground", grams, consumedAt);
     }
 
-    public async Task<bool> RecordConsumptionAsync(Guid spaceId, string productName, string productBrand, string productType, int grams, DateTime consumedAt, string? presetName = null, Guid? forUserId = null)
+    public async Task<bool> RecordConsumptionAsync(Guid spaceId, string productName, string productBrand, string productType, int grams, DateTime consumedAt, string? presetName = null, Guid? forUserId = null, Guid? stockLotId = null)
     {
         try
         {
@@ -60,7 +60,8 @@ public class ConsumptionService : IConsumptionService
                 QuantityGrams = (decimal)grams,
                 ConsumedAt = consumedAt,
                 PresetName = presetName,
-                ForUserId = forUserId
+                ForUserId = forUserId,
+                StockLotId = stockLotId
             };
 
             var response = await _httpClient.PostAsJsonAsync("/api/consumptions", request);

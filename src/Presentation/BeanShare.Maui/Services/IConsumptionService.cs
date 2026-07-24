@@ -7,7 +7,7 @@ public interface IConsumptionService
 {
     Task<GetRecentConsumptionsResult?> GetRecentConsumptionsAsync(Guid spaceId, Guid? forUserId = null);
     Task<bool> RecordConsumptionAsync(Guid spaceId, int grams, DateTime consumedAt);
-    Task<bool> RecordConsumptionAsync(Guid spaceId, string productName, string productBrand, string productType, int grams, DateTime consumedAt, string? presetName = null, Guid? forUserId = null);
+    Task<bool> RecordConsumptionAsync(Guid spaceId, string productName, string productBrand, string productType, int grams, DateTime consumedAt, string? presetName = null, Guid? forUserId = null, Guid? stockLotId = null);
     Task<ConsumptionHistoryDto?> GetUserHistoryAsync(
         Guid? spaceId = null,
         DateTime? startDate = null,

@@ -35,7 +35,8 @@ public sealed class CreateActiveQrCodeEndpoint : Endpoint<CreateActiveQrCodeRequ
             req.ProductBrand,
             req.ProductType,
             req.RecipeName,
-            req.DefaultGrams);
+            req.DefaultGrams,
+            req.StockLotId);
 
         var result = await _mediator.Send(command, ct);
 
@@ -54,7 +55,8 @@ public sealed class CreateActiveQrCodeEndpoint : Endpoint<CreateActiveQrCodeRequ
                 RecipeName = dto.RecipeName,
                 DefaultGrams = dto.DefaultGrams,
                 CreatedAt = dto.CreatedAt,
-                IsActive = dto.IsActive
+                IsActive = dto.IsActive,
+                StockLotId = dto.StockLotId
             };
             await SendAsync(response, 201, ct);
         }

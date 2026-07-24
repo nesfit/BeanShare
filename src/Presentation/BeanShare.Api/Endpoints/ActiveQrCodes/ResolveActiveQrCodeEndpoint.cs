@@ -47,7 +47,8 @@ public sealed class ResolveActiveQrCodeEndpoint : EndpointWithoutRequest<ActiveQ
                 RecipeName = dto.RecipeName,
                 DefaultGrams = dto.DefaultGrams,
                 CreatedAt = dto.CreatedAt,
-                IsActive = dto.IsActive
+                IsActive = dto.IsActive,
+                StockLotId = dto.StockLotId
             };
 
             await SendOkAsync(response, ct);

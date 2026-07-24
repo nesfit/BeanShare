@@ -87,6 +87,14 @@ public sealed class GetCoffeeStockEndpoint : Endpoint<GetSpaceStockRequest, Spac
                 PurchasedAt = rp.PurchasedAt,
                 CreatedAt = rp.CreatedAt,
                 CostPerGram = rp.CostPerGram,
+                ConsumedGrams = rp.ConsumedGrams,
+                RemainingGrams = rp.RemainingGrams,
+                Status = rp.Status,
+                Label = rp.Label,
+                IsOpen = rp.IsOpen,
+                OpenedAt = rp.OpenedAt,
+                DepletedAt = rp.DepletedAt,
+                PurchasedByName = rp.PurchasedByName,
                 Message = ""
             }).ToList()
         };

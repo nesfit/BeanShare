@@ -13,4 +13,7 @@ public sealed record ActiveQrCodeResponse
     public required int DefaultGrams { get; init; }
     public required DateTime CreatedAt { get; init; }
     public required bool IsActive { get; init; }
+
+    // Bag (Purchase lot) this QR is bound to, if any.
+    public Guid? StockLotId { get; init; }
 }

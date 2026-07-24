@@ -10,4 +10,7 @@ public sealed record RecordConsumptionRequest
     public DateTime? ConsumedAt { get; init; }
     public string? PresetName { get; init; }
     public Guid? ForUserId { get; init; }
+
+    // Optional bag (Purchase lot) to draw this cup from. Null = the product's open bag (then oldest).
+    public Guid? StockLotId { get; init; }
 }

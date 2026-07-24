@@ -57,6 +57,12 @@ public sealed class AddStockPurchaseRequestValidator : Validator<AddStockPurchas
             .MaximumLength(100)
             .WithMessage("Vendor cannot exceed 100 characters");
 
+        RuleFor(x => x.BagCount)
+            .GreaterThanOrEqualTo(1)
+            .WithMessage("Bag count must be at least 1")
+            .LessThanOrEqualTo(100)
+            .WithMessage("Bag count cannot exceed 100");
+
         RuleFor(x => x.PurchasedAt)
             .NotEmpty()
             .WithMessage("Purchase date is required")

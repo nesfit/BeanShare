@@ -36,7 +36,7 @@ public class StockService : IStockService
         }
     }
 
-    public async Task<bool> AddStockPurchaseAsync(Guid spaceId, string productName, string coffeeType, int quantityGrams, decimal totalCost, string currency, DateTime purchasedAt)
+    public async Task<bool> AddStockPurchaseAsync(Guid spaceId, string productName, string coffeeType, int quantityGrams, decimal totalCost, string currency, DateTime purchasedAt, int bagCount = 1)
     {
         try
         {
@@ -49,7 +49,8 @@ public class StockService : IStockService
                 CostAmount = totalCost,
                 CostCurrency = currency,
                 Vendor = "Store",
-                PurchasedAt = purchasedAt.ToUniversalTime()
+                PurchasedAt = purchasedAt.ToUniversalTime(),
+                BagCount = bagCount
             };
 
             var response = await _httpClient.PostAsJsonAsync($"/api/spaces/{spaceId}/stock/purchases", request);
@@ -131,6 +132,37 @@ public class StockService : IStockService
                 _cache.Invalidate("stock:");
 
             return success;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> OpenBagAsync(Guid spaceId, Guid lotId)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync($"/api/spaces/{spaceId}/stock/bags/{lotId}/open", null);
+            if (response.IsSuccessStatusCode)
+                _cache.Invalidate("stock:");
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> MarkBagEmptyAsync(Guid spaceId, Guid lotId, string? reason = null)
+    {
+        try
+        {
+            var request = new { Reason = reason ?? "Bag emptied" };
+            var response = await _httpClient.PostAsJsonAsync($"/api/spaces/{spaceId}/stock/bags/{lotId}/empty", request);
+            if (response.IsSuccessStatusCode)
+                _cache.Invalidate("stock:");
+            return response.IsSuccessStatusCode;
         }
         catch
         {

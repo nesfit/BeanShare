@@ -61,7 +61,8 @@ public sealed class AddStockPurchaseEndpoint : Endpoint<AddStockPurchaseRequest,
             req.CostAmount,
             req.CostCurrency,
             req.Vendor,
-            req.PurchasedAt);
+            req.PurchasedAt,
+            req.BagCount);
 
         var result = await _mediator.Send(command, ct);
 
@@ -82,7 +83,17 @@ public sealed class AddStockPurchaseEndpoint : Endpoint<AddStockPurchaseRequest,
                 PurchasedAt = dto.PurchasedAt,
                 CreatedAt = dto.CreatedAt,
                 CostPerGram = dto.CostPerGram,
-                Message = $"Successfully added {dto.QuantityGrams}g of {dto.ProductBrand} {dto.ProductName}"
+                ConsumedGrams = dto.ConsumedGrams,
+                RemainingGrams = dto.RemainingGrams,
+                Status = dto.Status,
+                Label = dto.Label,
+                IsOpen = dto.IsOpen,
+                OpenedAt = dto.OpenedAt,
+                DepletedAt = dto.DepletedAt,
+                PurchasedByName = dto.PurchasedByName,
+                Message = req.BagCount > 1
+                    ? $"Successfully added {req.BagCount} bags of {dto.ProductBrand} {dto.ProductName}"
+                    : $"Successfully added {dto.QuantityGrams}g of {dto.ProductBrand} {dto.ProductName}"
             };
             await SendAsync(response, 201, ct);
         }
