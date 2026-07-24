@@ -27,4 +27,8 @@ public sealed class ConsumptionFormModel
     public Guid? ForUserId { get; set; }
 
     public List<Guid>? ForUserIds { get; set; }
+
+    // Optional bag (Purchase lot) to draw this cup from — set by the QR consume flow when the
+    // scanned code is bound to a specific bag. Null = draw from the product's open bag.
+    public Guid? StockLotId { get; set; }
 }

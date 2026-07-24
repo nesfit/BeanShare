@@ -17,4 +17,8 @@ public sealed class ConsumptionEntryDto
     public Guid? PresetId { get; init; }
     public string? PresetName { get; init; }
     public int CoffeeGrams => (int)QuantityGrams;
+
+    // Per-bag cost stamped at log time (null for legacy/unattributed cups).
+    public decimal? CostAmount { get; init; }
+    public string? CostCurrency { get; init; }
 }

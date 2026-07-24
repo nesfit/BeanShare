@@ -70,9 +70,17 @@
                                 </p>
                             </div>
                             <div class="bs-flex bs-items-center bs-gap-2">
-                                <span class="bs-font-semibold" style="text-align: right; color: var(--bs-text); white-space: nowrap;">
-                                    −@log.CoffeeGrams g
-                                </span>
+                                <div class="bs-flex bs-flex-col" style="align-items: flex-end;">
+                                    <span class="bs-font-semibold" style="text-align: right; color: var(--bs-text); white-space: nowrap;">
+                                        −@log.CoffeeGrams g
+                                    </span>
+                                    @if (log.CostAmount.HasValue)
+                                    {
+                                        <span class="bs-text-subtle" style="font-size: 0.75rem; white-space: nowrap;" title="Cost of this cup, from its bag's price">
+                                            @FormatCost(log.CostAmount.Value, log.CostCurrency)
+                                        </span>
+                                    }
+                                </div>
                                 @if (log.CanEdit)
                                 {
                                     <button class="bs-btn-sm" style="background: transparent; border: none; cursor: pointer; padding: 0.25rem; color: var(--bs-text-subtle);" title="Edit" @onclick="() => StartEdit(log)">
@@ -209,6 +217,20 @@
         }
 
         return "Custom log";
+    }
+
+    private static string FormatCost(decimal amount, string? currencyCode)
+    {
+        if (string.IsNullOrEmpty(currencyCode))
+            return amount.ToString("0.00");
+        try
+        {
+            return BeanShare.Domain.ValueObjects.Currency.Create(currencyCode).FormatAmount(amount);
+        }
+        catch
+        {
+            return $"{amount:0.00} {currencyCode}";
+        }
     }
 
     private string FormatDate(DateTime date)

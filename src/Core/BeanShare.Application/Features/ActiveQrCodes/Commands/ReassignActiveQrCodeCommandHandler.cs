@@ -59,6 +59,14 @@ public sealed class ReassignActiveQrCodeCommandHandler : IRequestHandler<Reassig
         {
             var product = CoffeeProduct.Create(command.ProductName, command.ProductBrand, coffeeType);
             qrCode.Reassign(product, command.RecipeName, command.DefaultGrams);
+            if (command.StockLotId.HasValue)
+            {
+                qrCode.BindToBag(command.StockLotId.Value);
+            }
+            else
+            {
+                qrCode.UnbindBag();
+            }
             await _qrCodeRepository.UpdateAsync(qrCode, cancellationToken);
 
             return Result<ActiveQrCodeDto>.Success(ActiveQrCodeMapper.ToDto(qrCode));

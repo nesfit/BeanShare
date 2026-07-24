@@ -84,6 +84,23 @@
                                    @bind="customGrams" @bind:event="oninput" />
                         </div>
                     }
+
+                    @if (NonEmptyBags.Count > 0)
+                    {
+                        <div class="bs-form-group" style="margin-bottom: 1rem;">
+                            <label class="bs-label">Bind to bag</label>
+                            <select class="bs-input" @bind="selectedLotIdString">
+                                <option value="">Any open bag (recommended)</option>
+                                @foreach (var bag in NonEmptyBags)
+                                {
+                                    <option value="@bag.Id">Bag @bag.Label — @bag.RemainingGrams.ToString("0.#") g left@(bag.IsOpen ? " · open" : "")</option>
+                                }
+                            </select>
+                            <p style="margin: 0.25rem 0 0 0; font-size: 0.75rem; color: var(--bs-text-subtle);">
+                                Scans log against this bag; if it empties, they fall back to the open bag.
+                            </p>
+                        </div>
+                    }
                 </div>
 
                 <div class="bs-modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
@@ -130,18 +147,32 @@
     [Parameter]
     public List<PresetOption>? QuickPresets { get; set; }
 
+    // Non-empty bags of this product, so the QR can optionally be pinned to a specific one.
+    [Parameter]
+    public List<StockPurchaseDto>? ProductBags { get; set; }
+
     private string label = "";
     private string selectedRecipe = "UserChooses";
     private int customGrams = 10;
+    private string selectedLotIdString = "";
     private string qrDataUri = "";
     private bool isGenerating;
     private bool _initialized;
+
+    private List<StockPurchaseDto> NonEmptyBags => ProductBags?
+        .Where(b => b.RemainingGrams > 0 && !string.Equals(b.Status, "Empty", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(b => LabelOrder(b.Label))
+        .ToList() ?? new();
+
+    private static int LabelOrder(string? label) =>
+        int.TryParse(label?.TrimStart('#'), out var n) ? n : int.MaxValue;
 
     public sealed class QrCodeCreateModel
     {
         public string Label { get; set; } = "";
         public string RecipeName { get; set; } = "";
         public int DefaultGrams { get; set; }
+        public Guid? StockLotId { get; set; }
     }
 
     protected override void OnParametersSet()
@@ -165,6 +196,7 @@
             label = "";
             selectedRecipe = "UserChooses";
             customGrams = 10;
+            selectedLotIdString = "";
             isGenerating = false;
             _initialized = false;
         }
@@ -208,12 +240,14 @@
 
         var grams = GetGramsForRecipe(selectedRecipe);
         var recipeName = selectedRecipe == "UserChooses" ? "" : (selectedRecipe == "Custom" ? "Custom" : selectedRecipe);
+        Guid? lotId = Guid.TryParse(selectedLotIdString, out var parsedLot) ? parsedLot : null;
 
         await OnCreate.InvokeAsync(new QrCodeCreateModel
         {
             Label = label.Trim(),
             RecipeName = recipeName,
-            DefaultGrams = grams
+            DefaultGrams = grams,
+            StockLotId = lotId
         });
 
         // On success the parent sets CreatedQrCodeId and OnParametersSet renders qrDataUri.

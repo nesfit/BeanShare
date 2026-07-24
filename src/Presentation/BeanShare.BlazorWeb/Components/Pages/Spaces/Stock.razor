@@ -161,7 +161,8 @@ else
             OnClose="HandleQrModalClose"
             OnCreate="HandleQrCreate"
             CreatedQrCodeId="@createdQrCodeId"
-            QuickPresets="@quickPresets" />
+            QuickPresets="@quickPresets"
+            ProductBags="@BagsForSelectedQr()" />
 
 <Toast IsVisible="@showToast"
        IsError="@isToastError"
@@ -578,6 +579,18 @@ else
         showQrModal = true;
     }
 
+    // Bags of the product the QR modal is open for, so the modal can offer a bind-to-bag picker.
+    private List<StockPurchaseDto>? BagsForSelectedQr()
+    {
+        if (selectedQrStockLevel == null) return null;
+        return purchases
+            .Where(p =>
+                string.Equals(p.ProductName, selectedQrStockLevel.ProductName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.ProductBrand, selectedQrStockLevel.ProductBrand, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.ProductType, selectedQrStockLevel.ProductType, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
     private void HandleQrModalClose()
     {
         showQrModal = false;
@@ -598,7 +611,8 @@ else
                 selectedQrStockLevel.ProductBrand,
                 selectedQrStockLevel.ProductType,
                 model.RecipeName,
-                model.DefaultGrams));
+                model.DefaultGrams,
+                model.StockLotId));
 
             if (result.IsSuccess)
             {

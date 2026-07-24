@@ -30,4 +30,12 @@ public sealed class QrConsumptionPayload
 
     [JsonIgnore]
     public string? RecipeName { get; set; }
+
+    /// <summary>
+    /// Bag (Purchase lot) this QR is bound to, resolved server-side. Not encoded in the QR image;
+    /// filled from the resolved <c>ActiveQrCode</c>. When set, the scanned cup is logged against
+    /// this bag (falling back to the product's open bag if it is empty/gone).
+    /// </summary>
+    [JsonIgnore]
+    public Guid? StockLotId { get; set; }
 }

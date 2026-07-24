@@ -13,5 +13,6 @@ public sealed record CreateActiveQrCodeCommand(
     string ProductBrand,
     string ProductType,
     string RecipeName,
-    int DefaultGrams
+    int DefaultGrams,
+    Guid? StockLotId = null
 ) : IAuthorize, ICommand<Result<ActiveQrCodeDto>>;

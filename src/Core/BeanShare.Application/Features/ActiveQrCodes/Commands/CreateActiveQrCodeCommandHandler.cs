@@ -67,6 +67,14 @@ public sealed class CreateActiveQrCodeCommandHandler : IRequestHandler<CreateAct
             {
                 existing.Reassign(product, command.RecipeName, command.DefaultGrams);
                 existing.UpdateLabel(command.Label);
+                if (command.StockLotId.HasValue)
+                {
+                    existing.BindToBag(command.StockLotId.Value);
+                }
+                else
+                {
+                    existing.UnbindBag();
+                }
                 await _qrCodeRepository.UpdateAsync(existing, cancellationToken);
 
                 return Result<ActiveQrCodeDto>.Success(ActiveQrCodeMapper.ToDto(existing));
@@ -78,7 +86,8 @@ public sealed class CreateActiveQrCodeCommandHandler : IRequestHandler<CreateAct
                 product,
                 command.RecipeName,
                 command.DefaultGrams,
-                _clock);
+                _clock,
+                command.StockLotId);
 
             await _qrCodeRepository.AddAsync(qrCode, cancellationToken);
 

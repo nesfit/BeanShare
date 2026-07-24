@@ -185,11 +185,21 @@ public sealed class GetUserConsumptionHistoryHandler : IRequestHandler<GetUserCo
             decimal? estimatedCost = null;
             string? currency = null;
 
-            var cost = await _costCalculationService.CalculateConsumptionCostAsync(c.SpaceId, c.Quantity.Grams, cancellationToken);
-            if (cost != null)
+            // Prefer the cost stamped on the entry at log time (per-bag, exact). Fall back to
+            // the space-wide weighted-average estimate for legacy/unattributed cups (null cost).
+            if (c.Cost != null)
             {
-                estimatedCost = cost.Amount;
-                currency = cost.Currency.Code;
+                estimatedCost = c.Cost.Amount;
+                currency = c.Cost.Currency.Code;
+            }
+            else
+            {
+                var cost = await _costCalculationService.CalculateConsumptionCostAsync(c.SpaceId, c.Quantity.Grams, cancellationToken);
+                if (cost != null)
+                {
+                    estimatedCost = cost.Amount;
+                    currency = cost.Currency.Code;
+                }
             }
 
             var canEdit = c.BillingPeriodId == null || editablePeriodIds.Contains(c.BillingPeriodId.Value);

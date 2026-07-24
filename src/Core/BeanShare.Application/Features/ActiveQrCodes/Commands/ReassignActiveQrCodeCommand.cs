@@ -10,5 +10,6 @@ public sealed record ReassignActiveQrCodeCommand(
     string ProductBrand,
     string ProductType,
     string RecipeName,
-    int DefaultGrams
+    int DefaultGrams,
+    Guid? StockLotId = null
 ) : ICommand<Result<ActiveQrCodeDto>>;

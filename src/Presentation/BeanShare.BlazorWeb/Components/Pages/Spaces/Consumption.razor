@@ -403,7 +403,8 @@ else
                     model.Grams,
                     consumedAtUtc,
                     model.PresetName,
-                    targetUserId
+                    targetUserId,
+                    model.StockLotId
                 ));
 
                 if (result.IsSuccess)
@@ -569,6 +570,7 @@ else
                 payload.DefaultGrams = dto.DefaultGrams;
                 payload.QrLabel = dto.Label;
                 payload.RecipeName = dto.RecipeName;
+                payload.StockLotId = dto.StockLotId;
                 QrResolveCache.Store(payload.QrCodeId.Value, payload);
                 return true;
             }
@@ -589,6 +591,7 @@ else
                 payload.DefaultGrams = cached.DefaultGrams;
                 payload.QrLabel = cached.QrLabel;
                 payload.RecipeName = cached.RecipeName;
+                payload.StockLotId = cached.StockLotId;
                 usingCachedQrData = true;
                 return true;
             }
@@ -623,6 +626,9 @@ else
 
     private async Task HandleQrConsumptionConfirm(ConsumptionFormModel model)
     {
+        // Carry the bag this QR is bound to (if any) onto the log so the cup draws from it;
+        // an empty/gone bag falls back to the product's open bag server-side.
+        model.StockLotId = scannedPayload?.StockLotId;
         showQrConfirm = false;
         scannedPayload = null;
         usingCachedQrData = false;

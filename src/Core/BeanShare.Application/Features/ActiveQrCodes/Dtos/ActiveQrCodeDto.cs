@@ -11,4 +11,5 @@ public sealed record ActiveQrCodeDto(
     string RecipeName,
     int DefaultGrams,
     DateTime CreatedAt,
-    bool IsActive);
+    bool IsActive,
+    Guid? StockLotId = null);

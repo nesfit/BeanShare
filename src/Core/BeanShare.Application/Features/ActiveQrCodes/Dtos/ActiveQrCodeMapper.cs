@@ -15,5 +15,6 @@ public static class ActiveQrCodeMapper
         RecipeName: qrCode.RecipeName,
         DefaultGrams: qrCode.DefaultGrams,
         CreatedAt: qrCode.CreatedAt,
-        IsActive: qrCode.IsActive);
+        IsActive: qrCode.IsActive,
+        StockLotId: qrCode.StockLotId);
 }

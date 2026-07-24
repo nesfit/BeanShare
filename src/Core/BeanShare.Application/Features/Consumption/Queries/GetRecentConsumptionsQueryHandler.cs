@@ -93,6 +93,8 @@ public sealed class GetRecentConsumptionsQueryHandler
                 CreatedAt = e.CreatedAt,
                 PresetId = e.PresetId?.Value,
                 PresetName = e.PresetName,
+                CostAmount = e.Cost?.Amount,
+                CostCurrency = e.Cost?.Currency.Code,
                 CanEdit = e.BillingPeriodId == null || editablePeriodIds.Contains(e.BillingPeriodId.Value)
             })
             .ToList();
