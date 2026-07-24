@@ -1,0 +1,366 @@
+@using BeanShare.Application.Features.CoffeeStock.Dtos
+
+<div class="bs-mb-6">
+    <div class="bs-flex bs-items-center bs-justify-between bs-mb-4">
+        <h2 class="bs-font-bold" style="margin: 0; font-size: 1.25rem;">Purchase history</h2>
+        @if (AllBags.Count > 0)
+        {
+            <span class="bs-text-subtle" style="font-size: 0.875rem;">
+                @AllBags.Count bag@(AllBags.Count == 1 ? "" : "s") over @DayGroups.Count day@(DayGroups.Count == 1 ? "" : "s")
+            </span>
+        }
+    </div>
+
+    <div class="stock-stats-grid bs-mb-4">
+        <div class="bs-card">
+            <p class="bs-text-subtle stock-stat-label">Total bags</p>
+            <p class="bs-font-bold stock-stat-value">@AllBags.Count</p>
+        </div>
+        <div class="bs-card">
+            <p class="bs-text-subtle stock-stat-label">Grams purchased</p>
+            <p class="bs-font-bold stock-stat-value">@TotalGrams.ToString("0.#") g</p>
+        </div>
+        <div class="bs-card">
+            <p class="bs-text-subtle stock-stat-label">Total spend</p>
+            <p class="bs-font-bold stock-stat-value">@FormatCurrency(TotalSpend, CurrencyCode)</p>
+        </div>
+    </div>
+
+    @if (TotalPurchaseCount > AllBags.Count && AllBags.Count > 0)
+    {
+        <div class="bs-card bs-mb-4" style="border-left: 3px solid var(--bs-warning); background: var(--bs-warning-light);">
+            <p style="margin: 0; font-size: 0.8125rem; color: var(--bs-warning-dark);">
+                <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: middle;">info</span>
+                Showing the @AllBags.Count most recent bags of @TotalPurchaseCount. Older bags are not loaded.
+            </p>
+        </div>
+    }
+
+    @if (IsLoading)
+    {
+        <div class="bs-flex bs-flex-col bs-gap-4">
+            @for (int i = 0; i < 3; i++)
+            {
+                <div class="bs-card">
+                    <div class="bs-skeleton" style="height: 1.25rem; width: 60%; margin-bottom: 0.5rem;"></div>
+                    <div class="bs-skeleton" style="height: 0.875rem; width: 30%;"></div>
+                </div>
+            }
+        </div>
+    }
+    else if (AllBags.Count == 0)
+    {
+        <EmptyState Icon="shopping_bag"
+                    Title="No purchases yet"
+                    Message="Add your first coffee stock purchase to start tracking." />
+    }
+    else
+    {
+        <div class="bs-flex bs-flex-col bs-gap-4">
+            @foreach (var day in DayGroups.Take(_visibleDayCount))
+            {
+                var dayBags = day.OrderBy(b => b.ProductName).ThenBy(b => LabelOrder(b.Label)).ToList();
+                var dayGrams = dayBags.Sum(b => b.QuantityGrams);
+                var daySpend = dayBags.Sum(b => b.CostAmount);
+                <div class="bs-card">
+                    <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 0.75rem;">
+                        <div>
+                            <p class="bs-font-bold" style="margin: 0; font-size: 1rem;">@DayLabel(day.Key)</p>
+                            <p class="bs-text-subtle" style="margin: 0.25rem 0 0 0; font-size: 0.8125rem;">
+                                @dayBags.Count bag@(dayBags.Count == 1 ? "" : "s") · @dayGrams.ToString("0.#") g · @FormatCurrency(daySpend, CurrencyCode)
+                            </p>
+                        </div>
+                    </div>
+
+                    <div style="overflow-x: auto;">
+                        <table style="border-collapse: collapse; width: 100%; font-size: 0.8125rem; min-width: 560px;">
+                            <tbody>
+                                @foreach (var bag in dayBags)
+                                {
+                                    @if (_editingId == bag.Id)
+                                    {
+                                        <tr style="border-top: 1px solid var(--bs-border);">
+                                            <td colspan="6" style="padding: 0.75rem 0.5rem;">
+                                                <div class="bs-flex bs-flex-col bs-gap-3">
+                                                    <div class="bs-flex bs-gap-3" style="flex-wrap: wrap;">
+                                                        <div style="flex: 1; min-width: 140px;">
+                                                            <label class="bs-text-subtle" style="font-size: 0.75rem;">Brand</label>
+                                                            <input type="text" class="bs-input" @bind="_editBrand" style="margin-top: 0.25rem;" />
+                                                        </div>
+                                                        <div style="flex: 1; min-width: 140px;">
+                                                            <label class="bs-text-subtle" style="font-size: 0.75rem;">Product name</label>
+                                                            <input type="text" class="bs-input" @bind="_editProductName" style="margin-top: 0.25rem;" />
+                                                        </div>
+                                                    </div>
+                                                    <div class="bs-flex bs-gap-3" style="flex-wrap: wrap;">
+                                                        <div style="flex: 1; min-width: 100px;">
+                                                            <label class="bs-text-subtle" style="font-size: 0.75rem;">Bag size (g)</label>
+                                                            <input type="number" min="1" class="bs-input" @bind="_editQuantity" style="margin-top: 0.25rem;" />
+                                                        </div>
+                                                        <div style="flex: 1; min-width: 100px;">
+                                                            <label class="bs-text-subtle" style="font-size: 0.75rem;">Cost</label>
+                                                            <input type="number" step="0.01" min="0.01" class="bs-input" @bind="_editCost" style="margin-top: 0.25rem;" />
+                                                        </div>
+                                                        <div style="flex: 1; min-width: 140px;">
+                                                            <label class="bs-text-subtle" style="font-size: 0.75rem;">Purchase date</label>
+                                                            <input type="date" class="bs-input" @bind="_editDate" style="margin-top: 0.25rem;" />
+                                                        </div>
+                                                    </div>
+                                                    <div class="bs-flex bs-gap-2 bs-justify-end">
+                                                        <button class="bs-btn bs-btn-secondary bs-btn-sm" @onclick="CancelEdit" disabled="@_isSaving">Cancel</button>
+                                                        <button class="bs-btn bs-btn-primary bs-btn-sm" @onclick="@(() => SaveEdit(bag))" disabled="@_isSaving">@(_isSaving ? "Saving..." : "Save")</button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                    else if (_confirmingDeleteId == bag.Id)
+                                    {
+                                        <tr style="border-top: 1px solid var(--bs-border);">
+                                            <td colspan="6" style="padding: 0.75rem 0.5rem;">
+                                                <div class="bs-flex bs-items-center bs-justify-between bs-gap-2" style="flex-wrap: wrap;">
+                                                    <span>Delete <strong>@DisplayName(bag)</strong> (Bag @bag.Label)? This cannot be undone.</span>
+                                                    <div class="bs-flex bs-gap-2">
+                                                        <button class="bs-btn bs-btn-secondary bs-btn-sm" @onclick="@(() => _confirmingDeleteId = null)">Cancel</button>
+                                                        <button class="bs-btn bs-btn-error bs-btn-sm" @onclick="@(() => ConfirmDelete(bag.Id))">Delete</button>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        var pct = bag.QuantityGrams > 0 ? (int)Math.Round(bag.RemainingGrams / bag.QuantityGrams * 100) : 0;
+                                        <tr style="border-top: 1px solid var(--bs-border);">
+                                            <td style="padding: 0.5rem 0.5rem; min-width: 180px;">
+                                                <p class="bs-font-medium" style="margin: 0;">@DisplayName(bag)</p>
+                                                <p class="bs-text-subtle" style="margin: 0.125rem 0 0 0; font-size: 0.75rem;">
+                                                    Bag <span style="font-family: monospace; font-weight: 600;">@bag.Label</span> · @bag.ProductType
+                                                </p>
+                                            </td>
+                                            <td style="padding: 0.5rem 0.5rem; white-space: nowrap;">@StatusPill(bag)</td>
+                                            <td style="padding: 0.5rem 0.5rem; min-width: 150px;">
+                                                <div class="bs-flex bs-items-center bs-gap-2">
+                                                    <span class="bs-text-subtle" style="font-variant-numeric: tabular-nums; white-space: nowrap;">@bag.RemainingGrams.ToString("0.#") / @bag.QuantityGrams.ToString("0.#") g</span>
+                                                    <span style="flex: 1; height: 6px; border-radius: 9999px; background: var(--bs-gray-200); overflow: hidden; min-width: 50px;">
+                                                        <span style="display: block; height: 100%; width: @pct%; background: var(--bs-primary);"></span>
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td style="padding: 0.5rem 0.5rem; text-align: right; white-space: nowrap;">
+                                                <span class="bs-font-semibold" style="font-variant-numeric: tabular-nums;">@FormatCurrency(bag.CostAmount, bag.CostCurrency)</span>
+                                            </td>
+                                            <td style="padding: 0.5rem 0.5rem; white-space: nowrap;">
+                                                <span class="bs-text-subtle" title="@bag.PurchasedByName">by @Initials(bag.PurchasedByName)</span>
+                                            </td>
+                                            <td style="padding: 0.5rem 0.5rem; text-align: right; white-space: nowrap;">
+                                                @if (IsAdmin)
+                                                {
+                                                    <button class="bs-btn-icon" style="padding: 0.25rem; color: var(--bs-text-subtle);" title="Clone purchase"
+                                                            @onclick="@(() => Clone(bag))">
+                                                        <span class="material-symbols-outlined" style="font-size: 1rem;">content_copy</span>
+                                                    </button>
+                                                    <button class="bs-btn-icon" style="padding: 0.25rem; color: var(--bs-text-subtle);" title="Edit purchase"
+                                                            @onclick="@(() => StartEdit(bag))">
+                                                        <span class="material-symbols-outlined" style="font-size: 1rem;">edit</span>
+                                                    </button>
+                                                    <button class="bs-btn-icon" style="padding: 0.25rem; color: var(--bs-error);" title="Delete purchase"
+                                                            @onclick="@(() => _confirmingDeleteId = bag.Id)">
+                                                        <span class="material-symbols-outlined" style="font-size: 1rem;">delete</span>
+                                                    </button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (DayGroups.Count > _visibleDayCount)
+        {
+            <div style="text-align: center; margin-top: 1rem;">
+                <button class="bs-btn bs-btn-secondary" @onclick="ShowMore">
+                    Show older purchases (@(DayGroups.Count - _visibleDayCount) more day@(DayGroups.Count - _visibleDayCount == 1 ? "" : "s"))
+                </button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public IEnumerable<StockPurchaseDto>? Purchases { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public string CurrencyCode { get; set; } = "USD";
+    [Parameter] public bool IsAdmin { get; set; }
+    // Total bags server-side; if this exceeds what we loaded, older bags were truncated (see banner).
+    [Parameter] public int TotalPurchaseCount { get; set; }
+    [Parameter] public EventCallback<PurchaseRow.PurchaseEditModel> OnEditPurchase { get; set; }
+    [Parameter] public EventCallback<Guid> OnDeletePurchase { get; set; }
+    [Parameter] public EventCallback<PurchaseRow.PurchaseCloneModel> OnClonePurchase { get; set; }
+
+    private const int DayPageSize = 10;
+    private int _visibleDayCount = DayPageSize;
+
+    private Guid? _editingId;
+    private Guid? _confirmingDeleteId;
+    private bool _isSaving;
+    private string _editBrand = "";
+    private string _editProductName = "";
+    private decimal _editQuantity;
+    private decimal _editCost;
+    private DateTime _editDate;
+
+    // Grouped/sorted view, memoized so it is recomputed only when parameters change (not on every
+    // render) — the parent loads the full, uncapped purchase set, so re-sorting per render would scale
+    // poorly. AllBags/DayGroups/TotalGrams/TotalSpend expose the cached results.
+    private List<StockPurchaseDto> _allBags = new();
+    private List<IGrouping<DateTime, StockPurchaseDto>> _dayGroups = new();
+    private decimal _totalGrams;
+    private decimal _totalSpend;
+
+    private List<StockPurchaseDto> AllBags => _allBags;
+    private List<IGrouping<DateTime, StockPurchaseDto>> DayGroups => _dayGroups;
+    private decimal TotalGrams => _totalGrams;
+    private decimal TotalSpend => _totalSpend;
+
+    protected override void OnParametersSet()
+    {
+        _allBags = (Purchases ?? Enumerable.Empty<StockPurchaseDto>()).ToList();
+        // Newest day first; a day = the local calendar date the coffee was purchased on.
+        _dayGroups = _allBags
+            .OrderByDescending(p => p.PurchasedAt)
+            .GroupBy(p => p.PurchasedAt.ToLocalTime().Date)
+            .OrderByDescending(g => g.Key)
+            .ToList();
+        _totalGrams = _allBags.Sum(b => b.QuantityGrams);
+        _totalSpend = _allBags.Sum(b => b.CostAmount);
+
+        // Self-heal transient row state if its bag is no longer present (after a reload following
+        // delete/edit). Cross-space reuse is additionally prevented by a @key on the parent.
+        if (_editingId.HasValue && _allBags.All(b => b.Id != _editingId.Value))
+            _editingId = null;
+        if (_confirmingDeleteId.HasValue && _allBags.All(b => b.Id != _confirmingDeleteId.Value))
+            _confirmingDeleteId = null;
+    }
+
+    private void ShowMore() => _visibleDayCount += DayPageSize;
+
+    private string DisplayName(StockPurchaseDto bag)
+    {
+        var brand = bag.ProductBrand;
+        if (!string.IsNullOrWhiteSpace(brand) && !string.Equals(brand, "Generic", StringComparison.OrdinalIgnoreCase))
+            return $"{brand} {bag.ProductName}".Trim();
+        return bag.ProductName;
+    }
+
+    private string DayLabel(DateTime day)
+    {
+        var today = DateTime.Now.Date;
+        if (day == today) return "Today";
+        if (day == today.AddDays(-1)) return "Yesterday";
+        return day.ToString("ddd, dd MMM yyyy");
+    }
+
+    private void StartEdit(StockPurchaseDto bag)
+    {
+        _confirmingDeleteId = null;
+        _isSaving = false;
+        _editingId = bag.Id;
+        _editBrand = bag.ProductBrand;
+        _editProductName = bag.ProductName;
+        _editQuantity = bag.QuantityGrams;
+        _editCost = bag.CostAmount;
+        _editDate = bag.PurchasedAt;
+    }
+
+    private void CancelEdit() => _editingId = null;
+
+    private async Task SaveEdit(StockPurchaseDto bag)
+    {
+        if (_isSaving) return; // guard against double-submit while the update round-trip is in flight
+        if (_editQuantity <= 0 || _editCost <= 0)
+            return;
+
+        _isSaving = true;
+        try
+        {
+            await OnEditPurchase.InvokeAsync(new PurchaseRow.PurchaseEditModel
+            {
+                PurchaseId = bag.Id,
+                ProductName = _editProductName.Trim(),
+                ProductBrand = _editBrand.Trim(),
+                CoffeeType = bag.ProductType,
+                QuantityGrams = _editQuantity,
+                CostAmount = _editCost,
+                PurchasedAt = _editDate
+            });
+            _editingId = null;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task ConfirmDelete(Guid id)
+    {
+        _confirmingDeleteId = null;
+        await OnDeletePurchase.InvokeAsync(id);
+    }
+
+    private async Task Clone(StockPurchaseDto bag)
+    {
+        await OnClonePurchase.InvokeAsync(new PurchaseRow.PurchaseCloneModel
+        {
+            ProductBrand = bag.ProductBrand,
+            ProductName = bag.ProductName,
+            QuantityGrams = (int)bag.QuantityGrams,
+            CostAmount = bag.CostAmount,
+            CoffeeType = bag.ProductType
+        });
+    }
+
+    private static int LabelOrder(string? label) =>
+        int.TryParse(label?.TrimStart('#'), out var n) ? n : int.MaxValue;
+
+    private static string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2) return $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant();
+        return name.Length >= 2 ? name[..2].ToUpperInvariant() : name.ToUpperInvariant();
+    }
+
+    private RenderFragment StatusPill(StockPurchaseDto bag) => builder =>
+    {
+        var (bg, fg, text) = bag.Status?.ToLowerInvariant() switch
+        {
+            "open" => ("var(--bs-primary-light)", "var(--bs-primary)", "Open"),
+            "empty" => ("var(--bs-error-light)", "var(--bs-error)", "Empty"),
+            _ => ("var(--bs-gray-100)", "var(--bs-text-subtle)", "Sealed"),
+        };
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", "bs-pill");
+        builder.AddAttribute(2, "style", $"background: {bg}; color: {fg};");
+        builder.AddContent(3, text);
+        builder.CloseElement();
+    };
+
+    private static string FormatCurrency(decimal amount, string? currencyCode)
+    {
+        if (string.IsNullOrEmpty(currencyCode))
+            return amount.ToString("0.00");
+        try
+        {
+            return BeanShare.Domain.ValueObjects.Currency.Create(currencyCode).FormatAmount(amount);
+        }
+        catch
+        {
+            return $"{amount:0.00} {currencyCode}";
+        }
+    }
+}

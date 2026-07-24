@@ -78,14 +78,12 @@ else
                                  SpaceName="@spaceName"
                                  QuickPresets="@quickPresets" />
 
-            <StockPurchases Purchases="@purchases"
+            <StockPurchaseHistory @key="SpaceId"
+                           Purchases="@purchases"
                            IsLoading="@isLoadingStock"
                            CurrencyCode="@(space?.CurrencyCode ?? "USD")"
+                           IsAdmin="@isAdmin"
                            TotalPurchaseCount="@totalPurchaseCount"
-                           TotalStockGrams="@totalStockGrams"
-                           TotalInvestmentAmount="@totalInvestmentAmount"
-                           IsLoadingMore="@isLoadingMorePurchases"
-                           OnLoadMore="HandleLoadMorePurchases"
                            OnEditPurchase="HandleEditPurchase"
                            OnDeletePurchase="HandleDeletePurchase"
                            OnClonePurchase="HandleClonePurchase" />
@@ -182,11 +180,12 @@ else
 
     private List<StockPurchaseDto> purchases = new();
     private List<StockLevelDto> stockLevels = new();
+    // The stock aggregate loads all its bags (Purchases) into memory server-side, and Blazor renders
+    // in-process, so we fetch them all in one query. Bags also feed the current-stock grid and the QR
+    // bag pickers, which must be complete (not capped). This value is an "effectively unbounded" cap.
+    private const int AllPurchasesPageSize = 100_000;
+    // Server-side total, so the history view can flag if it ever exceeds the load cap above.
     private int totalPurchaseCount;
-    private decimal totalStockGrams;
-    private decimal totalInvestmentAmount;
-    private int currentPurchasePage = 1;
-    private bool isLoadingMorePurchases;
 
     private bool showAddPurchaseModal;
     private AddPurchaseModal.PurchasePrefill? purchasePrefill;
@@ -245,18 +244,15 @@ else
     private async Task LoadStock()
     {
         isLoadingStock = true;
-        currentPurchasePage = 1;
 
         try
         {
-            var result = await Mediator.Send(new GetSpaceStockQuery(Guid.Parse(SpaceId), 1, 500));
+            var result = await Mediator.Send(new GetSpaceStockQuery(Guid.Parse(SpaceId), 1, AllPurchasesPageSize));
             if (result.IsSuccess)
             {
                 purchases = result.Value.RecentPurchases.ToList();
                 stockLevels = result.Value.StockLevels.ToList();
                 totalPurchaseCount = result.Value.TotalPurchaseCount;
-                totalStockGrams = result.Value.TotalCurrentStockGrams;
-                totalInvestmentAmount = result.Value.TotalInvestmentAmount;
             }
         }
         catch (Exception ex)
@@ -266,31 +262,6 @@ else
         finally
         {
             isLoadingStock = false;
-        }
-    }
-
-    private async Task HandleLoadMorePurchases()
-    {
-        isLoadingMorePurchases = true;
-
-        try
-        {
-            currentPurchasePage++;
-            var result = await Mediator.Send(new GetSpaceStockQuery(Guid.Parse(SpaceId), currentPurchasePage));
-            if (result.IsSuccess)
-            {
-                purchases.AddRange(result.Value.RecentPurchases);
-                totalPurchaseCount = result.Value.TotalPurchaseCount;
-            }
-        }
-        catch (Exception ex)
-        {
-            currentPurchasePage--;
-            ShowToast(true, "Error", $"Failed to load more purchases: {ex.Message}");
-        }
-        finally
-        {
-            isLoadingMorePurchases = false;
         }
     }
 
