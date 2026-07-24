@@ -465,7 +465,7 @@ else
             {
                 var msg = successCount == 1
                     ? "Consumption logged successfully!"
-                    : $"Logged consumption for {successCount} members!";
+                    : $"Logged {successCount} cups!";
                 ShowToast(false, "Success", msg);
                 if (Guid.TryParse(SpaceId, out var sid))
                     DashboardService.InvalidateDashboard(sid);

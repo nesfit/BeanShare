@@ -37,24 +37,47 @@
             {
                 <div class="bs-form-group">
                     <label class="bs-label">Log for</label>
-                    <div role="group" aria-label="Select members to log coffee for" style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem; background: var(--bs-gray-50); border-radius: 0.5rem; max-height: 10rem; overflow-y: auto;">
-                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem;">
-                            <input type="checkbox" checked="@logForMyself" @onchange="ToggleMyself" aria-label="Log for myself" />
-                            <span style="font-weight: 500;">Myself</span>
-                        </label>
+                    <div role="group" aria-label="Select who to log coffee for and how many cups each" style="display: flex; flex-direction: column; gap: 0.25rem; padding: 0.5rem; background: var(--bs-gray-50); border-radius: 0.5rem; max-height: 14rem; overflow-y: auto;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; flex: 1; min-width: 0;">
+                                <input type="checkbox" checked="@logForMyself" @onchange="ToggleMyself" aria-label="Log for myself" />
+                                <span style="font-weight: 500;">Myself</span>
+                            </label>
+                            <div style="display: flex; align-items: center; gap: 0.25rem; opacity: @(logForMyself ? "1" : "0.4"); transition: opacity 0.15s;">
+                                <button type="button" style="@StepBtn(!logForMyself || myselfCount <= 1)" disabled="@(!logForMyself || myselfCount <= 1)" @onclick="() => AdjustMyself(-1)" aria-label="One fewer cup for myself">&minus;</button>
+                                <span style="min-width: 1.25rem; text-align: center; font-weight: 600; font-size: 0.875rem;" aria-live="polite">@myselfCount</span>
+                                <button type="button" style="@StepBtn(!logForMyself || myselfCount >= MaxCupsPerPerson)" disabled="@(!logForMyself || myselfCount >= MaxCupsPerPerson)" @onclick="() => AdjustMyself(1)" aria-label="One more cup for myself">+</button>
+                            </div>
+                        </div>
                         @foreach (var member in SpaceMembers.Where(m => !CurrentUserId.HasValue || m.UserId != CurrentUserId.Value))
                         {
                             var memberId = member.UserId;
-                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem;">
-                                <input type="checkbox" checked="@selectedMemberIds.Contains(memberId)" @onchange="() => ToggleMember(memberId)" />
-                                <span>@member.UserName</span>
-                                <span style="color: var(--bs-text-subtle); font-size: 0.75rem;">@member.Email</span>
-                            </label>
+                            var isSelected = selectedMemberIds.Contains(memberId);
+                            var count = memberCounts.TryGetValue(memberId, out var c) ? c : 1;
+                            <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem;">
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.875rem; flex: 1; min-width: 0;">
+                                    <input type="checkbox" checked="@isSelected" @onchange="() => ToggleMember(memberId)" />
+                                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@member.UserName</span>
+                                </label>
+                                <div style="display: flex; align-items: center; gap: 0.25rem; opacity: @(isSelected ? "1" : "0.4"); transition: opacity 0.15s;">
+                                    <button type="button" style="@StepBtn(!isSelected || count <= 1)" disabled="@(!isSelected || count <= 1)" @onclick="() => AdjustMember(memberId, -1)" aria-label="One fewer cup">&minus;</button>
+                                    <span style="min-width: 1.25rem; text-align: center; font-weight: 600; font-size: 0.875rem;">@count</span>
+                                    <button type="button" style="@StepBtn(!isSelected || count >= MaxCupsPerPerson)" disabled="@(!isSelected || count >= MaxCupsPerPerson)" @onclick="() => AdjustMember(memberId, 1)" aria-label="One more cup">+</button>
+                                </div>
+                            </div>
                         }
                     </div>
-                    <p style="margin: 0.25rem 0 0 0; font-size: 0.75rem; color: var(--bs-text-subtle);">
-                        Select one or more members to log coffee for simultaneously.
+                    <p style="margin: 0.375rem 0 0 0; font-size: 0.75rem; color: var(--bs-text-subtle);">
+                        <span class="material-symbols-outlined" style="font-size: 0.875rem; vertical-align: middle;">group_add</span>
+                        Colleague brought a guest? Add extra cups to whoever's treating them.
                     </p>
+                    @if (TotalCups >= 2)
+                    {
+                        <div style="margin-top: 0.5rem; padding: 0.5rem 0.75rem; background: var(--bs-primary-light, #e0e7ff); border-radius: 0.5rem; font-size: 0.8125rem; color: var(--bs-primary); font-weight: 600;">
+                            <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: middle; margin-right: 0.25rem;">coffee</span>
+                            @CupsSummary
+                        </div>
+                    }
                 </div>
             }
 
@@ -211,7 +234,35 @@
     private string selectedProductId = "";
 
     private HashSet<Guid> selectedMemberIds = new();
+    private Dictionary<Guid, int> memberCounts = new();
     private bool logForMyself = true;
+    private int myselfCount = 1;
+
+    private const int MaxCupsPerPerson = 20;
+
+    // Compact stepper button style; dimmed + non-interactive when disabled.
+    private const string StepperBtnStyle = "width: 1.75rem; height: 1.75rem; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--bs-border); background: var(--bs-background-light, #fff); border-radius: 0.375rem; font-size: 1rem; line-height: 1; padding: 0; color: var(--bs-text);";
+    private static string StepBtn(bool disabled) => StepperBtnStyle + (disabled ? " opacity: 0.4; cursor: default;" : " cursor: pointer;");
+
+    private int TotalCups
+        => (logForMyself ? myselfCount : 0)
+           + selectedMemberIds.Sum(id => memberCounts.TryGetValue(id, out var c) ? c : 1);
+
+    private string CupsSummary
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (logForMyself) parts.Add($"You ×{myselfCount}");
+            foreach (var m in SpaceMembers?.Where(m => selectedMemberIds.Contains(m.UserId)) ?? Enumerable.Empty<MembershipDto>())
+            {
+                var c = memberCounts.TryGetValue(m.UserId, out var v) ? v : 1;
+                parts.Add($"{m.UserName} ×{c}");
+            }
+            var total = TotalCups;
+            return $"Logging {total} cup{(total == 1 ? "" : "s")} · {string.Join(", ", parts)}";
+        }
+    }
 
     protected override void OnInitialized()
     {
@@ -297,14 +348,33 @@
     private void ToggleMyself()
     {
         logForMyself = !logForMyself;
+        if (logForMyself && myselfCount < 1)
+            myselfCount = 1;
+    }
+
+    private void AdjustMyself(int delta)
+    {
+        myselfCount = Math.Clamp(myselfCount + delta, 1, MaxCupsPerPerson);
     }
 
     private void ToggleMember(Guid memberId)
     {
         if (selectedMemberIds.Contains(memberId))
+        {
             selectedMemberIds.Remove(memberId);
+        }
         else
+        {
             selectedMemberIds.Add(memberId);
+            if (!memberCounts.ContainsKey(memberId))
+                memberCounts[memberId] = 1;
+        }
+    }
+
+    private void AdjustMember(Guid memberId, int delta)
+    {
+        var count = memberCounts.TryGetValue(memberId, out var c) ? c : 1;
+        memberCounts[memberId] = Math.Clamp(count + delta, 1, MaxCupsPerPerson);
     }
 
     private void SelectPreset(PresetOption preset)
@@ -341,30 +411,35 @@
 
         if (!logForMyself && !selectedMemberIds.Any())
         {
-            await OnValidationError.InvokeAsync("Please select at least one member to log consumption for.");
+            await OnValidationError.InvokeAsync("Please select at least one person to log coffee for.");
             return;
         }
 
-        // Build target user list: allow both "Myself" and other members simultaneously
-        if (logForMyself && selectedMemberIds.Any())
+        // Expand per-person cup counts into a flat target list. A repeated id means that many
+        // identical cups for that person (the downstream handler logs one entry per id), which
+        // covers "a colleague brought a guest" — bump the host's count.
+        var targetIds = new List<Guid>();
+        if (logForMyself && CurrentUserId.HasValue)
         {
-            // Both myself and others selected
-            var allIds = new List<Guid>();
-            if (CurrentUserId.HasValue)
-                allIds.Add(CurrentUserId.Value);
-            allIds.AddRange(selectedMemberIds);
-            model.ForUserIds = allIds;
-            model.ForUserId = null;
+            for (var i = 0; i < myselfCount; i++)
+                targetIds.Add(CurrentUserId.Value);
         }
-        else if (!logForMyself && selectedMemberIds.Any())
+        foreach (var memberId in selectedMemberIds)
         {
-            // Only others selected
-            model.ForUserIds = selectedMemberIds.ToList();
+            var count = memberCounts.TryGetValue(memberId, out var c) ? c : 1;
+            for (var i = 0; i < count; i++)
+                targetIds.Add(memberId);
+        }
+
+        if (targetIds.Count > 0)
+        {
+            model.ForUserIds = targetIds;
             model.ForUserId = null;
         }
         else
         {
-            // Just myself (default)
+            // Only reachable when logging solely for myself with an unknown CurrentUserId:
+            // fall back to the null-target path (the handler resolves it to the current user).
             model.ForUserIds = null;
             model.ForUserId = null;
         }
@@ -405,6 +480,8 @@
         selectedProduct = null;
         selectedProductId = "";
         selectedMemberIds.Clear();
+        memberCounts.Clear();
         logForMyself = true;
+        myselfCount = 1;
     }
 }

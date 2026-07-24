@@ -423,7 +423,7 @@ else
             {
                 var msg = successCount == 1
                     ? "Consumption logged successfully!"
-                    : $"Consumption logged for {successCount} members!";
+                    : $"Logged {successCount} cups!";
                 ShowToast(false, "Success", msg);
                 await LoadStock();
                 await LoadConsumption();
