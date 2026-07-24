@@ -373,7 +373,8 @@
                     request.Grams,
                     request.ConsumedAt,
                     request.PresetName,
-                    targetUserId
+                    targetUserId,
+                    request.StockLotId
                 );
                 if (success) successCount++;
             }
@@ -434,6 +435,7 @@
                     payload.DefaultGrams = resolved.DefaultGrams;
                     payload.QrLabel = resolved.Label;
                     payload.RecipeName = resolved.RecipeName;
+                    payload.StockLotId = resolved.StockLotId;
                     QrResolveCache.Store(payload.QrCodeId.Value, payload);
                 }
                 else
@@ -454,6 +456,7 @@
                     payload.DefaultGrams = cached.DefaultGrams;
                     payload.QrLabel = cached.QrLabel;
                     payload.RecipeName = cached.RecipeName;
+                    payload.StockLotId = cached.StockLotId;
                 }
                 else
                 {
@@ -471,6 +474,8 @@
     private async Task HandleQuickQrConfirm(ConsumptionFormModel model)
     {
         var spaceId = quickQrPayload?.SpaceId ?? (Guid.TryParse(currentSpaceId, out var sid) ? sid : Guid.Empty);
+        // Capture the bound bag before clearing the payload; an empty/gone bag falls back server-side.
+        var stockLotId = quickQrPayload?.StockLotId;
 
         showQuickQrConfirm = false;
         quickQrPayload = null;
@@ -484,7 +489,8 @@
             Grams = model.Grams,
             ConsumedAt = model.ConsumedAt.ToUniversalTime(),
             PresetName = model.PresetName,
-            ForUserIds = model.ForUserIds
+            ForUserIds = model.ForUserIds,
+            StockLotId = stockLotId
         };
 
         await HandleQuickConsumptionSubmit(request);
