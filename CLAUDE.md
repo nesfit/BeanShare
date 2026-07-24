@@ -54,6 +54,32 @@ Clean Architecture on .NET 10 with two independent presentation heads over a sha
 
 **Mock modes:** `UseMockServices` / `UseMockAuthentication` (appsettings) run without PostgreSQL/Keycloak; `UseInMemoryDatabase` swaps the EF provider.
 
+## Coffee stock is tracked per bag (lot)
+
+Stock is **per physical bag**, not per product. Each `Purchase` inside the `CoffeeStock` aggregate is a
+bag/lot with its own `RemainingGrams`, `Label` ("#N" per product), and lifecycle `Status`
+(`Sealed → Open → Empty`). Key rules future work must respect:
+
+- **One cup = one bag, no spill.** `CoffeeStock.ConsumeStock(product, grams, clock, targetLotId?)` draws
+  entirely from a single lot — `targetLotId` if given, else the product's **open** bag, else auto-opens the
+  **oldest** non-empty bag. If that bag lacks the grams it throws `InsufficientStockException` (the caller
+  logs less / opens the next bag); it never spreads a cup across bags.
+- **Per-cup cost is stamped at log time.** `ConsumptionEntry` stores the drawn bag's cost
+  (`CostAmount`/`CostCurrency`/`UnitCostPerGram`). Settlement/analytics prefer this stamped cost and fall
+  back to the weighted-average estimate only for legacy/unattributed (null-cost) cups.
+- **`StockLevel` is a derived read-only projection** (per product, computed from a product's lots) — it is
+  **not** persisted (the `StockLevels` table was dropped). It keeps `IsCurrentlyUsed => IsOpen` /
+  `IsArchived => false` aliases for backward compatibility.
+- **Bag operations:** `AddStockPurchaseCommand` takes `BagCount` (N identical lots — each lot gets its own
+  cloned value objects; sharing one EF-owned instance across lots persists nulls). `OpenBagCommand` marks
+  the in-use bag. `MarkBagEmptyCommand` empties a bag and **phantom-fills** the untracked remainder as
+  consumption entries billed to that bag's drinkers at its own €/g (replaces the old `SplitRemainingStock`;
+  legacy split/currently-used/archive endpoints remain as shims).
+- **QR → bag:** `ActiveQrCode`, `RecordConsumptionCommand`, and the Create/Reassign QR commands carry an
+  optional `StockLotId`; a scan logs against the bound bag, falling back to the open bag if it is empty/gone.
+- **Ledger:** `GetSpaceLedgerQuery` is the unified, filterable/sortable/paged view of every purchase (+) and
+  cup (−) with a per-product running balance and totals (web: the Ledger tab; API: `GET /stock/ledger`).
+
 ## Docs
 
 - `TEST.md` — local setup, demo credentials, MAUI/Android build, troubleshooting.
