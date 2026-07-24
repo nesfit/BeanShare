@@ -32,7 +32,6 @@ public sealed class CoffeeStockRepository : ICoffeeStockRepository
     {
         var query = _context.CoffeeStocks
             .Include(cs => cs.Purchases)
-            .Include(cs => cs.StockLevels)
             .AsQueryable();
 
         return await query.Where(specification.Criteria).FirstOrDefaultAsync(cancellationToken);
@@ -43,7 +42,6 @@ public sealed class CoffeeStockRepository : ICoffeeStockRepository
     {
         var query = _context.CoffeeStocks
             .Include(cs => cs.Purchases)
-            .Include(cs => cs.StockLevels)
             .AsQueryable();
 
         return await query.Where(specification.Criteria).ToListAsync(cancellationToken);

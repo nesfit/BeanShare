@@ -91,7 +91,8 @@ public sealed class AddStockPurchaseCommandHandler : IRequestHandler<AddStockPur
                 command.Vendor,
                 currentUserId,
                 command.PurchasedAt,
-                _clock);
+                _clock,
+                command.BagCount);
 
             if (!isNewStock)
             {

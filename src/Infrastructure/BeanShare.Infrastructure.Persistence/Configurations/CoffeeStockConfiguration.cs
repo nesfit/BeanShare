@@ -39,14 +39,10 @@ public sealed class CoffeeStockConfiguration : IEntityTypeConfiguration<CoffeeSt
             .HasForeignKey("CoffeeStockId")
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasMany(cs => cs.StockLevels)
-            .WithOne()
-            .HasForeignKey("CoffeeStockId")
-            .OnDelete(DeleteBehavior.Cascade);
-
         builder.Navigation(cs => cs.Purchases).UsePropertyAccessMode(PropertyAccessMode.Field);
-        builder.Navigation(cs => cs.StockLevels).UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        // StockLevels is now a derived read-only projection computed from Purchases — not persisted.
+        builder.Ignore(cs => cs.StockLevels);
         builder.Ignore(cs => cs.DomainEvents);
     }
 }

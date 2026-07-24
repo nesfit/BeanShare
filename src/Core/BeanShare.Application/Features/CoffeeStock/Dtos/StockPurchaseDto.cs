@@ -14,6 +14,15 @@ public sealed class StockPurchaseDto
     public required DateTime CreatedAt { get; init; }
     public required decimal CostPerGram { get; init; }
 
+    // --- Per-bag (lot) state ---
+    public decimal ConsumedGrams { get; init; }
+    public decimal RemainingGrams { get; init; }
+    public string Status { get; init; } = "Sealed";
+    public string Label { get; init; } = "";
+    public bool IsOpen { get; init; }
+    public DateTime? OpenedAt { get; init; }
+    public DateTime? DepletedAt { get; init; }
+
     public decimal TotalCost => CostAmount;
     public string CoffeeType => ProductType;
     public string PurchasedByName { get; init; } = "Unknown"; // Will be populated from query

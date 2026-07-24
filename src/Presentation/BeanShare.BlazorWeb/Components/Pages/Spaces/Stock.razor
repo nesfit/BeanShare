@@ -101,11 +101,11 @@ else
                                                 <span class="material-symbols-outlined" style="font-size: 1rem;">call_split</span>
                                             </button>
                                         }
-                                        @if (isAdmin && (stockLevel.CurrentStockGrams > 0 || stockLevel.IsCurrentlyUsed))
+                                        @if (isAdmin && stockLevel.CurrentStockGrams > 0 && !stockLevel.IsCurrentlyUsed)
                                         {
-                                            <button class="bs-btn bs-btn-sm @(stockLevel.IsCurrentlyUsed ? "bs-btn-primary" : "bs-btn-secondary")"
+                                            <button class="bs-btn bs-btn-sm bs-btn-secondary"
                                                     @onclick="@(() => HandleToggleCurrentlyUsed(stockLevel))"
-                                                    title="@(stockLevel.IsCurrentlyUsed ? "Remove 'currently used' flag" : "Mark as currently used coffee")">
+                                                    title="Mark as currently used coffee">
                                                 <span class="material-symbols-outlined" style="font-size: 1rem;">coffee</span>
                                             </button>
                                         }
@@ -365,6 +365,10 @@ else
         {
             Navigation.NavigateTo($"/spaces/{SpaceId}/consumption");
         }
+        else if (newTab == "ledger")
+        {
+            Navigation.NavigateTo($"/spaces/{SpaceId}/ledger");
+        }
     }
 
     private async Task HandleAddPurchase(AddPurchaseModal.AddPurchaseModel model)
@@ -518,16 +522,12 @@ else
     {
         try
         {
-            Guid? targetId = stockLevel.IsCurrentlyUsed ? null : stockLevel.Id;
-            var command = new SetCurrentlyUsedStockLevelCommand(Guid.Parse(SpaceId), targetId);
+            var command = new SetCurrentlyUsedStockLevelCommand(Guid.Parse(SpaceId), stockLevel.Id);
             var result = await Mediator.Send(command);
 
             if (result.IsSuccess)
             {
-                var msg = targetId.HasValue
-                    ? $"{stockLevel.ProductDisplayName} is now the currently used coffee."
-                    : $"Currently used coffee cleared.";
-                ShowToast(false, "Updated", msg);
+                ShowToast(false, "Updated", $"{stockLevel.ProductDisplayName} is now the currently used coffee.");
                 await LoadStock();
             }
             else

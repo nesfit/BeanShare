@@ -1,5 +1,6 @@
 using BeanShare.Domain.Aggregates.CoffeeStock;
 using BeanShare.Domain.Common;
+using BeanShare.Domain.Enums;
 using BeanShare.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -79,8 +80,36 @@ public sealed class PurchaseConfiguration : IEntityTypeConfiguration<Purchase>
         builder.Property(p => p.CreatedAt)
             .IsRequired();
 
+        // --- Per-bag (lot) tracking ---
+        builder.Property(p => p.Label)
+            .HasMaxLength(20)
+            .HasDefaultValue("")
+            .IsRequired();
+
+        builder.Property(p => p.ConsumedGrams)
+            .HasColumnType("decimal(10,1)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(p => p.Status)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .HasDefaultValue(LotStatus.Sealed)
+            .IsRequired();
+
+        builder.Property(p => p.OpenedAt);
+        builder.Property(p => p.DepletedAt);
+
+        // Computed, non-persisted.
+        builder.Ignore(p => p.RemainingGrams);
+        builder.Ignore(p => p.UnitCostPerGram);
+        builder.Ignore(p => p.CostPerGram);
+        builder.Ignore(p => p.IsOpen);
+        builder.Ignore(p => p.IsEmpty);
+
         builder.HasIndex(p => p.PurchasedAt);
         builder.HasIndex(p => p.CreatedAt);
         builder.HasIndex("CoffeeStockId");
+        builder.HasIndex("CoffeeStockId", nameof(Purchase.PurchasedAt));
     }
 }

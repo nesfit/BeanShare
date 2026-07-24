@@ -138,7 +138,31 @@ public sealed class SplitRemainingStockCommandHandler : IRequestHandler<SplitRem
         }
 
         var totalDistributed = allocations.Sum(a => a.AllocatedGrams);
-        coffeeStock.ConsumeStock(product, Weight.FromGrams(totalDistributed), _clock);
+
+        // Draw the written-off grams down per bag (cups never span bags), oldest first, so no
+        // single draw ever exceeds one bag's remaining and the whole-product total is honoured.
+        var remainingToConsume = totalDistributed;
+        var nonEmptyBags = coffeeStock.Purchases
+            .Where(p => !p.IsEmpty
+                && p.Product.Name == product.Name
+                && p.Product.Brand == product.Brand
+                && p.Product.Type == product.Type)
+            .OrderBy(p => p.PurchasedAt).ThenBy(p => p.CreatedAt)
+            .ToList();
+
+        foreach (var bag in nonEmptyBags)
+        {
+            if (remainingToConsume <= 0)
+                break;
+
+            var take = Math.Min(remainingToConsume, bag.RemainingGrams.Grams);
+            if (take > 0)
+            {
+                coffeeStock.ConsumeStock(product, Weight.FromGrams(take), _clock, bag.Id);
+                remainingToConsume -= take;
+            }
+        }
+
         await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
 
         return Result<SplitRemainingStockResult>.Success(new SplitRemainingStockResult(

@@ -51,19 +51,30 @@ public sealed class SetCurrentlyUsedStockLevelCommandHandler : IRequestHandler<S
 
         try
         {
+            // "Currently used" is now expressed per bag: opening a bag of the product makes it the
+            // one cups draw from. Clearing is a no-op — open bags stay open until emptied.
             if (command.StockLevelId.HasValue)
-                coffeeStock.SetCurrentlyUsed(command.StockLevelId.Value, _clock);
-            else
-                coffeeStock.ClearCurrentlyUsed(_clock);
+            {
+                var level = coffeeStock.StockLevels.FirstOrDefault(sl => sl.Id == command.StockLevelId.Value);
+                if (level == null)
+                    return Result<bool>.Failure(Error.StockLevelNotFound(command.StockLevelId.Value));
+
+                var lot = coffeeStock.Purchases
+                    .Where(p => !p.IsEmpty
+                        && string.Equals(p.Product.Name, level.Product.Name, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(p.Product.Brand, level.Product.Brand, StringComparison.OrdinalIgnoreCase)
+                        && p.Product.Type == level.Product.Type)
+                    .OrderBy(p => p.PurchasedAt).ThenBy(p => p.CreatedAt)
+                    .FirstOrDefault();
+
+                if (lot != null)
+                    coffeeStock.OpenBag(lot.Id, _clock);
+            }
 
             await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
             return Result<bool>.Success(true);
         }
-        catch (ArgumentException)
-        {
-            return Result<bool>.Failure(Error.StockLevelNotFound(command.StockLevelId ?? Guid.Empty));
-        }
-        catch (InvalidOperationException ex)
+        catch (Domain.Exceptions.DomainException ex)
         {
             return Result<bool>.Failure(Error.DomainError(ex.Message));
         }

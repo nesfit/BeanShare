@@ -100,7 +100,8 @@ public sealed class ImportConsumptionCsvCommandHandler
 
                 try
                 {
-                    coffeeStock.ConsumeStock(entry.Product, entry.Quantity, _clock);
+                    var allocation = coffeeStock.ConsumeStock(entry.Product, entry.Quantity, _clock);
+                    entry.SetAllocation(allocation.LotId, allocation.Cost, allocation.UnitCostPerGram);
                 }
                 catch (ProductNotFoundException)
                 {

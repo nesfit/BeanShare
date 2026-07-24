@@ -16,6 +16,12 @@ public sealed class ActiveQrCode : Entity
     public DateTime CreatedAt { get; private set; }
     public bool IsActive { get; private set; }
 
+    /// <summary>
+    /// Optionally binds this QR to a specific bag (Purchase lot). When set, scanning logs a cup
+    /// against that bag; when null (or the bag is empty/gone) it falls back to the product's open bag.
+    /// </summary>
+    public Guid? StockLotId { get; private set; }
+
     private ActiveQrCode()
     {
         Id = default!;
@@ -32,7 +38,8 @@ public sealed class ActiveQrCode : Entity
         CoffeeProduct product,
         string recipeName,
         int defaultGrams,
-        DateTime createdAt)
+        DateTime createdAt,
+        Guid? stockLotId)
     {
         Id = id;
         SpaceId = spaceId;
@@ -42,6 +49,7 @@ public sealed class ActiveQrCode : Entity
         DefaultGrams = defaultGrams;
         CreatedAt = createdAt;
         IsActive = true;
+        StockLotId = stockLotId;
     }
 
     public bool HasOpenRecipe => DefaultGrams == 0;
@@ -52,7 +60,8 @@ public sealed class ActiveQrCode : Entity
         CoffeeProduct product,
         string recipeName,
         int defaultGrams,
-        IClock clock)
+        IClock clock,
+        Guid? stockLotId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
         ArgumentNullException.ThrowIfNull(product);
@@ -80,7 +89,8 @@ public sealed class ActiveQrCode : Entity
             product,
             recipeName?.Trim() ?? string.Empty,
             defaultGrams,
-            clock.UtcNow);
+            clock.UtcNow,
+            stockLotId);
     }
 
     public void Reassign(CoffeeProduct product, string recipeName, int defaultGrams)
@@ -100,7 +110,15 @@ public sealed class ActiveQrCode : Entity
         Product = product;
         RecipeName = recipeName?.Trim() ?? string.Empty;
         DefaultGrams = defaultGrams;
+        // Bag binding (StockLotId) is managed explicitly via BindToBag/UnbindBag — reassigning the
+        // product/recipe must NOT silently clobber an existing binding.
     }
+
+    /// <summary>Pin this QR to a specific bag (Purchase lot).</summary>
+    public void BindToBag(Guid stockLotId) => StockLotId = stockLotId;
+
+    /// <summary>Remove any bag binding; scans fall back to the product's open bag.</summary>
+    public void UnbindBag() => StockLotId = null;
 
     public void UpdateLabel(string label)
     {

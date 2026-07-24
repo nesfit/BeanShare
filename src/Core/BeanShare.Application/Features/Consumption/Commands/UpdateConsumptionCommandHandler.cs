@@ -3,6 +3,7 @@ using BeanShare.Application.Common;
 using BeanShare.Application.Features.Consumption.Dtos;
 using BeanShare.Domain.Common;
 using BeanShare.Domain.Enums;
+using BeanShare.Domain.Exceptions;
 using BeanShare.Domain.ValueObjects;
 using MediatR;
 
@@ -71,9 +72,28 @@ public sealed class UpdateConsumptionCommandHandler
         var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(entry.SpaceId, cancellationToken);
         if (coffeeStock != null)
         {
-            coffeeStock.RestoreStock(oldProduct, oldQuantity, _clock);
-            coffeeStock.ConsumeStock(product, quantity, _clock);
-            await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
+            try
+            {
+                // Reverse the original draw against the exact bag it came from (product-level
+                // fallback for legacy entries never stamped with a bag), then re-consume and
+                // re-stamp against whichever bag the new amount now draws from.
+                if (entry.StockLotId.HasValue)
+                    coffeeStock.RestoreStockToLot(entry.StockLotId.Value, oldQuantity, _clock);
+                else
+                    coffeeStock.RestoreStock(oldProduct, oldQuantity, _clock);
+
+                var allocation = coffeeStock.ConsumeStock(product, quantity, _clock);
+                entry.SetAllocation(allocation.LotId, allocation.Cost, allocation.UnitCostPerGram);
+                await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
+            }
+            catch (DomainException ex)
+            {
+                return Result<ConsumptionEntryDto>.Failure(Error.DomainError(ex.Message));
+            }
+        }
+        else
+        {
+            entry.ClearAllocation();
         }
 
         await _consumptionRepository.UpdateAsync(entry, cancellationToken);

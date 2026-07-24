@@ -1,4 +1,6 @@
+using BeanShare.Domain.Common;
 using BeanShare.Infrastructure.Persistence.Seeds;
+using BeanShare.Infrastructure.Persistence.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -37,6 +39,7 @@ public static class DatabaseInitializationExtensions
             try
             {
                 await context.Database.MigrateAsync(cancellationToken);
+                await RunLotBackfillAsync(scope.ServiceProvider, context, cancellationToken);
                 await SeedAsync(scope.ServiceProvider, context, includeDemoData, cancellationToken);
             }
             finally
@@ -67,5 +70,19 @@ public static class DatabaseInitializationExtensions
         var logger = serviceProvider.GetRequiredService<ILogger<DatabaseSeeder>>();
         var seeder = new DatabaseSeeder(context, logger);
         await seeder.SeedAsync(includeDemoData: includeDemoData, cancellationToken);
+    }
+
+    /// <summary>
+    /// One-time reconstruction of per-bag state from pre-per-bag data (idempotent; runs before seeding).
+    /// </summary>
+    private static async Task RunLotBackfillAsync(
+        IServiceProvider serviceProvider,
+        BeanShareDbContext context,
+        CancellationToken cancellationToken)
+    {
+        var clock = serviceProvider.GetRequiredService<IClock>();
+        var logger = serviceProvider.GetRequiredService<ILogger<LotBackfillService>>();
+        var backfill = new LotBackfillService(context, clock, logger);
+        await backfill.RunAsync(cancellationToken);
     }
 }

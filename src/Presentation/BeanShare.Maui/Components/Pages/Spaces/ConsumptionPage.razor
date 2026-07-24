@@ -85,7 +85,7 @@ else
                            QuickPresets="@quickPresets"
                            SpaceMembers="@space?.Members?.ToList()"
                            CurrentUserId="@UserContext.CurrentUserId.Value"
-                           DefaultStockLevelId="@(stockProducts.FirstOrDefault(s => s.IsCurrentlyUsed)?.Id)" />
+                           DefaultStockLevelId="@(stockProducts.Where(s => s.IsCurrentlyUsed).OrderByDescending(s => s.UpdatedAt).FirstOrDefault()?.Id)" />
 
             <div>
                 <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 0.75rem;">

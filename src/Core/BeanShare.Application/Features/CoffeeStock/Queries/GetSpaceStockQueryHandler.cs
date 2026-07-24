@@ -131,7 +131,14 @@ public sealed class GetSpaceStockQueryHandler : IRequestHandler<GetSpaceStockQue
             PurchasedByName = userNames.GetValueOrDefault(p.PurchasedBy, "Unknown"),
             PurchasedAt = p.PurchasedAt,
             CreatedAt = p.CreatedAt,
-            CostPerGram = p.Cost.Amount / p.Quantity.Grams
+            CostPerGram = p.Cost.Amount / p.Quantity.Grams,
+            ConsumedGrams = p.ConsumedGrams,
+            RemainingGrams = p.RemainingGrams.Grams,
+            Status = p.Status.ToString(),
+            Label = p.Label,
+            IsOpen = p.IsOpen,
+            OpenedAt = p.OpenedAt,
+            DepletedAt = p.DepletedAt
         }).ToList();
     }
 }

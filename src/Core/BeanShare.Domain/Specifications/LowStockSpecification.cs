@@ -18,9 +18,10 @@ public sealed class LowStockSpecification : ISpec<CoffeeStock>
         _threshold = threshold;
     }
 
-    public Expression<Func<CoffeeStock, bool>> Criteria => cs =>
-        cs.SpaceId == _spaceId &&
-        cs.StockLevels.Any(sl => sl.TotalPurchased.Grams - sl.TotalConsumed.Grams <= _threshold.Grams);
+    // Stock levels are now a derived (non-persisted) projection, so low-stock can no longer be a SQL
+    // predicate. This fetches the space's stock; the handler computes low-stock in memory from the
+    // bags via CoffeeStock.GetLowStockProducts(threshold).
+    public Expression<Func<CoffeeStock, bool>> Criteria => cs => cs.SpaceId == _spaceId;
 
     public string? Reason => $"Coffee stocks for space {_spaceId} with quantity below {_threshold}";
 }

@@ -8,15 +8,21 @@ namespace BeanShare.Domain.Aggregates.CoffeeStock;
 public sealed class CoffeeStock : AggregateRoot
 {
     private readonly List<Purchase> _purchases = [];
-    private readonly List<StockLevel> _stockLevels = [];
 
     public CoffeeStockId Id { get; private set; }
     public SpaceId SpaceId { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
 
+    /// <summary>Every bag (lot) ever purchased for this space — the source of truth for stock.</summary>
     public IReadOnlyCollection<Purchase> Purchases => _purchases.AsReadOnly();
-    public IReadOnlyCollection<StockLevel> StockLevels => _stockLevels.AsReadOnly();
+
+    /// <summary>Per-product rollups, derived on demand from the bags (no longer persisted).</summary>
+    public IReadOnlyCollection<StockLevel> StockLevels =>
+        _purchases
+            .GroupBy(p => ProductKey(p.Product))
+            .Select(g => StockLevel.FromLots(g.First().Product, g.ToList()))
+            .ToList();
 
     private CoffeeStock()
     {
@@ -41,14 +47,16 @@ public sealed class CoffeeStock : AggregateRoot
 
         var stock = new CoffeeStock(id, spaceId, createdAt);
 
-        stock.RaiseDomainEvent(new CoffeeStockCreated(
-            id,
-            spaceId,
-            createdAt));
+        stock.RaiseDomainEvent(new CoffeeStockCreated(id, spaceId, createdAt));
 
         return stock;
     }
 
+    /// <summary>
+    /// Record a purchase of <paramref name="bagCount"/> identical bags, each of
+    /// <paramref name="quantity"/> grams at <paramref name="cost"/>. Each bag becomes its own
+    /// tracked lot (labelled "#N" within the product), so "2×1000 g" is two separate bags.
+    /// </summary>
     public void AddPurchase(
         CoffeeProduct product,
         Weight quantity,
@@ -56,39 +64,25 @@ public sealed class CoffeeStock : AggregateRoot
         string vendor,
         UserId purchasedBy,
         DateTime purchasedAt,
-        IClock clock)
+        IClock clock,
+        int bagCount = 1)
     {
-        var purchase = Purchase.Create(product, quantity, cost, vendor, purchasedBy, purchasedAt, clock);
-        _purchases.Add(purchase);
+        if (bagCount < 1)
+            throw new ArgumentException("Bag count must be at least 1", nameof(bagCount));
 
-        var existingStockLevel = _stockLevels.FirstOrDefault(sl =>
-            string.Equals(sl.Product.Name, product.Name, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(sl.Product.Brand, product.Brand, StringComparison.OrdinalIgnoreCase) &&
-            sl.Product.Type == product.Type);
+        var baseIndex = MaxLabelIndex(product);
 
-        if (existingStockLevel != null)
+        for (var i = 0; i < bagCount; i++)
         {
-            existingStockLevel.AddPurchase(quantity, clock);
-        }
-        else
-        {
-            var newStockLevel = StockLevel.Create(product, quantity, clock);
-            _stockLevels.Add(newStockLevel);
+            var label = $"#{baseIndex + i + 1}";
+            var lot = Purchase.Create(product, quantity, cost, vendor, purchasedBy, purchasedAt, clock, label);
+            _purchases.Add(lot);
+
+            RaiseDomainEvent(new StockPurchaseAdded(
+                Id, SpaceId, lot.Id, product, quantity, cost, vendor, purchasedBy, purchasedAt, clock.UtcNow));
         }
 
         UpdatedAt = clock.UtcNow;
-
-        RaiseDomainEvent(new StockPurchaseAdded(
-            Id,
-            SpaceId,
-            purchase.Id,
-            product,
-            quantity,
-            cost,
-            vendor,
-            purchasedBy,
-            purchasedAt,
-            clock.UtcNow));
     }
 
     public void UpdatePurchase(Guid purchaseId, Weight newQuantity, decimal newCostAmount, DateTime newPurchasedAt, IClock clock,
@@ -98,62 +92,17 @@ public sealed class CoffeeStock : AggregateRoot
         if (purchase == null)
             throw new InvalidOperationException($"Purchase {purchaseId} not found");
 
-        var oldProduct = purchase.Product;
-        var oldQuantity = purchase.Quantity;
         purchase.Update(newQuantity, newCostAmount, newPurchasedAt, clock);
 
-        if (IsProductIdentityChanged(oldProduct, newProductName, newProductBrand, newCoffeeType))
+        if (IsProductIdentityChanged(purchase.Product, newProductName, newProductBrand, newCoffeeType))
         {
             var updatedProduct = CoffeeProduct.Create(
-                newProductName ?? oldProduct.Name,
-                newProductBrand ?? oldProduct.Brand,
-                newCoffeeType ?? oldProduct.Type);
+                newProductName ?? purchase.Product.Name,
+                newProductBrand ?? purchase.Product.Brand,
+                newCoffeeType ?? purchase.Product.Type);
 
             purchase.UpdateProduct(updatedProduct);
-
-            var oldStockLevel = _stockLevels.FirstOrDefault(sl =>
-                string.Equals(sl.Product.Name, oldProduct.Name, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(sl.Product.Brand, oldProduct.Brand, StringComparison.OrdinalIgnoreCase) &&
-                sl.Product.Type == oldProduct.Type);
-
-            if (oldStockLevel != null)
-            {
-                var maxReduction = oldStockLevel.TotalPurchased.Grams - oldStockLevel.TotalConsumed.Grams;
-                var reduction = Math.Min(oldQuantity.Grams, maxReduction);
-                if (reduction > 0)
-                    oldStockLevel.ReducePurchased(Weight.FromGrams(reduction), clock);
-            }
-
-            var newStockLevel = _stockLevels.FirstOrDefault(sl =>
-                string.Equals(sl.Product.Name, updatedProduct.Name, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(sl.Product.Brand, updatedProduct.Brand, StringComparison.OrdinalIgnoreCase) &&
-                sl.Product.Type == updatedProduct.Type);
-
-            if (newStockLevel != null)
-                newStockLevel.AddPurchase(newQuantity, clock);
-            else
-                _stockLevels.Add(StockLevel.Create(updatedProduct, newQuantity, clock));
-        }
-        else
-        {
-            var stockLevel = _stockLevels.FirstOrDefault(sl =>
-                string.Equals(sl.Product.Name, purchase.Product.Name, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(sl.Product.Brand, purchase.Product.Brand, StringComparison.OrdinalIgnoreCase) &&
-                sl.Product.Type == purchase.Product.Type);
-
-            if (stockLevel != null)
-            {
-                var diff = newQuantity.Grams - oldQuantity.Grams;
-                if (diff > 0)
-                    stockLevel.AddPurchase(Weight.FromGrams(diff), clock);
-                else if (diff < 0)
-                {
-                    var maxReduction = stockLevel.TotalPurchased.Grams - stockLevel.TotalConsumed.Grams;
-                    var reduction = Math.Min(-diff, maxReduction);
-                    if (reduction > 0)
-                        stockLevel.ReducePurchased(Weight.FromGrams(reduction), clock);
-                }
-            }
+            purchase.SetLabel($"#{MaxLabelIndex(updatedProduct, purchaseId) + 1}");
         }
 
         UpdatedAt = clock.UtcNow;
@@ -165,100 +114,101 @@ public sealed class CoffeeStock : AggregateRoot
         if (purchase == null)
             throw new InvalidOperationException($"Purchase {purchaseId} not found");
 
-        var stockLevel = _stockLevels.FirstOrDefault(sl =>
-            string.Equals(sl.Product.Name, purchase.Product.Name, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(sl.Product.Brand, purchase.Product.Brand, StringComparison.OrdinalIgnoreCase) &&
-            sl.Product.Type == purchase.Product.Type);
-
-        if (stockLevel != null)
-        {
-            var maxReduction = stockLevel.TotalPurchased.Grams - stockLevel.TotalConsumed.Grams;
-            var reduction = Math.Min(purchase.Quantity.Grams, maxReduction);
-            if (reduction > 0)
-                stockLevel.ReducePurchased(Weight.FromGrams(reduction), clock);
-        }
+        if (purchase.ConsumedGrams > 0)
+            throw new StockDomainException(
+                $"Cannot delete bag '{purchase.Label}' — {purchase.ConsumedGrams}g has already been consumed from it. Mark it empty instead.");
 
         _purchases.Remove(purchase);
         UpdatedAt = clock.UtcNow;
     }
 
-    public void ConsumeStock(CoffeeProduct product, Weight quantity, IClock clock)
+    /// <summary>
+    /// Consume <paramref name="quantity"/> of a product from a single bag and return the allocation
+    /// (which bag, the cost stamped from its price, and the product's remaining stock). The bag is
+    /// chosen as: the bound <paramref name="targetLotId"/> if it is a non-empty bag of this product;
+    /// otherwise the most-recently-opened bag; otherwise the oldest non-empty bag (auto-opened).
+    /// Throws <see cref="InsufficientStockException"/> if the chosen bag cannot cover the amount —
+    /// cups never span two bags.
+    /// </summary>
+    public StockAllocation ConsumeStock(CoffeeProduct product, Weight quantity, IClock clock, Guid? targetLotId = null)
     {
-        var stockLevel = _stockLevels.FirstOrDefault(sl =>
-            string.Equals(sl.Product.Name, product.Name, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(sl.Product.Brand, product.Brand, StringComparison.OrdinalIgnoreCase) &&
-            sl.Product.Type == product.Type);
-
-        if (stockLevel == null)
+        var lots = _purchases.Where(p => SameProduct(p.Product, product)).ToList();
+        if (lots.Count == 0)
             throw new ProductNotFoundException(product.Name, product.Brand);
 
-        stockLevel.ConsumeStock(quantity, clock);
+        Purchase? target = null;
+        if (targetLotId.HasValue)
+            target = lots.FirstOrDefault(l => l.Id == targetLotId.Value && !l.IsEmpty);
+
+        target ??= lots.Where(l => l.IsOpen).OrderByDescending(l => l.OpenedAt).FirstOrDefault();
+        target ??= lots.Where(l => !l.IsEmpty).OrderBy(l => l.PurchasedAt).ThenBy(l => l.CreatedAt).FirstOrDefault();
+
+        if (target == null)
+            throw new InsufficientStockException(product.Name, product.Brand, quantity.Grams, 0);
+
+        var cost = target.Consume(quantity, clock);
         UpdatedAt = clock.UtcNow;
 
-        RaiseDomainEvent(new StockConsumed(
-            Id,
-            SpaceId,
-            product,
-            quantity,
-            stockLevel.CurrentStock,
-            clock.UtcNow));
+        var productRemaining = Weight.FromGrams(lots.Sum(l => l.RemainingGrams.Grams));
+
+        RaiseDomainEvent(new StockConsumed(Id, SpaceId, product, quantity, productRemaining, clock.UtcNow));
+
+        return new StockAllocation(target.Id, target.Label, quantity, target.UnitCostPerGram, cost, productRemaining);
     }
 
+    /// <summary>Best-effort product-level reversal (restores newest bags first). Prefer <see cref="RestoreStockToLot"/>.</summary>
     public void RestoreStock(CoffeeProduct product, Weight quantity, IClock clock)
     {
-        var stockLevel = _stockLevels.FirstOrDefault(sl =>
-            string.Equals(sl.Product.Name, product.Name, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(sl.Product.Brand, product.Brand, StringComparison.OrdinalIgnoreCase) &&
-            sl.Product.Type == product.Type);
+        var lots = _purchases
+            .Where(p => SameProduct(p.Product, product))
+            .OrderByDescending(l => l.PurchasedAt).ThenByDescending(l => l.CreatedAt)
+            .ToList();
 
-        if (stockLevel == null)
+        if (lots.Count == 0)
             throw new ProductNotFoundException(product.Name, product.Brand);
 
-        stockLevel.RestoreStock(quantity, clock);
-        UpdatedAt = clock.UtcNow;
-    }
-
-    public Weight GetCurrentStock(CoffeeProduct product)
-    {
-        var stockLevel = _stockLevels.FirstOrDefault(sl =>
-            string.Equals(sl.Product.Name, product.Name, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(sl.Product.Brand, product.Brand, StringComparison.OrdinalIgnoreCase) &&
-            sl.Product.Type == product.Type);
-
-        return stockLevel?.CurrentStock ?? Weight.Zero;
-    }
-
-    public Money CalculateAverageCostPerGram(CoffeeProduct product)
-    {
-        var productPurchases = _purchases.Where(p =>
-            string.Equals(p.Product.Name, product.Name, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(p.Product.Brand, product.Brand, StringComparison.OrdinalIgnoreCase) &&
-            p.Product.Type == product.Type).ToList();
-
-        if (!productPurchases.Any())
-            return Money.Zero(Currency.USD);
-
-        var currency = productPurchases.First().Cost.Currency;
-        var totalAmount = 0m;
-        var totalWeight = 0m;
-
-        foreach (var purchase in productPurchases)
+        var remaining = quantity.Grams;
+        foreach (var lot in lots)
         {
-            // Only sum amounts in the same currency to avoid mixing currencies
-            if (purchase.Cost.Currency == currency)
+            if (remaining <= 0)
+                break;
+
+            var restorable = Math.Min(remaining, lot.ConsumedGrams);
+            if (restorable > 0)
             {
-                totalAmount += purchase.Cost.Amount;
-                totalWeight += purchase.Quantity.Grams;
+                lot.Restore(Weight.FromGrams(restorable), clock);
+                remaining -= restorable;
             }
         }
 
-        return totalWeight == 0 ? Money.Zero(currency) : Money.Create(totalAmount / totalWeight, currency);
+        UpdatedAt = clock.UtcNow;
     }
 
-    public IEnumerable<StockLevel> GetLowStockProducts(Weight threshold)
+    /// <summary>Reverse a draw against a specific bag (used to undo a consumption edit/delete).</summary>
+    public void RestoreStockToLot(Guid lotId, Weight quantity, IClock clock)
     {
-        return _stockLevels.Where(sl => sl.IsLowStock(threshold));
+        var lot = _purchases.FirstOrDefault(p => p.Id == lotId)
+            ?? throw new StockDomainException($"Bag {lotId} not found");
+
+        lot.Restore(quantity, clock);
+        UpdatedAt = clock.UtcNow;
     }
+
+    /// <summary>Mark a bag as the one currently being poured from.</summary>
+    public void OpenBag(Guid lotId, IClock clock)
+    {
+        var lot = _purchases.FirstOrDefault(p => p.Id == lotId)
+            ?? throw new StockDomainException($"Bag {lotId} not found");
+
+        lot.Open(clock);
+        UpdatedAt = clock.UtcNow;
+    }
+
+    public Weight GetCurrentStock(CoffeeProduct product) =>
+        Weight.FromGrams(_purchases.Where(p => SameProduct(p.Product, product)).Sum(p => p.RemainingGrams.Grams));
+
+    public IEnumerable<StockLevel> GetLowStockProducts(Weight threshold) =>
+        StockLevels.Where(sl => sl.IsLowStock(threshold));
 
     public Money GetTotalInvestment(string currency = "USD")
     {
@@ -269,59 +219,34 @@ public sealed class CoffeeStock : AggregateRoot
         return Money.Create(totalAmount, currency);
     }
 
-    public bool HasStock(CoffeeProduct product)
-    {
-        return GetCurrentStock(product).IsPositive;
-    }
+    public bool HasStock(CoffeeProduct product) => GetCurrentStock(product).IsPositive;
 
-    public void ArchiveStockLevel(Guid stockLevelId, IClock clock)
-    {
-        var stockLevel = _stockLevels.FirstOrDefault(sl => sl.Id == stockLevelId);
-        if (stockLevel == null)
-            throw new ArgumentException($"Stock level {stockLevelId} not found", nameof(stockLevelId));
+    /// <summary>Distinct products that still have stock in at least one bag.</summary>
+    public int ProductVarietyCount =>
+        _purchases.Where(p => !p.IsEmpty).Select(p => ProductKey(p.Product)).Distinct().Count();
 
-        stockLevel.Archive(clock);
-        UpdatedAt = clock.UtcNow;
-    }
+    public Weight TotalCurrentStock =>
+        Weight.FromGrams(_purchases.Sum(p => p.RemainingGrams.Grams));
 
-    public void UnarchiveStockLevel(Guid stockLevelId, IClock clock)
-    {
-        var stockLevel = _stockLevels.FirstOrDefault(sl => sl.Id == stockLevelId);
-        if (stockLevel == null)
-            throw new ArgumentException($"Stock level {stockLevelId} not found", nameof(stockLevelId));
+    private static int ParseLabelIndex(string label) =>
+        label.StartsWith('#') && int.TryParse(label.AsSpan(1), out var n) ? n : 0;
 
-        stockLevel.Unarchive(clock);
-        UpdatedAt = clock.UtcNow;
-    }
+    // Next label is max(existing "#N") + 1 — not a count — so labels are not reused after a bag is
+    // deleted or moved to another product.
+    private int MaxLabelIndex(CoffeeProduct product, Guid? excludeId = null) =>
+        _purchases
+            .Where(p => (excludeId == null || p.Id != excludeId.Value) && SameProduct(p.Product, product))
+            .Select(p => ParseLabelIndex(p.Label))
+            .DefaultIfEmpty(0)
+            .Max();
 
-    public void SetCurrentlyUsed(Guid stockLevelId, IClock clock)
-    {
-        var target = _stockLevels.FirstOrDefault(sl => sl.Id == stockLevelId);
-        if (target == null)
-            throw new ArgumentException($"Stock level {stockLevelId} not found", nameof(stockLevelId));
+    private static (string, string, CoffeeType) ProductKey(CoffeeProduct p) =>
+        (p.Name.ToLowerInvariant(), p.Brand.ToLowerInvariant(), p.Type);
 
-        if (target.IsArchived)
-            throw new InvalidOperationException($"Cannot set an archived stock level as currently used");
-
-        foreach (var sl in _stockLevels.Where(sl => sl.IsCurrentlyUsed && sl.Id != stockLevelId))
-            sl.ClearCurrentlyUsed(clock);
-
-        target.SetCurrentlyUsed(clock);
-        UpdatedAt = clock.UtcNow;
-    }
-
-    public void ClearCurrentlyUsed(IClock clock)
-    {
-        foreach (var sl in _stockLevels.Where(sl => sl.IsCurrentlyUsed))
-            sl.ClearCurrentlyUsed(clock);
-
-        UpdatedAt = clock.UtcNow;
-    }
-
-    public int ProductVarietyCount => _stockLevels.Count(sl => sl.CurrentStock.IsPositive && !sl.IsArchived);
-
-    public Weight TotalCurrentStock => Weight.FromGrams(
-        _stockLevels.Where(sl => !sl.IsArchived).Sum(sl => sl.CurrentStock.Grams));
+    private static bool SameProduct(CoffeeProduct a, CoffeeProduct b) =>
+        string.Equals(a.Name, b.Name, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(a.Brand, b.Brand, StringComparison.OrdinalIgnoreCase) &&
+        a.Type == b.Type;
 
     private static bool IsProductIdentityChanged(
         CoffeeProduct oldProduct, string? newProductName, string? newProductBrand, CoffeeType? newCoffeeType)

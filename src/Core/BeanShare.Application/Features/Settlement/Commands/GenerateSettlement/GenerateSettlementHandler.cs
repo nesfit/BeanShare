@@ -104,24 +104,32 @@ public sealed class GenerateSettlementHandler : IRequestHandler<GenerateSettleme
                 .ToList();
         }
 
-        var costingPolicy = new WeightedAverageCostingPolicy();
         var totalConsumedWeight = Weight.FromGrams(periodConsumptions.Sum(c => c.Quantity.Grams));
-        var totalCost = costingPolicy.CalculateCost(periodPurchases, totalConsumedWeight, space.Currency.Code);
-
-        var settlement = Domain.Aggregates.Settlement.Settlement.Create(
-            billingPeriod.SpaceId,
-            billingPeriodId,
-            totalCost.Currency,
-            currentUserId,
-            _clock);
-
         if (totalConsumedWeight.Grams == 0)
         {
             return Result<SettlementDto>.Failure(Error.NoConsumptionsInPeriod());
         }
 
+        var currency = space.Currency;
+
+        // Each cup's cost is stamped from the exact bag it was drawn from at log time, so a
+        // settlement is simply the sum of those stamped costs per user. Legacy entries that predate
+        // per-bag tracking (Cost == null) fall back to a weighted-average per-gram rate over the
+        // period's purchases, computed at full precision and rounded once per line.
+        var fallbackPurchases = periodPurchases.Where(p => p.Cost.Currency == currency.Code).ToList();
+        var fallbackTotalCost = fallbackPurchases.Sum(p => p.Cost.Amount);
+        var fallbackTotalGrams = fallbackPurchases.Sum(p => p.Quantity.Grams);
+        var fallbackPerGram = fallbackTotalGrams > 0 ? fallbackTotalCost / fallbackTotalGrams : 0m;
+
+        var settlement = Domain.Aggregates.Settlement.Settlement.Create(
+            billingPeriod.SpaceId,
+            billingPeriodId,
+            currency,
+            currentUserId,
+            _clock);
+
         var purchasesByUser = periodPurchases
-            .Where(p => p.Cost.Currency == space.Currency.Code)
+            .Where(p => p.Cost.Currency == currency.Code)
             .GroupBy(p => p.PurchasedBy)
             .ToDictionary(g => g.Key, g => g.Sum(p => p.Cost.Amount));
 
@@ -131,8 +139,15 @@ public sealed class GenerateSettlementHandler : IRequestHandler<GenerateSettleme
         {
             var userId = userGroup.Key;
             var userTotalCoffee = userGroup.Sum(c => c.Quantity.Grams);
-            var userPercentage = userTotalCoffee / totalConsumedWeight.Grams;
-            var userAmount = totalCost.Amount * userPercentage;
+
+            var userAmount = 0m;
+            foreach (var c in userGroup)
+            {
+                userAmount += c.Cost != null && c.Cost.Currency.Code == currency.Code
+                    ? c.Cost.Amount
+                    : fallbackPerGram * c.Quantity.Grams;
+            }
+            userAmount = Math.Round(userAmount, currency.DecimalPlaces);
 
             settlement.AddLine(
                 userId,

@@ -252,8 +252,7 @@ public class CoffeeStockCommandTests
 
         result.IsSuccess.Should().BeTrue();
         coffeeStock.Purchases.Should().BeEmpty();
-        coffeeStock.StockLevels.First().TotalPurchased.Should().Be(Weight.Zero);
-        coffeeStock.StockLevels.First().CurrentStock.Should().Be(Weight.Zero);
+        coffeeStock.StockLevels.Should().BeEmpty();
         await coffeeStockRepository.Received(1).UpdateAsync(Arg.Any<CoffeeStock>(), Arg.Any<CancellationToken>());
     }
 
@@ -381,7 +380,7 @@ public class CoffeeStockCommandTests
     }
 
     [Fact]
-    public async Task SetCurrentlyUsed_WithNullStockLevelId_ShouldClearAll()
+    public async Task SetCurrentlyUsed_WithNullStockLevelId_ShouldBeNoOp()
     {
         var coffeeStockRepository = Substitute.For<ICoffeeStockRepository>();
         var spaceRepository = Substitute.For<ISpaceRepository>();
@@ -400,7 +399,7 @@ public class CoffeeStockCommandTests
         var coffeeStock = CoffeeStock.Create(spaceId, clock);
         var product = CoffeeProduct.Create("Brazilian Santos", "Daterra", CoffeeType.Espresso);
         coffeeStock.AddPurchase(product, Weight.FromGrams(1000), Money.Create(20m, "USD"), "Importer", adminId, clock.UtcNow.AddDays(-1), clock);
-        coffeeStock.SetCurrentlyUsed(coffeeStock.StockLevels.First().Id, clock);
+        coffeeStock.OpenBag(coffeeStock.Purchases.First().Id, clock);
 
         coffeeStockRepository.GetBySpaceIdAsync(spaceId, Arg.Any<CancellationToken>())
             .Returns(coffeeStock);
@@ -412,7 +411,7 @@ public class CoffeeStockCommandTests
         var result = await handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        coffeeStock.StockLevels.All(sl => !sl.IsCurrentlyUsed).Should().BeTrue();
+        coffeeStock.StockLevels.Any(sl => sl.IsCurrentlyUsed).Should().BeTrue(); // null = no-op; the open bag stays open
         await coffeeStockRepository.Received(1).UpdateAsync(Arg.Any<CoffeeStock>(), Arg.Any<CancellationToken>());
     }
 
@@ -468,43 +467,6 @@ public class CoffeeStockCommandTests
 
         result.IsFailure.Should().BeTrue();
         result.Errors.Should().Contain(e => e.Code.Contains("SPACE_NOT_FOUND"));
-        await coffeeStockRepository.DidNotReceive().UpdateAsync(Arg.Any<CoffeeStock>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task SetCurrentlyUsed_WithArchivedStockLevel_ShouldReturnDomainError()
-    {
-        var coffeeStockRepository = Substitute.For<ICoffeeStockRepository>();
-        var spaceRepository = Substitute.For<ISpaceRepository>();
-        var userContext = Substitute.For<IUserContext>();
-        var clock = TestClock.Instance;
-
-        var spaceId = new SpaceId(Guid.NewGuid());
-        var adminId = new UserId(Guid.NewGuid());
-
-        userContext.CurrentUserId.Returns(adminId);
-
-        var space = Domain.Aggregates.Space.Space.Create(spaceId, "Test Space", Currency.USD, adminId, new InviteCode("CAFE23"), clock);
-        spaceRepository.GetSingleBySpecAsync(Arg.Any<SpaceByIdSpecification>(), Arg.Any<CancellationToken>())
-            .Returns(space);
-
-        var coffeeStock = CoffeeStock.Create(spaceId, clock);
-        var product = CoffeeProduct.Create("Tanzanian Peaberry", "Sweet Maria's", CoffeeType.Filter);
-        coffeeStock.AddPurchase(product, Weight.FromGrams(500), Money.Create(15m, "USD"), "Roaster", adminId, clock.UtcNow.AddDays(-1), clock);
-        var stockLevelId = coffeeStock.StockLevels.First().Id;
-        coffeeStock.ArchiveStockLevel(stockLevelId, clock);
-
-        coffeeStockRepository.GetBySpaceIdAsync(spaceId, Arg.Any<CancellationToken>())
-            .Returns(coffeeStock);
-
-        var handler = new SetCurrentlyUsedStockLevelCommandHandler(coffeeStockRepository, spaceRepository, userContext, clock);
-
-        var command = new SetCurrentlyUsedStockLevelCommand(spaceId.Value, stockLevelId);
-
-        var result = await handler.Handle(command, CancellationToken.None);
-
-        result.IsFailure.Should().BeTrue();
-        result.Errors.Should().Contain(e => e.Code.Contains("DOMAIN_ERROR"));
         await coffeeStockRepository.DidNotReceive().UpdateAsync(Arg.Any<CoffeeStock>(), Arg.Any<CancellationToken>());
     }
 

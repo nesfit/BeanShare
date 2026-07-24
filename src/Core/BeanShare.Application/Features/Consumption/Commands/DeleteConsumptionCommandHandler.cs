@@ -55,7 +55,12 @@ public sealed class DeleteConsumptionCommandHandler
         {
             try
             {
-                coffeeStock.RestoreStock(entry.Product, entry.Quantity, _clock);
+                // Give the grams back to the exact bag the cup drew from (product-level fallback
+                // for legacy entries never stamped with a bag).
+                if (entry.StockLotId.HasValue)
+                    coffeeStock.RestoreStockToLot(entry.StockLotId.Value, entry.Quantity, _clock);
+                else
+                    coffeeStock.RestoreStock(entry.Product, entry.Quantity, _clock);
                 await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
             }
             catch (DomainException)

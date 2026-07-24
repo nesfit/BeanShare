@@ -77,7 +77,7 @@ public sealed class RecordConsumptionCommandHandler : IRequestHandler<RecordCons
 
         try
         {
-            coffeeStock.ConsumeStock(product, quantity, _clock);
+            var allocation = coffeeStock.ConsumeStock(product, quantity, _clock, request.StockLotId);
             await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
 
             var remainingStock = coffeeStock.GetCurrentStock(product);
@@ -90,7 +90,10 @@ public sealed class RecordConsumptionCommandHandler : IRequestHandler<RecordCons
                 consumedAt,
                 _clock,
                 presetId: null,
-                presetName: request.PresetName);
+                presetName: request.PresetName,
+                stockLotId: allocation.LotId,
+                cost: allocation.Cost,
+                unitCostPerGram: allocation.UnitCostPerGram);
 
             await _consumptionRepository.AddAsync(consumptionEntry, cancellationToken);
 

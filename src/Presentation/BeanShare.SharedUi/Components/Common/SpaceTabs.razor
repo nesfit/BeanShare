@@ -17,6 +17,12 @@
        @onclick:preventDefault="@PreventNavigation">
         Consumption
     </a>
+    <a class="bs-tab @(ActiveTab == "ledger" ? "bs-tab-active" : "")"
+       href="@GetTabUrl("ledger")"
+       @onclick="@(() => HandleTabClick("ledger"))"
+       @onclick:preventDefault="@PreventNavigation">
+        Ledger
+    </a>
     <a class="bs-tab @(ActiveTab == "billing" ? "bs-tab-active" : "")"
        href="@GetTabUrl("billing")"
        @onclick="@(() => HandleTabClick("billing"))"

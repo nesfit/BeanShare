@@ -12,18 +12,15 @@ public sealed class ArchiveStockLevelCommandHandler : IRequestHandler<ArchiveSto
     private readonly ICoffeeStockRepository _coffeeStockRepository;
     private readonly ISpaceRepository _spaceRepository;
     private readonly IUserContext _userContext;
-    private readonly IClock _clock;
 
     public ArchiveStockLevelCommandHandler(
         ICoffeeStockRepository coffeeStockRepository,
         ISpaceRepository spaceRepository,
-        IUserContext userContext,
-        IClock clock)
+        IUserContext userContext)
     {
         _coffeeStockRepository = coffeeStockRepository;
         _spaceRepository = spaceRepository;
         _userContext = userContext;
-        _clock = clock;
     }
 
     public async Task<Result<bool>> Handle(ArchiveStockLevelCommand command, CancellationToken cancellationToken)
@@ -49,15 +46,10 @@ public sealed class ArchiveStockLevelCommandHandler : IRequestHandler<ArchiveSto
             return Result<bool>.Failure(Error.StockNotFound(command.SpaceId));
         }
 
-        try
-        {
-            coffeeStock.ArchiveStockLevel(command.StockLevelId, _clock);
-            await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
-            return Result<bool>.Success(true);
-        }
-        catch (ArgumentException ex)
-        {
-            return Result<bool>.Failure(Error.StockLevelNotFound(command.StockLevelId));
-        }
+        // Archiving is now automatic: a product drops off the active list once all its bags are
+        // empty. This command is retained as a no-op success for backward compatibility with the
+        // current UI until it is replaced by the per-bag "mark empty" action.
+        await Task.CompletedTask;
+        return Result<bool>.Success(true);
     }
 }

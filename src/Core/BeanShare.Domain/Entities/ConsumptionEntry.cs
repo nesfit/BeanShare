@@ -17,6 +17,20 @@ public sealed class ConsumptionEntry : AggregateRoot
     public PresetRecipeId? PresetId { get; private set; }
     public string? PresetName { get; private set; }
 
+    // --- Per-bag cost lock-in (persisted as scalars; Money is rebuilt in the computed Cost below,
+    // because an all-null owned Money would mis-materialize) ---
+    /// <summary>The specific bag (Purchase lot) this cup was drawn from; null for legacy/imported entries.</summary>
+    public Guid? StockLotId { get; private set; }
+    public decimal? CostAmount { get; private set; }
+    public string? CostCurrency { get; private set; }
+    /// <summary>The bag's per-gram price at log time (for display/audit); null when unattributed.</summary>
+    public decimal? UnitCostPerGram { get; private set; }
+
+    /// <summary>Cost of this cup, stamped at log time from the bag's price; null when it couldn't be attributed.</summary>
+    public Money? Cost => CostAmount.HasValue && !string.IsNullOrEmpty(CostCurrency)
+        ? Money.Create(CostAmount.Value, Currency.Create(CostCurrency))
+        : null;
+
     private ConsumptionEntry()
     {
         Id = default!;
@@ -56,7 +70,10 @@ public sealed class ConsumptionEntry : AggregateRoot
         DateTime consumedAt,
         IClock clock,
         PresetRecipeId? presetId = null,
-        string? presetName = null)
+        string? presetName = null,
+        Guid? stockLotId = null,
+        Money? cost = null,
+        decimal? unitCostPerGram = null)
     {
         ArgumentNullException.ThrowIfNull(product);
         ArgumentNullException.ThrowIfNull(clock);
@@ -75,7 +92,13 @@ public sealed class ConsumptionEntry : AggregateRoot
         var id = ConsumptionEntryId.New();
         var createdAt = clock.UtcNow;
 
-        var entry = new ConsumptionEntry(id, spaceId, userId, product, quantity, consumedAt, createdAt, presetId, presetName);
+        var entry = new ConsumptionEntry(id, spaceId, userId, product, quantity, consumedAt, createdAt, presetId, presetName)
+        {
+            StockLotId = stockLotId,
+            CostAmount = cost?.Amount,
+            CostCurrency = cost?.Currency.Code,
+            UnitCostPerGram = unitCostPerGram
+        };
 
         entry.RaiseDomainEvent(new ConsumptionRecorded(
             entry.Id.Value,
@@ -111,6 +134,24 @@ public sealed class ConsumptionEntry : AggregateRoot
         Product = product;
         Quantity = quantity;
         ConsumedAt = consumedAt;
+    }
+
+    /// <summary>Stamp which bag this cup drew from and the cost taken from that bag's price.</summary>
+    public void SetAllocation(Guid? stockLotId, Money? cost, decimal? unitCostPerGram)
+    {
+        StockLotId = stockLotId;
+        CostAmount = cost?.Amount;
+        CostCurrency = cost?.Currency.Code;
+        UnitCostPerGram = unitCostPerGram;
+    }
+
+    /// <summary>Drop the bag/cost stamp (e.g. before re-allocating on edit, or when unattributed).</summary>
+    public void ClearAllocation()
+    {
+        StockLotId = null;
+        CostAmount = null;
+        CostCurrency = null;
+        UnitCostPerGram = null;
     }
 
     public void AssignToBillingPeriod(BillingPeriodId billingPeriodId)

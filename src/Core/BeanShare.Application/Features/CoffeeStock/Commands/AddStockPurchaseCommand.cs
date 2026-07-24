@@ -14,5 +14,6 @@ public sealed record AddStockPurchaseCommand(
     decimal CostAmount,
     string CostCurrency,
     string Vendor,
-    DateTime PurchasedAt
+    DateTime PurchasedAt,
+    int BagCount = 1
 ) : IAuthorize, ICommand<Result<StockPurchaseDto>>;

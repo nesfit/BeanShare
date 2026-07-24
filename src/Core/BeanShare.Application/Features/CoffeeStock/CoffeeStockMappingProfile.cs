@@ -20,7 +20,14 @@ public sealed class CoffeeStockMappingProfile : IRegister
             .Map(dest => dest.PurchasedBy, src => src.PurchasedBy.Value)
             .Map(dest => dest.PurchasedAt, src => src.PurchasedAt)
             .Map(dest => dest.CreatedAt, src => src.CreatedAt)
-            .Map(dest => dest.CostPerGram, src => src.Quantity.Grams > 0 ? src.Cost.Amount / src.Quantity.Grams : 0);
+            .Map(dest => dest.CostPerGram, src => src.Quantity.Grams > 0 ? src.Cost.Amount / src.Quantity.Grams : 0)
+            .Map(dest => dest.ConsumedGrams, src => src.ConsumedGrams)
+            .Map(dest => dest.RemainingGrams, src => src.RemainingGrams.Grams)
+            .Map(dest => dest.Status, src => src.Status.ToString())
+            .Map(dest => dest.Label, src => src.Label)
+            .Map(dest => dest.IsOpen, src => src.IsOpen)
+            .Map(dest => dest.OpenedAt, src => src.OpenedAt)
+            .Map(dest => dest.DepletedAt, src => src.DepletedAt);
 
         config.NewConfig<StockLevel, StockLevelDto>()
             .Map(dest => dest.Id, src => src.Id)

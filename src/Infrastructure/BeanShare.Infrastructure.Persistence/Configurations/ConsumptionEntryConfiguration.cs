@@ -90,6 +90,27 @@ internal sealed class ConsumptionEntryConfiguration : IEntityTypeConfiguration<C
             .HasMaxLength(200)
             .IsRequired(false);
 
+        // --- Per-bag cost lock-in (scalars; Money Cost is a computed projection of these) ---
+        builder.Property(x => x.StockLotId)
+            .IsRequired(false);
+
+        builder.Property(x => x.CostAmount)
+            .HasColumnType("numeric(18,4)")
+            .IsRequired(false);
+
+        builder.Property(x => x.CostCurrency)
+            .HasMaxLength(3)
+            .IsRequired(false);
+
+        builder.Property(x => x.UnitCostPerGram)
+            .HasColumnType("numeric(18,6)")
+            .IsRequired(false);
+
+        builder.Ignore(x => x.Cost);
+
+        builder.HasIndex(x => x.StockLotId)
+            .HasDatabaseName("IX_Consumptions_StockLotId");
+
         builder.HasIndex(x => x.SpaceId)
             .HasDatabaseName("IX_Consumptions_SpaceId");
 

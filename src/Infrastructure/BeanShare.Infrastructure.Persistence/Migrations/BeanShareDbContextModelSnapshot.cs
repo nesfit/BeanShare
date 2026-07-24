@@ -108,7 +108,25 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("CoffeeStockId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("ConsumedGrams")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(10,1)")
+                        .HasDefaultValue(0m);
+
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DepletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("");
+
+                    b.Property<DateTime?>("OpenedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("PurchasedAt")
@@ -116,6 +134,13 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("PurchasedBy")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Sealed");
 
                     b.Property<string>("Vendor")
                         .IsRequired()
@@ -130,37 +155,9 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PurchasedAt");
 
+                    b.HasIndex("CoffeeStockId", "PurchasedAt");
+
                     b.ToTable("Purchases", (string)null);
-                });
-
-            modelBuilder.Entity("BeanShare.Domain.Aggregates.CoffeeStock.StockLevel", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CoffeeStockId")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("IsArchived")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<bool>("IsCurrentlyUsed")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CoffeeStockId");
-
-                    b.HasIndex("UpdatedAt");
-
-                    b.ToTable("StockLevels", (string)null);
                 });
 
             modelBuilder.Entity("BeanShare.Domain.Aggregates.Settlement.Settlement", b =>
@@ -270,6 +267,9 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("SpaceId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("StockLotId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SpaceId")
@@ -292,6 +292,13 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("ConsumedAt")
                         .HasColumnType("timestamptz");
 
+                    b.Property<decimal?>("CostAmount")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("CostCurrency")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz");
 
@@ -309,6 +316,12 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("SpaceId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("StockLotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("UnitCostPerGram")
+                        .HasColumnType("numeric(18,6)");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
@@ -322,6 +335,9 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SpaceId")
                         .HasDatabaseName("IX_Consumptions_SpaceId");
+
+                    b.HasIndex("StockLotId")
+                        .HasDatabaseName("IX_Consumptions_StockLotId");
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("IX_Consumptions_UserId");
@@ -780,88 +796,6 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("BeanShare.Domain.Aggregates.CoffeeStock.StockLevel", b =>
-                {
-                    b.HasOne("BeanShare.Domain.Aggregates.CoffeeStock.CoffeeStock", null)
-                        .WithMany("StockLevels")
-                        .HasForeignKey("CoffeeStockId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.OwnsOne("BeanShare.Domain.ValueObjects.CoffeeProduct", "Product", b1 =>
-                        {
-                            b1.Property<Guid>("StockLevelId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<string>("Brand")
-                                .IsRequired()
-                                .HasMaxLength(50)
-                                .HasColumnType("character varying(50)")
-                                .HasColumnName("ProductBrand");
-
-                            b1.Property<string>("Name")
-                                .IsRequired()
-                                .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
-                                .HasColumnName("ProductName");
-
-                            b1.Property<string>("Type")
-                                .IsRequired()
-                                .HasColumnType("text")
-                                .HasColumnName("ProductType");
-
-                            b1.HasKey("StockLevelId");
-
-                            b1.ToTable("StockLevels");
-
-                            b1.WithOwner()
-                                .HasForeignKey("StockLevelId");
-                        });
-
-                    b.OwnsOne("BeanShare.Domain.ValueObjects.Weight", "TotalConsumed", b1 =>
-                        {
-                            b1.Property<Guid>("StockLevelId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<decimal>("Grams")
-                                .HasColumnType("decimal(10,1)")
-                                .HasColumnName("TotalConsumedGrams");
-
-                            b1.HasKey("StockLevelId");
-
-                            b1.ToTable("StockLevels");
-
-                            b1.WithOwner()
-                                .HasForeignKey("StockLevelId");
-                        });
-
-                    b.OwnsOne("BeanShare.Domain.ValueObjects.Weight", "TotalPurchased", b1 =>
-                        {
-                            b1.Property<Guid>("StockLevelId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<decimal>("Grams")
-                                .HasColumnType("decimal(10,1)")
-                                .HasColumnName("TotalPurchasedGrams");
-
-                            b1.HasKey("StockLevelId");
-
-                            b1.ToTable("StockLevels");
-
-                            b1.WithOwner()
-                                .HasForeignKey("StockLevelId");
-                        });
-
-                    b.Navigation("Product")
-                        .IsRequired();
-
-                    b.Navigation("TotalConsumed")
-                        .IsRequired();
-
-                    b.Navigation("TotalPurchased")
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("BeanShare.Domain.Aggregates.Settlement.Settlement", b =>
                 {
                     b.OwnsMany("BeanShare.Domain.Aggregates.Settlement.SettlementLine", "Lines", b1 =>
@@ -1062,8 +996,6 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("BeanShare.Domain.Aggregates.CoffeeStock.CoffeeStock", b =>
                 {
                     b.Navigation("Purchases");
-
-                    b.Navigation("StockLevels");
                 });
 #pragma warning restore 612, 618
         }

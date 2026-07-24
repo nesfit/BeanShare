@@ -1,135 +1,81 @@
-using BeanShare.Domain.Common;
+using System.Security.Cryptography;
+using System.Text;
 using BeanShare.Domain.ValueObjects;
-using BeanShare.Domain.Exceptions;
 
 namespace BeanShare.Domain.Aggregates.CoffeeStock;
 
-public sealed class StockLevel : Entity
+/// <summary>
+/// A read-only per-product rollup computed from that product's bags (lots). It is no longer
+/// persisted or mutated directly — it is derived on demand from <see cref="Purchase"/> lots so
+/// product-keyed features (low-stock alerts, analytics grouping, the consumption product dropdown,
+/// QR product-matching) keep a stable per-product view over the per-bag model.
+/// </summary>
+public sealed class StockLevel
 {
-    public Guid Id { get; private init; }
-    public CoffeeProduct Product { get; private init; }
-    public Weight TotalPurchased { get; private set; }
-    public Weight TotalConsumed { get; private set; }
-    public bool IsArchived { get; private set; }
-    public bool IsCurrentlyUsed { get; private set; }
-    public DateTime UpdatedAt { get; private set; }
+    public Guid Id { get; }
+    public CoffeeProduct Product { get; }
+    public Weight TotalPurchased { get; }
+    public Weight TotalConsumed { get; }
+    public DateTime UpdatedAt { get; }
 
-    private StockLevel()
-    {
-        Product = null!;
-        TotalPurchased = null!;
-        TotalConsumed = null!;
-    }
+    // Whether any bag of this product is currently open (being poured from).
+    public bool IsOpen { get; }
 
     private StockLevel(
         Guid id,
         CoffeeProduct product,
-        Weight initialQuantity,
-        DateTime createdAt)
+        Weight totalPurchased,
+        Weight totalConsumed,
+        bool isOpen,
+        DateTime updatedAt)
     {
         Id = id;
         Product = product;
-        TotalPurchased = initialQuantity;
-        TotalConsumed = Weight.Zero;
-        UpdatedAt = createdAt;
+        TotalPurchased = totalPurchased;
+        TotalConsumed = totalConsumed;
+        IsOpen = isOpen;
+        UpdatedAt = updatedAt;
     }
 
-    public static StockLevel Create(CoffeeProduct product, Weight initialQuantity, IClock clock)
+    /// <summary>Build the rollup for a product from all of its bags.</summary>
+    public static StockLevel FromLots(CoffeeProduct product, IReadOnlyCollection<Purchase> lots)
     {
         ArgumentNullException.ThrowIfNull(product);
-        ArgumentNullException.ThrowIfNull(initialQuantity);
+        ArgumentNullException.ThrowIfNull(lots);
 
-        if (!initialQuantity.IsPositive)
-            throw new ArgumentException("Initial quantity must be positive", nameof(initialQuantity));
+        var totalPurchased = Weight.FromGrams(lots.Sum(l => l.Quantity.Grams));
+        var totalConsumed = Weight.FromGrams(lots.Sum(l => l.ConsumedGrams));
+        var isOpen = lots.Any(l => l.IsOpen);
+        var updatedAt = lots
+            .Select(l => l.DepletedAt ?? l.OpenedAt ?? l.CreatedAt)
+            .DefaultIfEmpty(default)
+            .Max();
 
-        return new StockLevel(Guid.NewGuid(), product, initialQuantity, clock.UtcNow);
+        return new StockLevel(DeriveId(product), product, totalPurchased, totalConsumed, isOpen, updatedAt);
     }
 
     public Weight CurrentStock => TotalPurchased.Subtract(TotalConsumed);
 
     public bool IsLowStock(Weight threshold) => CurrentStock <= threshold;
 
-    public void AddPurchase(Weight quantity, IClock clock)
+    public decimal ConsumptionPercentage =>
+        TotalPurchased.IsZero ? 0 : (TotalConsumed.Grams / TotalPurchased.Grams) * 100;
+
+    // Back-compat aliases so the existing DTO/mapping and QR code keep working over the per-bag model.
+    public bool IsCurrentlyUsed => IsOpen;
+    public bool IsArchived => false;
+
+    /// <summary>Deterministic id from the product tuple so the projection has a stable key.</summary>
+    private static Guid DeriveId(CoffeeProduct product)
     {
-        ArgumentNullException.ThrowIfNull(quantity);
-
-        if (!quantity.IsPositive)
-            throw new ArgumentException("Quantity must be positive", nameof(quantity));
-
-        TotalPurchased = TotalPurchased.Add(quantity);
-        UpdatedAt = clock.UtcNow;
+        var name = product.Name.ToLowerInvariant();
+        var brand = product.Brand.ToLowerInvariant();
+        // Length-prefixed so the key is injective over (Name, Brand, Type) even when a field value
+        // itself contains the delimiter (e.g. a product named "House|Blend").
+        var key = $"{name.Length}:{name}:{brand.Length}:{brand}:{(int)product.Type}";
+        var hash = MD5.HashData(Encoding.UTF8.GetBytes(key));
+        return new Guid(hash);
     }
-
-    public void ReducePurchased(Weight quantity, IClock clock)
-    {
-        ArgumentNullException.ThrowIfNull(quantity);
-
-        if (!quantity.IsPositive)
-            throw new ArgumentException("Quantity must be positive", nameof(quantity));
-
-        TotalPurchased = TotalPurchased.Subtract(quantity);
-        UpdatedAt = clock.UtcNow;
-    }
-
-    public void ConsumeStock(Weight quantity, IClock clock)
-    {
-        ArgumentNullException.ThrowIfNull(quantity);
-
-        if (!quantity.IsPositive)
-            throw new ArgumentException("Quantity must be positive", nameof(quantity));
-
-        var newConsumed = TotalConsumed.Add(quantity);
-        if (newConsumed > TotalPurchased)
-            throw new InsufficientStockException(Product.Name, Product.Brand, quantity.Grams, CurrentStock.Grams);
-
-        TotalConsumed = newConsumed;
-        UpdatedAt = clock.UtcNow;
-    }
-
-    public void RestoreStock(Weight quantity, IClock clock)
-    {
-        ArgumentNullException.ThrowIfNull(quantity);
-
-        if (!quantity.IsPositive)
-            throw new ArgumentException("Quantity must be positive", nameof(quantity));
-
-        TotalConsumed = quantity.Grams > TotalConsumed.Grams
-            ? Weight.Zero
-            : TotalConsumed.Subtract(quantity);
-        UpdatedAt = clock.UtcNow;
-    }
-
-    public decimal ConsumptionPercentage => TotalPurchased.IsZero ? 0 : (TotalConsumed.Grams / TotalPurchased.Grams) * 100;
-
-    public void Archive(IClock clock)
-    {
-        IsArchived = true;
-        IsCurrentlyUsed = false;
-        UpdatedAt = clock.UtcNow;
-    }
-
-    public void Unarchive(IClock clock)
-    {
-        IsArchived = false;
-        UpdatedAt = clock.UtcNow;
-    }
-
-    public void SetCurrentlyUsed(IClock clock)
-    {
-        if (IsArchived)
-            throw new InvalidOperationException($"Cannot mark archived stock level '{Product.Name}' as currently used");
-
-        IsCurrentlyUsed = true;
-        UpdatedAt = clock.UtcNow;
-    }
-
-    public void ClearCurrentlyUsed(IClock clock)
-    {
-        IsCurrentlyUsed = false;
-        UpdatedAt = clock.UtcNow;
-    }
-
-    protected override object GetId() => Id;
 
     public override string ToString() => $"{Product}: {CurrentStock} available ({ConsumptionPercentage:F1}% consumed)";
 }
