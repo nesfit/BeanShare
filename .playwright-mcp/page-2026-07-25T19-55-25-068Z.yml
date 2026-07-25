@@ -1,0 +1,307 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5] [cursor=pointer]:
+        - img "BeanShare" [ref=e6]
+        - generic [ref=e7]: BeanShare
+      - button "close" [ref=e8] [cursor=pointer]:
+        - generic [ref=e9]: close
+    - navigation [ref=e10]:
+      - generic [ref=e11]:
+        - link "groups My Spaces" [ref=e12] [cursor=pointer]:
+          - /url: /spaces
+          - generic [ref=e13]: groups
+          - generic [ref=e14]: My Spaces
+        - link "history History" [ref=e15] [cursor=pointer]:
+          - /url: /history
+          - generic [ref=e16]: history
+          - generic [ref=e17]: History
+      - generic [ref=e18]:
+        - generic [ref=e19]: Account
+        - link "person Profile" [ref=e20] [cursor=pointer]:
+          - /url: /profile
+          - generic [ref=e21]: person
+          - generic [ref=e22]: Profile
+        - link "settings Settings" [ref=e23] [cursor=pointer]:
+          - /url: /settings
+          - generic [ref=e24]: settings
+          - generic [ref=e25]: Settings
+        - button "logout Logout" [ref=e26] [cursor=pointer]:
+          - generic [ref=e27]: logout
+          - generic [ref=e28]: Logout
+    - generic [ref=e30]:
+      - generic [ref=e31]: JS
+      - generic [ref=e32]:
+        - generic [ref=e33]: John Smith
+        - generic [ref=e34]: john.smith@beanshare.dev
+  - generic [ref=e35]:
+    - banner [ref=e352]:
+      - generic [ref=e353]:
+        - button "menu_open" [ref=e354] [cursor=pointer]:
+          - generic [ref=e355]: menu_open
+        - navigation [ref=e356]:
+          - link "Home" [ref=e357] [cursor=pointer]:
+            - /url: /
+          - generic [ref=e358]: /
+          - link "Spaces" [ref=e359] [cursor=pointer]:
+            - /url: /spaces
+          - generic [ref=e360]: /
+          - link "Space Details" [ref=e361] [cursor=pointer]:
+            - /url: /spaces/aaaa1111-aaaa-1111-aaaa-111111111111
+          - generic [ref=e362]: /
+          - generic [ref=e363]: Consumption
+      - generic [ref=e365]:
+        - generic [ref=e366]: search
+        - textbox "Search spaces, members, or coffee..." [ref=e367]
+        - generic [ref=e368]: Enter
+      - generic [ref=e369]:
+        - button "notifications 2" [ref=e370] [cursor=pointer]:
+          - generic [ref=e371]: notifications
+          - generic [ref=e372]: "2"
+        - button "help" [ref=e373] [cursor=pointer]:
+          - generic [ref=e374]: help
+        - button "JS John Smith expand_more" [ref=e376] [cursor=pointer]:
+          - generic [ref=e377]: JS
+          - generic [ref=e378]: John Smith
+          - generic [ref=e379]: expand_more
+    - generic [ref=e59]:
+      - generic [ref=e381]:
+        - generic [ref=e382]:
+          - button "arrow_back" [ref=e383] [cursor=pointer]:
+            - generic [ref=e384]: arrow_back
+          - heading "Engineering Team" [level=1] [ref=e385]
+        - generic [ref=e387]:
+          - generic [ref=e388]: INVITE CODE
+          - generic [ref=e389]:
+            - generic [ref=e390]: ENG2K24
+            - button "content_copy" [ref=e391]:
+              - generic [ref=e392]: content_copy
+        - navigation [ref=e393]:
+          - link "Consumption" [ref=e394] [cursor=pointer]:
+            - /url: /spaces/aaaa1111-aaaa-1111-aaaa-111111111111/consumption
+          - link "Stock" [ref=e395] [cursor=pointer]:
+            - /url: /spaces/aaaa1111-aaaa-1111-aaaa-111111111111/stock
+          - link "Ledger" [ref=e396] [cursor=pointer]:
+            - /url: /spaces/aaaa1111-aaaa-1111-aaaa-111111111111/ledger
+          - link "Members" [ref=e397] [cursor=pointer]:
+            - /url: /spaces/aaaa1111-aaaa-1111-aaaa-111111111111/members
+          - link "Billing" [ref=e398] [cursor=pointer]:
+            - /url: /spaces/aaaa1111-aaaa-1111-aaaa-111111111111/billing
+          - link "Settlements" [ref=e399] [cursor=pointer]:
+            - /url: /spaces/aaaa1111-aaaa-1111-aaaa-111111111111/settlements
+          - link "Presets" [ref=e400] [cursor=pointer]:
+            - /url: /spaces/aaaa1111-aaaa-1111-aaaa-111111111111/presets
+          - link "Analytics" [ref=e401] [cursor=pointer]:
+            - /url: /spaces/aaaa1111-aaaa-1111-aaaa-111111111111/analytics
+      - generic [ref=e403]:
+        - generic [ref=e404]:
+          - generic [ref=e405]:
+            - generic [ref=e406]: My Cups Today
+            - generic [ref=e407]: "0"
+          - generic [ref=e408]:
+            - generic [ref=e409]: My Total
+            - generic [ref=e410]: $74.78
+          - generic [ref=e411]:
+            - generic [ref=e412]: Total Stock
+            - generic [ref=e413]: 2.5 kg
+        - generic [ref=e414]:
+          - button "qr_code_scanner Scan QR" [ref=e415] [cursor=pointer]:
+            - generic [ref=e416]: qr_code_scanner
+            - text: Scan QR
+          - button "upload_file Import CSV" [ref=e417] [cursor=pointer]:
+            - generic [ref=e418]: upload_file
+            - text: Import CSV
+        - generic [ref=e420]:
+          - generic [ref=e421]:
+            - generic [ref=e422]: Coffee Product
+            - combobox "Coffee Product" [ref=e423]:
+              - option "-- Select a coffee product --"
+              - option "Ethiopian Origin Yirgacheffe (Specialty, 750 g available)"
+              - option "Jamaica Blue Mountain Premium (Specialty, 250 g available)"
+              - option "Starbucks Pike Place (Filter, 500 g available)"
+              - option "Lavazza Super Crema (Espresso, 1000 g available)" [selected]
+          - generic [ref=e424]:
+            - generic [ref=e425]: Log for
+            - group "Select who to log coffee for and how many cups each" [ref=e426]:
+              - generic [ref=e427]:
+                - generic [ref=e428] [cursor=pointer]:
+                  - checkbox "Log for myself" [checked] [ref=e429]
+                  - generic [ref=e430]: Myself
+                - generic [ref=e431]:
+                  - button "One fewer cup for myself" [disabled] [ref=e432]: −
+                  - generic [ref=e433]: "1"
+                  - button "One more cup for myself" [ref=e434] [cursor=pointer]: +
+              - generic [ref=e435]:
+                - generic [ref=e436] [cursor=pointer]:
+                  - checkbox "Test User" [ref=e437]
+                  - generic [ref=e438]: Test User
+                - generic [ref=e439]:
+                  - button "One fewer cup" [disabled] [ref=e440]: −
+                  - generic [ref=e441]: "1"
+                  - button "One more cup" [disabled] [ref=e442]: +
+              - generic [ref=e443]:
+                - generic [ref=e444] [cursor=pointer]:
+                  - checkbox "Alex Brown" [ref=e445]
+                  - generic [ref=e446]: Alex Brown
+                - generic [ref=e447]:
+                  - button "One fewer cup" [disabled] [ref=e448]: −
+                  - generic [ref=e449]: "1"
+                  - button "One more cup" [disabled] [ref=e450]: +
+              - generic [ref=e451]:
+                - generic [ref=e452] [cursor=pointer]:
+                  - checkbox "Emma Davis" [ref=e453]
+                  - generic [ref=e454]: Emma Davis
+                - generic [ref=e455]:
+                  - button "One fewer cup" [disabled] [ref=e456]: −
+                  - generic [ref=e457]: "1"
+                  - button "One more cup" [disabled] [ref=e458]: +
+              - generic [ref=e459]:
+                - generic [ref=e460] [cursor=pointer]:
+                  - checkbox "Mike Wilson" [ref=e461]
+                  - generic [ref=e462]: Mike Wilson
+                - generic [ref=e463]:
+                  - button "One fewer cup" [disabled] [ref=e464]: −
+                  - generic [ref=e465]: "1"
+                  - button "One more cup" [disabled] [ref=e466]: +
+              - generic [ref=e467]:
+                - generic [ref=e468] [cursor=pointer]:
+                  - checkbox "Sarah Johnson" [ref=e469]
+                  - generic [ref=e470]: Sarah Johnson
+                - generic [ref=e471]:
+                  - button "One fewer cup" [disabled] [ref=e472]: −
+                  - generic [ref=e473]: "1"
+                  - button "One more cup" [disabled] [ref=e474]: +
+            - paragraph [ref=e475]:
+              - generic [ref=e476]: group_add
+              - text: Colleague brought a guest? Add extra cups to whoever's treating them.
+          - generic [ref=e477]:
+            - generic [ref=e478]: Quick Presets
+            - generic [ref=e479]:
+              - button "Espresso · 8 g" [ref=e480] [cursor=pointer]
+              - button "Double Espresso · 16 g" [ref=e481] [cursor=pointer]
+              - button "Americano · 8 g" [ref=e482] [cursor=pointer]
+              - button "Cappuccino · 8 g" [ref=e483] [cursor=pointer]
+              - button "Latte · 8 g" [ref=e484] [cursor=pointer]
+              - button "Filter Coffee · 15 g" [ref=e485] [cursor=pointer]
+              - button "Large Brew · 20 g" [ref=e486] [cursor=pointer]
+              - button "Pour Over · 18 g" [ref=e487] [cursor=pointer]
+              - button "French Press · 25 g" [ref=e488] [cursor=pointer]
+              - button "Cold Brew · 30 g" [ref=e489] [cursor=pointer]
+              - button "Moka Pot · 12 g" [ref=e490] [cursor=pointer]
+              - button "AeroPress · 15 g" [ref=e491] [cursor=pointer]
+              - button "Custom" [ref=e492] [cursor=pointer]
+          - generic [ref=e493]:
+            - generic [ref=e494]: Date & Time
+            - textbox "Date & Time" [ref=e495]: 2026-07-25T21:55
+            - paragraph [ref=e496]: Defaults to now.
+          - generic [ref=e497]:
+            - button "Log Coffee" [ref=e498] [cursor=pointer]:
+              - generic [ref=e499]: Log Coffee
+            - button "Reset" [ref=e500] [cursor=pointer]
+        - generic [ref=e501]:
+          - generic [ref=e502]:
+            - heading "Recent Logs" [level=2] [ref=e503]
+            - generic [ref=e504]:
+              - button "Everyone" [ref=e505] [cursor=pointer]
+              - button "Just Me" [ref=e506] [cursor=pointer]
+          - generic [ref=e508]:
+            - generic [ref=e510]:
+              - generic [ref=e511]:
+                - paragraph [ref=e512]: Lavazza Super Crema · 17 g
+                - paragraph [ref=e513]: John Smith · Yesterday, 6:37 PM
+              - generic [ref=e514]:
+                - generic [ref=e516]: −17 g
+                - button "edit" [ref=e517] [cursor=pointer]:
+                  - generic [ref=e518]: edit
+                - button "delete" [ref=e519] [cursor=pointer]:
+                  - generic [ref=e520]: delete
+            - generic [ref=e522]:
+              - generic [ref=e523]:
+                - paragraph [ref=e524]: Lavazza Super Crema · 20 g
+                - paragraph [ref=e525]: John Smith · Yesterday, 4:35 PM
+              - generic [ref=e526]:
+                - generic [ref=e528]: −20 g
+                - button "edit" [ref=e529] [cursor=pointer]:
+                  - generic [ref=e530]: edit
+                - button "delete" [ref=e531] [cursor=pointer]:
+                  - generic [ref=e532]: delete
+            - generic [ref=e534]:
+              - generic [ref=e535]:
+                - paragraph [ref=e536]: Lavazza Super Crema · 20 g
+                - paragraph [ref=e537]: Sarah Johnson · Yesterday, 4:35 PM
+              - generic [ref=e538]:
+                - generic [ref=e540]: −20 g
+                - button "edit" [ref=e541] [cursor=pointer]:
+                  - generic [ref=e542]: edit
+                - button "delete" [ref=e543] [cursor=pointer]:
+                  - generic [ref=e544]: delete
+            - generic [ref=e546]:
+              - generic [ref=e547]:
+                - paragraph [ref=e548]: Lavazza Super Crema · 20 g
+                - paragraph [ref=e549]: Alex Brown · Yesterday, 4:35 PM
+              - generic [ref=e550]:
+                - generic [ref=e552]: −20 g
+                - button "edit" [ref=e553] [cursor=pointer]:
+                  - generic [ref=e554]: edit
+                - button "delete" [ref=e555] [cursor=pointer]:
+                  - generic [ref=e556]: delete
+            - generic [ref=e558]:
+              - generic [ref=e559]:
+                - paragraph [ref=e560]: Lavazza Super Crema · 18 g
+                - paragraph [ref=e561]: John Smith · Yesterday, 2:03 PM
+              - generic [ref=e562]:
+                - generic [ref=e564]: −18 g
+                - button "edit" [ref=e565] [cursor=pointer]:
+                  - generic [ref=e566]: edit
+                - button "delete" [ref=e567] [cursor=pointer]:
+                  - generic [ref=e568]: delete
+            - generic [ref=e570]:
+              - generic [ref=e571]:
+                - paragraph [ref=e572]: Lavazza Super Crema · 18 g
+                - paragraph [ref=e573]: Sarah Johnson · Yesterday, 2:03 PM
+              - generic [ref=e574]:
+                - generic [ref=e576]: −18 g
+                - button "edit" [ref=e577] [cursor=pointer]:
+                  - generic [ref=e578]: edit
+                - button "delete" [ref=e579] [cursor=pointer]:
+                  - generic [ref=e580]: delete
+            - generic [ref=e582]:
+              - generic [ref=e583]:
+                - paragraph [ref=e584]: Lavazza Super Crema · 18 g
+                - paragraph [ref=e585]: Emma Davis · Yesterday, 2:03 PM
+              - generic [ref=e586]:
+                - generic [ref=e588]: −18 g
+                - button "edit" [ref=e589] [cursor=pointer]:
+                  - generic [ref=e590]: edit
+                - button "delete" [ref=e591] [cursor=pointer]:
+                  - generic [ref=e592]: delete
+            - generic [ref=e594]:
+              - generic [ref=e595]:
+                - paragraph [ref=e596]: Lavazza Super Crema · 18 g
+                - paragraph [ref=e597]: Alex Brown · Yesterday, 2:03 PM
+              - generic [ref=e598]:
+                - generic [ref=e600]: −18 g
+                - button "edit" [ref=e601] [cursor=pointer]:
+                  - generic [ref=e602]: edit
+                - button "delete" [ref=e603] [cursor=pointer]:
+                  - generic [ref=e604]: delete
+            - generic [ref=e606]:
+              - generic [ref=e607]:
+                - paragraph [ref=e608]: Starbucks Pike Place · 15 g
+                - paragraph [ref=e609]: John Smith · Yesterday, 10:17 AM
+              - generic [ref=e610]:
+                - generic [ref=e612]: −15 g
+                - button "edit" [ref=e613] [cursor=pointer]:
+                  - generic [ref=e614]: edit
+                - button "delete" [ref=e615] [cursor=pointer]:
+                  - generic [ref=e616]: delete
+            - generic [ref=e618]:
+              - generic [ref=e619]:
+                - paragraph [ref=e620]: Starbucks Pike Place · 15 g
+                - paragraph [ref=e621]: Sarah Johnson · Yesterday, 10:17 AM
+              - generic [ref=e622]:
+                - generic [ref=e624]: −15 g
+                - button "edit" [ref=e625] [cursor=pointer]:
+                  - generic [ref=e626]: edit
+                - button "delete" [ref=e627] [cursor=pointer]:
+                  - generic [ref=e628]: delete

@@ -1,0 +1,229 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5] [cursor=pointer]:
+        - img "BeanShare" [ref=e6]
+        - generic [ref=e7]: BeanShare
+      - button "close" [ref=e8] [cursor=pointer]:
+        - generic [ref=e9]: close
+    - navigation [ref=e10]:
+      - generic [ref=e11]:
+        - link "groups My Spaces" [ref=e12] [cursor=pointer]:
+          - /url: /spaces
+          - generic [ref=e13]: groups
+          - generic [ref=e14]: My Spaces
+        - link "history History" [ref=e15] [cursor=pointer]:
+          - /url: /history
+          - generic [ref=e16]: history
+          - generic [ref=e17]: History
+      - generic [ref=e18]:
+        - generic [ref=e19]: Account
+        - link "person Profile" [ref=e20] [cursor=pointer]:
+          - /url: /profile
+          - generic [ref=e21]: person
+          - generic [ref=e22]: Profile
+        - link "settings Settings" [ref=e23] [cursor=pointer]:
+          - /url: /settings
+          - generic [ref=e24]: settings
+          - generic [ref=e25]: Settings
+        - button "logout Logout" [ref=e26] [cursor=pointer]:
+          - generic [ref=e27]: logout
+          - generic [ref=e28]: Logout
+    - generic [ref=e30]:
+      - generic [ref=e31]: JS
+      - generic [ref=e32]:
+        - generic [ref=e33]: John Smith
+        - generic [ref=e34]: john.smith@beanshare.dev
+  - generic [ref=e35]:
+    - banner [ref=e36]:
+      - generic [ref=e37]:
+        - button "menu_open" [ref=e154] [cursor=pointer]:
+          - generic [ref=e39]: menu_open
+        - navigation [ref=e40]:
+          - link "Home" [ref=e41] [cursor=pointer]:
+            - /url: /
+          - generic [ref=e42]: /
+          - generic [ref=e43]: Spaces
+      - generic [ref=e45]:
+        - generic [ref=e46]: search
+        - textbox "Search spaces, members, or coffee..." [ref=e47]
+        - generic [ref=e48]: Enter
+      - generic [ref=e49]:
+        - button "notifications 2" [ref=e155] [cursor=pointer]:
+          - generic [ref=e51]: notifications
+          - generic [ref=e156]: "2"
+        - button "help" [ref=e52] [cursor=pointer]:
+          - generic [ref=e53]: help
+        - button "JS John Smith expand_more" [ref=e55] [cursor=pointer]:
+          - generic [ref=e56]: JS
+          - generic [ref=e57]: John Smith
+          - generic [ref=e58]: expand_more
+    - generic [ref=e59]:
+      - generic [ref=e158]:
+        - generic [ref=e159]:
+          - generic [ref=e160]:
+            - generic [ref=e161]:
+              - heading "Log your coffee" [level=1] [ref=e162]
+              - paragraph [ref=e163]: One tap to record a cup — choose who and how many.
+            - button "coffee Log Coffee" [ref=e164] [cursor=pointer]:
+              - generic [ref=e165]: coffee
+              - text: Log Coffee
+          - generic [ref=e166]:
+            - generic [ref=e167]:
+              - generic [ref=e168]: TODAY
+              - generic [ref=e169]: "0"
+            - generic [ref=e170]:
+              - generic [ref=e171]: THIS WEEK
+              - generic [ref=e172]: "21"
+            - generic [ref=e173]:
+              - generic [ref=e174]: TOTAL SPENT
+              - generic [ref=e175]: $103.76
+          - generic [ref=e176]:
+            - generic [ref=e177]: RECENT ACTIVITY
+            - generic [ref=e178]:
+              - button "Super Crema · 17 g · Engineering Team Yesterday" [ref=e179] [cursor=pointer]:
+                - generic [ref=e180]:
+                  - text: Super Crema
+                  - generic [ref=e181]: · 17 g · Engineering Team
+                - generic [ref=e182]: Yesterday
+              - button "Super Crema · 20 g · Engineering Team Yesterday" [ref=e183] [cursor=pointer]:
+                - generic [ref=e184]:
+                  - text: Super Crema
+                  - generic [ref=e185]: · 20 g · Engineering Team
+                - generic [ref=e186]: Yesterday
+              - button "Super Crema · 18 g · Engineering Team Yesterday" [ref=e187] [cursor=pointer]:
+                - generic [ref=e188]:
+                  - text: Super Crema
+                  - generic [ref=e189]: · 18 g · Engineering Team
+                - generic [ref=e190]: Yesterday
+              - button "Pike Place · 15 g · Engineering Team Yesterday" [ref=e191] [cursor=pointer]:
+                - generic [ref=e192]:
+                  - text: Pike Place
+                  - generic [ref=e193]: · 15 g · Engineering Team
+                - generic [ref=e194]: Yesterday
+              - button "Pike Place · 15 g · Executive Lounge Yesterday" [ref=e195] [cursor=pointer]:
+                - generic [ref=e196]:
+                  - text: Pike Place
+                  - generic [ref=e197]: · 15 g · Executive Lounge
+                - generic [ref=e198]: Yesterday
+        - generic [ref=e199]:
+          - button "insights Your insights expand_less" [active] [ref=e256] [cursor=pointer]:
+            - generic [ref=e201]:
+              - generic [ref=e202]: insights
+              - generic [ref=e203]: Your insights
+            - generic [ref=e204]: expand_less
+          - generic [ref=e257]:
+            - generic [ref=e258]:
+              - generic [ref=e259]:
+                - generic [ref=e260]: TOTAL CUPS
+                - generic [ref=e261]: "93"
+              - generic [ref=e262]:
+                - generic [ref=e263]: DAILY AVG
+                - generic [ref=e264]: "3.0"
+              - generic [ref=e265]:
+                - generic [ref=e266]: THIS MONTH
+                - generic [ref=e267]: "74"
+              - generic [ref=e268]:
+                - generic [ref=e269]: FAVORITE
+                - generic [ref=e270]: Pike Place
+            - generic [ref=e271]:
+              - generic [ref=e272]: Last 30 days
+              - generic [ref=e273]:
+                - 'generic "Jun 26: 3 cups" [ref=e274]'
+                - 'generic "Jun 27: 0 cups" [ref=e276]'
+                - 'generic "Jun 28: 4 cups" [ref=e277]'
+                - 'generic "Jun 29: 4 cups" [ref=e279]'
+                - 'generic "Jun 30: 4 cups" [ref=e281]'
+                - 'generic "Jul 01: 4 cups" [ref=e283]'
+                - 'generic "Jul 02: 3 cups" [ref=e285]'
+                - 'generic "Jul 03: 3 cups" [ref=e287]'
+                - 'generic "Jul 04: 0 cups" [ref=e289]'
+                - 'generic "Jul 05: 3 cups" [ref=e290]'
+                - 'generic "Jul 06: 4 cups" [ref=e292]'
+                - 'generic "Jul 07: 3 cups" [ref=e294]'
+                - 'generic "Jul 08: 3 cups" [ref=e296]'
+                - 'generic "Jul 09: 4 cups" [ref=e298]'
+                - 'generic "Jul 10: 4 cups" [ref=e300]'
+                - 'generic "Jul 11: 0 cups" [ref=e302]'
+                - 'generic "Jul 12: 3 cups" [ref=e303]'
+                - 'generic "Jul 13: 3 cups" [ref=e305]'
+                - 'generic "Jul 14: 3 cups" [ref=e307]'
+                - 'generic "Jul 15: 4 cups" [ref=e309]'
+                - 'generic "Jul 16: 4 cups" [ref=e311]'
+                - 'generic "Jul 17: 5 cups" [ref=e313]'
+                - 'generic "Jul 18: 0 cups" [ref=e315]'
+                - 'generic "Jul 19: 0 cups" [ref=e316]'
+                - 'generic "Jul 20: 5 cups" [ref=e317]'
+                - 'generic "Jul 21: 3 cups" [ref=e319]'
+                - 'generic "Jul 22: 5 cups" [ref=e321]'
+                - 'generic "Jul 23: 3 cups" [ref=e323]'
+                - 'generic "Jul 24: 5 cups" [ref=e325]'
+                - 'generic "Jul 25: 0 cups" [ref=e327]'
+            - generic [ref=e328]:
+              - generic [ref=e329]: Favorite coffee types
+              - generic [ref=e330]:
+                - generic [ref=e332]:
+                  - generic [ref=e333]: Pike Place
+                  - generic [ref=e334]: 47 cups · 51%
+                - generic [ref=e338]:
+                  - generic [ref=e339]: Super Crema
+                  - generic [ref=e340]: 46 cups · 49%
+            - generic [ref=e343]:
+              - generic [ref=e344]: Spending by currency
+              - generic [ref=e345]:
+                - generic [ref=e346]:
+                  - generic [ref=e347]: USD
+                  - generic [ref=e348]: 74.78 USD
+                - generic [ref=e349]:
+                  - generic [ref=e350]: USD
+                  - generic [ref=e351]: 28.98 USD
+        - generic [ref=e205]:
+          - heading "Your spaces" [level=2] [ref=e206]
+          - paragraph [ref=e207]: Select a space to manage coffee consumption and costs.
+        - text: "}"
+        - generic [ref=e208]:
+          - button "Open space Engineering Team" [ref=e209] [cursor=pointer]:
+            - generic [ref=e210]:
+              - generic [ref=e212]: coffee
+              - generic [ref=e213]:
+                - generic [ref=e214]:
+                  - heading "Engineering Team" [level=3] [ref=e215]
+                  - generic [ref=e216]: Admin
+                - paragraph [ref=e217]: 6 members
+              - generic [ref=e218]: chevron_right
+          - button "Open space Remote Workers Hub" [ref=e219] [cursor=pointer]:
+            - generic [ref=e220]:
+              - generic [ref=e222]: coffee
+              - generic [ref=e223]:
+                - generic [ref=e224]:
+                  - heading "Remote Workers Hub" [level=3] [ref=e225]
+                  - generic [ref=e226]: Member
+                - paragraph [ref=e227]: 5 members
+              - generic [ref=e228]: chevron_right
+          - button "Open space Startup Garage" [ref=e229] [cursor=pointer]:
+            - generic [ref=e230]:
+              - generic [ref=e232]: coffee
+              - generic [ref=e233]:
+                - generic [ref=e234]:
+                  - heading "Startup Garage" [level=3] [ref=e235]
+                  - generic [ref=e236]: Member
+                - paragraph [ref=e237]: 3 members
+              - generic [ref=e238]: chevron_right
+          - button "Open space Executive Lounge" [ref=e239] [cursor=pointer]:
+            - generic [ref=e240]:
+              - generic [ref=e242]: coffee
+              - generic [ref=e243]:
+                - generic [ref=e244]:
+                  - heading "Executive Lounge" [level=3] [ref=e245]
+                  - generic [ref=e246]: Admin
+                - paragraph [ref=e247]: 3 members
+              - generic [ref=e248]: chevron_right
+        - generic [ref=e249]:
+          - button "add_circle Create New Space" [ref=e250] [cursor=pointer]:
+            - generic [ref=e251]: add_circle
+            - text: Create New Space
+          - button "login Join with Invite Code" [ref=e252] [cursor=pointer]:
+            - generic [ref=e253]: login
+            - text: Join with Invite Code
+      - button "Log coffee consumption" [ref=e254] [cursor=pointer]:
+        - generic [ref=e255]: coffee

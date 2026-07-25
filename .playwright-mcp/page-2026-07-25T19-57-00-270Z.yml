@@ -1,0 +1,102 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5] [cursor=pointer]:
+        - img "BeanShare" [ref=e6]
+        - generic [ref=e7]: BeanShare
+      - button "close" [ref=e8] [cursor=pointer]:
+        - generic [ref=e9]: close
+    - navigation [ref=e10]:
+      - generic [ref=e11]:
+        - link "groups My Spaces" [ref=e12] [cursor=pointer]:
+          - /url: /spaces
+          - generic [ref=e13]: groups
+          - generic [ref=e14]: My Spaces
+        - link "history History" [ref=e15] [cursor=pointer]:
+          - /url: /history
+          - generic [ref=e16]: history
+          - generic [ref=e17]: History
+      - generic [ref=e18]:
+        - generic [ref=e19]: Account
+        - link "person Profile" [ref=e20] [cursor=pointer]:
+          - /url: /profile
+          - generic [ref=e21]: person
+          - generic [ref=e22]: Profile
+        - link "settings Settings" [ref=e23] [cursor=pointer]:
+          - /url: /settings
+          - generic [ref=e24]: settings
+          - generic [ref=e25]: Settings
+        - button "logout Logout" [ref=e26] [cursor=pointer]:
+          - generic [ref=e27]: logout
+          - generic [ref=e28]: Logout
+    - generic [ref=e30]:
+      - generic [ref=e31]: JS
+      - generic [ref=e32]:
+        - generic [ref=e33]: John Smith
+        - generic [ref=e34]: john.smith@beanshare.dev
+  - generic [ref=e35]:
+    - banner [ref=e201]:
+      - generic [ref=e202]:
+        - button "menu_open" [ref=e203] [cursor=pointer]:
+          - generic [ref=e204]: menu_open
+        - navigation [ref=e205]:
+          - link "Home" [ref=e206] [cursor=pointer]:
+            - /url: /
+          - generic [ref=e207]: /
+          - link "Spaces" [ref=e208] [cursor=pointer]:
+            - /url: /spaces
+          - generic [ref=e209]: /
+          - link "Space Details" [ref=e210] [cursor=pointer]:
+            - /url: /spaces/aaaa1111-aaaa-1111-aaaa-111111111111
+          - generic [ref=e211]: /
+          - link "billing" [ref=e212] [cursor=pointer]:
+            - /url: /spaces/aaaa1111-aaaa-1111-aaaa-111111111111/billing
+          - generic [ref=e213]: /
+          - generic [ref=e214]: Space Details
+      - generic [ref=e216]:
+        - generic [ref=e217]: search
+        - textbox "Search spaces, members, or coffee..." [ref=e218]
+        - generic [ref=e219]: Enter
+      - generic [ref=e220]:
+        - button "notifications 2" [ref=e221] [cursor=pointer]:
+          - generic [ref=e222]: notifications
+          - generic [ref=e223]: "2"
+        - button "help" [ref=e224] [cursor=pointer]:
+          - generic [ref=e225]: help
+        - button "JS John Smith expand_more" [ref=e227] [cursor=pointer]:
+          - generic [ref=e228]: JS
+          - generic [ref=e229]: John Smith
+          - generic [ref=e230]: expand_more
+    - generic [ref=e63]:
+      - generic [ref=e233]:
+        - button "Back to billing periods" [ref=e234] [cursor=pointer]:
+          - generic [ref=e235]: arrow_back
+        - heading "July 2026" [level=1] [ref=e236]
+      - generic [ref=e237]:
+        - generic [ref=e238]:
+          - generic [ref=e240]:
+            - generic [ref=e241]: Open
+            - heading "July 2026" [level=2] [ref=e242]
+            - paragraph [ref=e243]: July 01, 2026 — July 31, 2026
+          - generic [ref=e244]:
+            - generic [ref=e245]:
+              - paragraph [ref=e246]: Consumption Entries
+              - paragraph [ref=e247]: "189"
+            - generic [ref=e248]:
+              - paragraph [ref=e249]: Total Coffee
+              - paragraph [ref=e250]: 3461g
+            - generic [ref=e251]:
+              - paragraph [ref=e252]: Estimated Cost
+              - paragraph [ref=e253]: USD 161.25
+          - button "lock Close Period" [ref=e255] [cursor=pointer]:
+            - generic [ref=e256]: lock
+            - generic [ref=e257]: Close Period
+        - generic [ref=e258]:
+          - heading "Timeline" [level=3] [ref=e259]
+          - generic [ref=e260]:
+            - generic [ref=e261]:
+              - paragraph [ref=e263]: Created
+              - paragraph [ref=e264]: Jul 01, 2026 at 12:00 AM
+            - generic [ref=e265]:
+              - paragraph [ref=e267]: Opened
+              - paragraph [ref=e268]: Jul 01, 2026 at 12:00 AM
