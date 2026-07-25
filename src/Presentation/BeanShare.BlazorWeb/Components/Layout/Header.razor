@@ -42,7 +42,7 @@
         <div class="header-search">
             <span class="material-symbols-outlined search-icon">search</span>
             <input type="text" class="search-input" placeholder="Search spaces, members, or coffee..." @bind="searchQuery" @onkeyup="@(async (e) => { if (e.Key == "Enter") await Search(); })" />
-            <span class="search-shortcut">Ctrl+K</span>
+            <span class="search-shortcut">Enter</span>
         </div>
     </div>
 

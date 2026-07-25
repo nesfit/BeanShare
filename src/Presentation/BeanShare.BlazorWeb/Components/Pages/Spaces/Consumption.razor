@@ -92,7 +92,7 @@ else
                            QuickPresets="@quickPresets"
                            SpaceMembers="@space?.Members?.ToList()"
                            CurrentUserId="@UserContext.CurrentUserId.Value"
-                           DefaultStockLevelId="@(stockProducts.Where(s => s.IsCurrentlyUsed).OrderByDescending(s => s.UpdatedAt).FirstOrDefault()?.Id)" />
+                           DefaultStockLevelId="@DefaultProductId()" />
 
             <div>
                 <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 0.75rem;">
@@ -293,6 +293,28 @@ else
         {
             ShowToast(true, "Error", $"Failed to load stock: {ex.Message}");
         }
+    }
+
+    // Which product the log form pre-selects, so most logs are one tap (no product picking):
+    //   1) the open / "currently used" bag (the natural default once someone opens a bag),
+    //   2) otherwise the product with the most stock left — a sensible starting point that
+    //      also trivially covers the single-product case. The user can always change it.
+    private Guid? DefaultProductId()
+    {
+        if (stockProducts.Count == 0)
+            return null;
+
+        var open = stockProducts
+            .Where(s => s.IsCurrentlyUsed)
+            .OrderByDescending(s => s.UpdatedAt)
+            .FirstOrDefault();
+        if (open != null)
+            return open.Id;
+
+        return stockProducts
+            .OrderByDescending(s => s.CurrentStockGrams)
+            .First()
+            .Id;
     }
 
     private async Task LoadConsumption()

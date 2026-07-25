@@ -125,7 +125,7 @@ else
     private string GetReturnUrl()
     {
         var returnUrl = HttpContextAccessor.HttpContext?.Request.Query["returnUrl"].ToString();
-        return string.IsNullOrEmpty(returnUrl) ? "/spaces" : returnUrl;
+        return string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl;
     }
 
     private async Task HandleLogin()

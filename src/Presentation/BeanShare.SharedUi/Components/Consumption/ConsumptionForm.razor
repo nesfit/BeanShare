@@ -483,5 +483,20 @@
         memberCounts.Clear();
         logForMyself = true;
         myselfCount = 1;
+
+        // Re-apply the default product so logging several cups in a row stays one tap
+        // (OnParametersSet won't fire again after an internal reset).
+        if (DefaultStockLevelId.HasValue)
+        {
+            var defaultProduct = StockProducts?.FirstOrDefault(p => p.Id == DefaultStockLevelId.Value);
+            if (defaultProduct != null)
+            {
+                selectedProductId = defaultProduct.Id.ToString();
+                selectedProduct = defaultProduct;
+                model.ProductName = defaultProduct.ProductName;
+                model.ProductBrand = defaultProduct.ProductBrand;
+                model.ProductType = defaultProduct.ProductType;
+            }
+        }
     }
 }

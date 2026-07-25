@@ -32,13 +32,13 @@ public static class AccountEndpoints
         {
             var properties = new AuthenticationProperties
             {
-                RedirectUri = returnUrl ?? "/spaces"
+                RedirectUri = returnUrl ?? "/"
             };
 
             return Task.FromResult(Results.Challenge(properties, new[] { OpenIdConnectDefaults.AuthenticationScheme }));
         }
 
-        return Task.FromResult(Results.Redirect($"/login?returnUrl={Uri.EscapeDataString(returnUrl ?? "/spaces")}"));
+        return Task.FromResult(Results.Redirect($"/login?returnUrl={Uri.EscapeDataString(returnUrl ?? "/")}"));
     }
 
     private static Task<IResult> ExternalLogin(
@@ -53,7 +53,7 @@ public static class AccountEndpoints
         {
             var properties = new AuthenticationProperties
             {
-                RedirectUri = returnUrl ?? "/spaces"
+                RedirectUri = returnUrl ?? "/"
             };
 
             var idpHint = provider.ToLowerInvariant() switch
@@ -78,7 +78,7 @@ public static class AccountEndpoints
             return Task.FromResult(Results.BadRequest("Invalid provider"));
         }
 
-        var redirectUrl = $"/account/external-callback?returnUrl={Uri.EscapeDataString(returnUrl ?? "/spaces")}";
+        var redirectUrl = $"/account/external-callback?returnUrl={Uri.EscapeDataString(returnUrl ?? "/")}";
 
         var authProperties = new AuthenticationProperties
         {
@@ -99,7 +99,7 @@ public static class AccountEndpoints
 
         if (useOidc)
         {
-            var finalReturnUrl = string.IsNullOrEmpty(returnUrl) ? "/spaces" : returnUrl;
+            var finalReturnUrl = string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl;
             return Results.Redirect(finalReturnUrl);
         }
 
@@ -134,7 +134,7 @@ public static class AccountEndpoints
                 await authService.SignInAsync(httpContext, user);
             }
 
-            var finalReturnUrl = string.IsNullOrEmpty(returnUrl) ? "/spaces" : returnUrl;
+            var finalReturnUrl = string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl;
             return Results.Redirect(finalReturnUrl);
         }
         catch (Exception ex)

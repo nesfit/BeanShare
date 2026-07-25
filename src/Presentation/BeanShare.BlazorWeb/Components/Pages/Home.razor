@@ -1,15 +1,23 @@
 @page "/"
 @using Microsoft.AspNetCore.Components.Authorization
+@using MediatR
+@using BeanShare.Application.Features.Spaces.Queries
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IMediator Mediator
 
 <PageTitle>Welcome - BeanShare</PageTitle>
 
 <AuthorizeView>
     <Authorized>
-        @{
-            Navigation.NavigateTo("/spaces", true);
-        }
+        @* Authenticated users are redirected in OnInitializedAsync (smart landing):
+           a single space -> straight to its Consumption view (0 clicks to log);
+           zero or multiple spaces -> the /spaces home. This skeleton shows only
+           for the brief moment before the redirect resolves. *@
+        <div class="bs-container" style="padding-top: 4rem; text-align: center;">
+            <div class="bs-skeleton" style="width: 12rem; height: 2rem; margin: 0 auto 1rem;"></div>
+            <div class="bs-skeleton" style="width: 20rem; height: 1rem; margin: 0 auto;"></div>
+        </div>
     </Authorized>
     <NotAuthorized>
         <div class="bs-landing-container">
@@ -54,4 +62,34 @@
 
 
 @code {
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            return; // anonymous -> render the marketing landing above
+        }
+
+        // Smart landing: send a single-space user straight to logging; everyone else
+        // to the /spaces home (which lets them pick a space or create/join one).
+        try
+        {
+            var result = await Mediator.Send(new GetUserSpacesQuery());
+            if (result.IsSuccess)
+            {
+                var spaces = result.Value.Spaces.ToList();
+                if (spaces.Count == 1)
+                {
+                    Navigation.NavigateTo($"/spaces/{spaces[0].SpaceId}/consumption");
+                    return;
+                }
+            }
+        }
+        catch
+        {
+            // Fall through to the spaces home on any failure loading spaces.
+        }
+
+        Navigation.NavigateTo("/spaces");
+    }
 }

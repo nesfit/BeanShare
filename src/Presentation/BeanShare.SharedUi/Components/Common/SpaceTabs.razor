@@ -1,9 +1,9 @@
 <nav class="bs-tabs">
-    <a class="bs-tab @(ActiveTab == "members" ? "bs-tab-active" : "")"
-       href="@GetTabUrl("members")"
-       @onclick="@(() => HandleTabClick("members"))"
+    <a class="bs-tab @(ActiveTab == "consumption" ? "bs-tab-active" : "")"
+       href="@GetTabUrl("consumption")"
+       @onclick="@(() => HandleTabClick("consumption"))"
        @onclick:preventDefault="@PreventNavigation">
-        Members
+        Consumption
     </a>
     <a class="bs-tab @(ActiveTab == "stock" ? "bs-tab-active" : "")"
        href="@GetTabUrl("stock")"
@@ -11,17 +11,17 @@
        @onclick:preventDefault="@PreventNavigation">
         Stock
     </a>
-    <a class="bs-tab @(ActiveTab == "consumption" ? "bs-tab-active" : "")"
-       href="@GetTabUrl("consumption")"
-       @onclick="@(() => HandleTabClick("consumption"))"
-       @onclick:preventDefault="@PreventNavigation">
-        Consumption
-    </a>
     <a class="bs-tab @(ActiveTab == "ledger" ? "bs-tab-active" : "")"
        href="@GetTabUrl("ledger")"
        @onclick="@(() => HandleTabClick("ledger"))"
        @onclick:preventDefault="@PreventNavigation">
         Ledger
+    </a>
+    <a class="bs-tab @(ActiveTab == "members" ? "bs-tab-active" : "")"
+       href="@GetTabUrl("members")"
+       @onclick="@(() => HandleTabClick("members"))"
+       @onclick:preventDefault="@PreventNavigation">
+        Members
     </a>
     <a class="bs-tab @(ActiveTab == "billing" ? "bs-tab-active" : "")"
        href="@GetTabUrl("billing")"

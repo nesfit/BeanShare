@@ -7,7 +7,10 @@
 @using BeanShare.Application.Features.CoffeeStock.Dtos
 @using BeanShare.Application.Features.Presets.Queries
 @using BeanShare.Application.Features.Consumption.Commands
+@using BeanShare.Application.Features.Consumption.Queries.GetUserConsumptionHistory
+@using BeanShare.Application.Features.Consumption.Dtos
 @using BeanShare.Application.Features.ActiveQrCodes.Queries
+@using BeanShare.Application.Features.Analytics.Queries.GetUserStatistics
 @using BeanShare.SharedUi.Components.Consumption.Models
 @using BeanShare.SharedUi.Services
 @using Microsoft.AspNetCore.Authorization
@@ -22,10 +25,71 @@
 
 <div class="bs-container" style="padding-top: 2rem; padding-bottom: 2rem;">
     <div style="max-width: 48rem; margin: 0 auto;">
-        <div style="margin-bottom: 2rem;">
-            <h1 class="bs-font-bold" style="margin: 0 0 0.5rem 0; font-size: 2rem;">Your Spaces</h1>
-            <p class="bs-text-subtle">Select a space to manage coffee consumption and costs.</p>
-        </div>
+        @if (spaces.Any())
+        {
+            <div class="bs-card" style="margin-bottom: 1.5rem;">
+                <div class="bs-flex bs-items-center bs-justify-between" style="gap: 1rem; flex-wrap: wrap;">
+                    <div style="min-width: 0;">
+                        <h1 class="bs-font-bold" style="margin: 0 0 0.25rem 0; font-size: 1.5rem;">Log your coffee</h1>
+                        <p class="bs-text-subtle" style="margin: 0;">One tap to record a cup — choose who and how many.</p>
+                    </div>
+                    <button class="bs-btn bs-btn-primary" style="font-size: 1rem; padding: 0.875rem 1.5rem; gap: 0.5rem;" @onclick="OpenQuickConsumption">
+                        <span class="material-symbols-outlined">coffee</span>
+                        Log Coffee
+                    </button>
+                </div>
+                @if (statistics != null)
+                {
+                    <div class="bs-flex bs-gap-3" style="margin-top: 1rem; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 6rem; background: var(--bs-gray-50); border-radius: 0.5rem; padding: 0.625rem 0.875rem;">
+                            <div style="font-size: 0.75rem; color: var(--bs-text-subtle); font-weight: 600;">TODAY</div>
+                            <div style="font-size: 1.25rem; font-weight: 700;">@statistics.CupsToday</div>
+                        </div>
+                        <div style="flex: 1; min-width: 6rem; background: var(--bs-gray-50); border-radius: 0.5rem; padding: 0.625rem 0.875rem;">
+                            <div style="font-size: 0.75rem; color: var(--bs-text-subtle); font-weight: 600;">THIS WEEK</div>
+                            <div style="font-size: 1.25rem; font-weight: 700;">@statistics.CupsThisWeek</div>
+                        </div>
+                        @if (statistics.TotalCost != null)
+                        {
+                            <div style="flex: 1; min-width: 6rem; background: var(--bs-gray-50); border-radius: 0.5rem; padding: 0.625rem 0.875rem;">
+                                <div style="font-size: 0.75rem; color: var(--bs-text-subtle); font-weight: 600;">TOTAL SPENT</div>
+                                <div style="font-size: 1.25rem; font-weight: 700;">@statistics.TotalCost.Currency.FormatAmount(statistics.TotalCost.Amount)</div>
+                            </div>
+                        }
+                    </div>
+                }
+                @if (recentActivity.Any())
+                {
+                    <div style="margin-top: 1rem; border-top: 1px solid var(--bs-border); padding-top: 0.875rem;">
+                        <div style="font-size: 0.75rem; color: var(--bs-text-subtle); font-weight: 600; margin-bottom: 0.5rem;">RECENT ACTIVITY</div>
+                        <div class="bs-flex bs-flex-col" style="gap: 0.375rem;">
+                            @foreach (var item in recentActivity)
+                            {
+                                <div class="bs-flex bs-items-center bs-justify-between" style="font-size: 0.8125rem; gap: 0.5rem;">
+                                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;">
+                                        <span style="font-weight: 600;">@item.ProductName</span>
+                                        <span style="color: var(--bs-text-subtle);"> · @item.QuantityGrams g · @item.SpaceName</span>
+                                    </span>
+                                    <span style="color: var(--bs-text-subtle); white-space: nowrap; flex-shrink: 0;">@FormatWhen(item.ConsumedAt)</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <h2 class="bs-font-bold" style="margin: 0 0 0.25rem 0; font-size: 1.25rem;">Your spaces</h2>
+                <p class="bs-text-subtle" style="margin: 0;">Select a space to manage coffee consumption and costs.</p>
+            </div>
+        }
+        else
+        {
+            <div style="margin-bottom: 2rem;">
+                <h1 class="bs-font-bold" style="margin: 0 0 0.5rem 0; font-size: 2rem;">Your Spaces</h1>
+                <p class="bs-text-subtle">Create or join a space to start tracking coffee with your team.</p>
+            </div>
+        }
 
         <SpacesList Spaces="@spaces"
                    IsLoading="@isLoading"
@@ -93,6 +157,8 @@
     public string? Action { get; set; }
 
     private List<SpaceSummaryDto> spaces = new();
+    private UserStatisticsDto? statistics;
+    private List<ConsumptionHistoryItemDto> recentActivity = new();
     private bool isLoading = true;
     private bool showCreateModal;
     private bool showJoinModal;
@@ -111,11 +177,64 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadSpaces();
+        await LoadStatistics();
+        await LoadRecentActivity();
 
         if (string.Equals(Action, "create", StringComparison.OrdinalIgnoreCase))
         {
             showCreateModal = true;
         }
+    }
+
+    private async Task LoadStatistics()
+    {
+        // Best-effort: the hero KPI strip is informational, so a failure here must never
+        // block the spaces list from rendering.
+        try
+        {
+            var currentUserId = UserContext.CurrentUserId;
+            if (currentUserId.Value != Guid.Empty)
+            {
+                statistics = await Mediator.Send(new GetUserStatisticsQuery(currentUserId));
+            }
+        }
+        catch
+        {
+            statistics = null;
+        }
+    }
+
+    private async Task LoadRecentActivity()
+    {
+        // My most recent cups across all my spaces — shown under the hero KPIs.
+        // Best-effort like the KPI strip.
+        try
+        {
+            var result = await Mediator.Send(new GetUserConsumptionHistoryQuery(PageSize: 5));
+            if (result.IsSuccess)
+            {
+                recentActivity = result.Value.Items.ToList();
+            }
+        }
+        catch
+        {
+            recentActivity = new();
+        }
+    }
+
+    // Compact relative time for the recent-activity list. Converts UTC-stamped entries to
+    // local time; entries stored as local/unspecified are shown as-is.
+    private static string FormatWhen(DateTime dt)
+    {
+        var local = dt.Kind == DateTimeKind.Utc ? dt.ToLocalTime() : dt;
+        var now = DateTime.Now;
+        var span = now - local;
+
+        if (span.TotalSeconds < 60) return "just now";
+        if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes}m ago";
+        if (local.Date == now.Date) return local.ToString("HH:mm");
+        if (local.Date == now.Date.AddDays(-1)) return "Yesterday";
+        return local.ToString("MMM d");
     }
 
     private async Task LoadSpaces()
@@ -185,7 +304,9 @@
 
     private void HandleSpaceSelected(string spaceId)
     {
-        Navigation.NavigateTo($"/spaces/{spaceId}");
+        // Land directly on the Consumption view — logging is the primary daily action,
+        // so we skip the Members roster that used to be the space's default tab.
+        Navigation.NavigateTo($"/spaces/{spaceId}/consumption");
     }
 
     private void OpenQuickConsumption()
@@ -298,8 +419,12 @@
                 showQuickConsumptionModal = false;
                 var msg = successCount == 1
                     ? $"Logged {request.Grams}g of coffee!"
-                    : $"Logged {request.Grams}g of coffee for {successCount} members!";
+                    : $"Logged {successCount} cups!";
                 ShowToast(false, "Success", msg);
+
+                // Keep the hero KPIs + recent activity in sync with what was just logged.
+                await LoadStatistics();
+                await LoadRecentActivity();
             }
 
             if (errors.Any())
