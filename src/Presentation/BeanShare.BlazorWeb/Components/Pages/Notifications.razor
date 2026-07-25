@@ -8,6 +8,7 @@
 @using BeanShare.Application.Features.Notifications.Commands.MarkAllAsRead
 @attribute [Authorize]
 @inject IMediator Mediator
+@inject NavigationManager NavigationManager
 @inject ILogger<Notifications> Logger
 
 <PageTitle>Notifications - BeanShare</PageTitle>
@@ -44,7 +45,11 @@
         <div class="bs-flex bs-flex-col bs-gap-3">
             @foreach (var notification in notifications.OrderByDescending(n => n.CreatedAt))
             {
-                <div class="notification-item @(notification.IsRead ? "notification-read" : "")" @onclick="() => MarkAsReadAsync(notification.Id)">
+                <div class="notification-item @(notification.IsRead ? "notification-read" : "")"
+                     role="button"
+                     tabindex="0"
+                     @onclick="() => HandleNotificationClickAsync(notification)"
+                     @onkeydown="(e) => HandleNotificationKeyDownAsync(e, notification)">
                     <div class="bs-flex bs-gap-3">
                         <div class="notification-icon">
                             <span class="material-symbols-outlined">@GetNotificationIcon(notification.Type)</span>
@@ -66,22 +71,12 @@
                 </div>
             }
         </div>
-
-        @if (hasMore)
-        {
-            <div style="text-align: center; margin-top: 2rem;">
-                <button class="bs-btn bs-btn-outline" @onclick="LoadMore">
-                    Load more
-                </button>
-            </div>
-        }
     }
 </div>
 
 
 @code {
     private List<NotificationItem> notifications = new();
-    private bool hasMore = false;
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
@@ -119,6 +114,24 @@
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private async Task HandleNotificationClickAsync(NotificationItem notification)
+    {
+        await MarkAsReadAsync(notification.Id);
+
+        if (!string.IsNullOrWhiteSpace(notification.ActionUrl))
+        {
+            NavigationManager.NavigateTo(notification.ActionUrl);
+        }
+    }
+
+    private async Task HandleNotificationKeyDownAsync(KeyboardEventArgs e, NotificationItem notification)
+    {
+        if (e.Key is "Enter" or " " or "Spacebar")
+        {
+            await HandleNotificationClickAsync(notification);
         }
     }
 
@@ -165,11 +178,6 @@
         {
             Logger.LogError(ex, "Error marking all notifications as read");
         }
-    }
-
-    private async Task LoadMore()
-    {
-        await LoadNotifications();
     }
 
     private NotificationType ParseNotificationType(string type)

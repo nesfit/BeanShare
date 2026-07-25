@@ -44,7 +44,7 @@ else
                 </div>
             </div>
 
-            <SpaceTabs SpaceId="@SpaceId" ActiveTab="members" />
+            <SpaceTabs SpaceId="@SpaceId" ActiveTab="members" PreventNavigation="false" />
         </div>
     </div>
 
@@ -55,10 +55,19 @@ else
                      CurrentUserId="@UserContext.CurrentUserId.Value"
                      OnPromoteMember="HandlePromoteMember"
                      OnDemoteMember="HandleDemoteMember"
-                     OnRemoveMember="HandleRemoveMember"
+                     OnRemoveMember="RequestRemoveMember"
                      OnLeaveSpace="HandleLeaveSpace" />
     </div>
 }
+
+<ConfirmDialog IsVisible="@showRemoveDialog"
+               Title="Remove member?"
+               Message="@($"Remove {pendingRemoveName} from this space? They'll lose access to its data and can only rejoin with an invite code. Their past consumption stays in the records.")"
+               ConfirmText="Remove"
+               IsDestructive="true"
+               IsProcessing="@isRemoving"
+               OnConfirm="ExecuteRemoveMember"
+               OnCancel="@(() => showRemoveDialog = false)" />
 
 <Toast IsVisible="@showToast"
        IsError="@isToastError"
@@ -80,6 +89,11 @@ else
     private bool isToastError;
     private string toastTitle = "";
     private string toastMessage = "";
+
+    private bool showRemoveDialog;
+    private bool isRemoving;
+    private string pendingRemoveUserId = "";
+    private string pendingRemoveName = "this member";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -168,6 +182,28 @@ else
         catch (Exception ex)
         {
             ShowToast(true, "Error", $"Failed to demote member: {ex.Message}");
+        }
+    }
+
+    private void RequestRemoveMember(string userId)
+    {
+        pendingRemoveUserId = userId;
+        pendingRemoveName = space?.Members
+            .FirstOrDefault(m => m.UserId.ToString() == userId)?.UserName ?? "this member";
+        showRemoveDialog = true;
+    }
+
+    private async Task ExecuteRemoveMember()
+    {
+        isRemoving = true;
+        try
+        {
+            await HandleRemoveMember(pendingRemoveUserId);
+        }
+        finally
+        {
+            isRemoving = false;
+            showRemoveDialog = false;
         }
     }
 

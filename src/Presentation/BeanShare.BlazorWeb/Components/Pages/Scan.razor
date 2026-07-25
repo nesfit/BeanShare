@@ -9,19 +9,37 @@
 
 <PageTitle>Scan QR - BeanShare</PageTitle>
 
-<div class="bs-container" style="padding-top: 4rem; text-align: center;">
+<div class="bs-container" style="padding: 4rem 1rem;">
     @if (isLoading)
     {
-        <span class="material-symbols-outlined" style="font-size: 3rem; color: var(--bs-primary); display: block; margin-bottom: 1rem;">qr_code_scanner</span>
-        <h2 style="margin-bottom: 0.5rem;">Resolving QR Code...</h2>
-        <p class="bs-text-subtle">Please wait while we look up this QR code.</p>
+        <div class="bs-card" style="max-width: 28rem; margin: 0 auto; text-align: center; padding: 2.5rem 2rem;">
+            <span class="material-symbols-outlined" style="font-size: 3.5rem; color: var(--bs-primary); display: block; margin-bottom: 1rem;">qr_code_scanner</span>
+            <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Resolving QR code&hellip;</h1>
+            <p class="bs-text-subtle" style="margin-bottom: 1.25rem;">Please wait while we look up this QR code.</p>
+            <div class="bs-spinner" style="margin: 0 auto;"></div>
+        </div>
     }
     else if (!string.IsNullOrEmpty(errorMessage))
     {
-        <span class="material-symbols-outlined" style="font-size: 3rem; color: var(--bs-error); display: block; margin-bottom: 1rem;">error</span>
-        <h2 style="margin-bottom: 0.5rem;">QR Code Error</h2>
-        <p class="bs-text-subtle" style="margin-bottom: 1.5rem;">@errorMessage</p>
-        <a href="/spaces" class="bs-btn bs-btn-primary">Go to Spaces</a>
+        <div class="bs-card" style="max-width: 28rem; margin: 0 auto; text-align: center; padding: 2.5rem 2rem;">
+            <span class="material-symbols-outlined" style="font-size: 3.5rem; color: var(--bs-error); display: block; margin-bottom: 1rem;">error</span>
+            <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem;">QR code error</h1>
+            <p class="bs-text-subtle" style="margin-bottom: 1.5rem;">@errorMessage</p>
+            <div class="bs-flex bs-gap-3 bs-justify-center" style="flex-wrap: wrap;">
+                @if (canRetry)
+                {
+                    <button type="button" class="bs-btn bs-btn-primary" @onclick="ResolveAsync">
+                        <span class="material-symbols-outlined">refresh</span>
+                        Try again
+                    </button>
+                    <a href="/spaces" class="bs-btn bs-btn-outline">Go to spaces</a>
+                }
+                else
+                {
+                    <a href="/spaces" class="bs-btn bs-btn-primary">Go to spaces</a>
+                }
+            </div>
+        </div>
     }
 </div>
 
@@ -31,19 +49,32 @@
 
     private bool isLoading = true;
     private string errorMessage = "";
+    private bool canRetry;
 
     protected override async Task OnParametersSetAsync()
     {
+        await ResolveAsync();
+    }
+
+    private async Task ResolveAsync()
+    {
+        isLoading = true;
+        errorMessage = "";
+        canRetry = false;
+        StateHasChanged();
+
         if (!Guid.TryParse(QrCodeId, out var qrId))
         {
-            errorMessage = "Invalid QR code format.";
+            errorMessage = "This QR code link is invalid.";
             isLoading = false;
             return;
         }
 
         try
         {
-            var result = await Mediator.Send(new ResolveActiveQrCodeQuery(qrId));
+            // Guard against a hung resolve so the page doesn't spin forever.
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(20));
+            var result = await Mediator.Send(new ResolveActiveQrCodeQuery(qrId), cts.Token);
             if (result.IsSuccess)
             {
                 var dto = result.Value;
@@ -56,7 +87,8 @@
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[BeanShare] QR resolve error: {ex.Message}");
-            errorMessage = "Failed to resolve QR code. Please try again.";
+            errorMessage = "We couldn't resolve this QR code right now. Please try again.";
+            canRetry = true;
         }
 
         isLoading = false;

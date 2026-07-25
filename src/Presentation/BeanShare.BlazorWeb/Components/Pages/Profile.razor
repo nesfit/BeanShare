@@ -23,7 +23,7 @@
 
 <PageTitle>My Profile - BeanShare</PageTitle>
 
-<div class="profile-container">
+<div class="bs-container" style="padding: 2rem 0;">
     <div class="profile-header">
         <div class="profile-header-content">
             <div class="profile-avatar-section">
@@ -38,8 +38,13 @@
                             <span class="material-symbols-outlined">account_circle</span>
                         </div>
                     }
-                    <button type="button" class="avatar-upload-btn" @onclick="TriggerFileUpload">
-                        <span class="material-symbols-outlined">photo_camera</span>
+                    <button type="button"
+                            class="bs-btn bs-btn-primary"
+                            style="position: absolute; bottom: 0; right: 0; width: 2.25rem; height: 2.25rem; min-width: 0; padding: 0; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);"
+                            title="Change photo"
+                            aria-label="Change profile photo"
+                            @onclick="TriggerFileUpload">
+                        <span class="material-symbols-outlined" style="font-size: 1.125rem;">photo_camera</span>
                     </button>
                     <InputFile id="avatarInput" OnChange="HandleAvatarUpload" accept="image/png,image/jpeg,image/gif,image/webp" style="display: none; position: absolute; width: 0; height: 0; overflow: hidden;" />
                 </div>
@@ -60,130 +65,113 @@
         </div>
     </div>
 
-    <div class="profile-content">
-        <div class="profile-section">
-            <h2>Coffee Statistics</h2>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <span class="stat-icon material-symbols-outlined">local_cafe</span>
-                    <div class="stat-content">
-                        <div class="stat-value">@(statistics?.TotalCups ?? 0)</div>
-                        <div class="stat-label">Total Cups</div>
+    <div class="bs-flex bs-flex-col bs-gap-6">
+        <div class="bs-card">
+            <h2 class="bs-mb-4" style="font-size: 1.5rem; font-weight: 600; margin-top: 0;">Coffee Statistics</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem;">
+                <div class="bs-card bs-flex bs-items-center bs-gap-3">
+                    <span class="material-symbols-outlined" style="font-size: 2.5rem; color: var(--bs-primary);">local_cafe</span>
+                    <div>
+                        <div style="font-size: 2rem; font-weight: 700;">@(statistics?.TotalCups ?? 0)</div>
+                        <div class="bs-text-subtle" style="font-size: 0.875rem;">Total Cups</div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <span class="stat-icon material-symbols-outlined">calendar_month</span>
-                    <div class="stat-content">
-                        <div class="stat-value">@(statistics?.CupsThisMonth ?? 0)</div>
-                        <div class="stat-label">This Month</div>
+                <div class="bs-card bs-flex bs-items-center bs-gap-3">
+                    <span class="material-symbols-outlined" style="font-size: 2.5rem; color: var(--bs-primary);">calendar_month</span>
+                    <div>
+                        <div style="font-size: 2rem; font-weight: 700;">@(statistics?.CupsThisMonth ?? 0)</div>
+                        <div class="bs-text-subtle" style="font-size: 0.875rem;">This Month</div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <span class="stat-icon material-symbols-outlined">groups</span>
-                    <div class="stat-content">
-                        <div class="stat-value">@(statistics?.ActiveSpacesCount ?? 0)</div>
-                        <div class="stat-label">Active Spaces</div>
+                <div class="bs-card bs-flex bs-items-center bs-gap-3">
+                    <span class="material-symbols-outlined" style="font-size: 2.5rem; color: var(--bs-primary);">groups</span>
+                    <div>
+                        <div style="font-size: 2rem; font-weight: 700;">@(statistics?.ActiveSpacesCount ?? 0)</div>
+                        <div class="bs-text-subtle" style="font-size: 0.875rem;">Active Spaces</div>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <span class="stat-icon material-symbols-outlined">trending_up</span>
-                    <div class="stat-content">
-                        <div class="stat-value">@(statistics?.AverageCupsPerDay.ToString("F1") ?? "0.0")</div>
-                        <div class="stat-label">Daily Average</div>
+                <div class="bs-card bs-flex bs-items-center bs-gap-3">
+                    <span class="material-symbols-outlined" style="font-size: 2.5rem; color: var(--bs-primary);">trending_up</span>
+                    <div>
+                        <div style="font-size: 2rem; font-weight: 700;">@(statistics?.AverageCupsPerDay.ToString("F1") ?? "0.0")</div>
+                        <div class="bs-text-subtle" style="font-size: 0.875rem;">Daily Average</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="profile-section">
-            <div class="section-header">
-                <h2>My Spaces</h2>
-                <button class="btn-action" @onclick="NavigateToCreateSpace">
+        <div class="bs-card">
+            <div class="bs-flex bs-items-center bs-justify-between bs-mb-4">
+                <h2 style="font-size: 1.5rem; font-weight: 600; margin: 0;">My Spaces</h2>
+                <button class="bs-btn bs-btn-primary bs-btn-sm" @onclick="NavigateToCreateSpace">
                     <span class="material-symbols-outlined">add</span>
                     Create New Space
                 </button>
             </div>
-            <div class="spaces-list">
+            <div class="bs-flex bs-flex-col bs-gap-3">
                 @if (userSpaces != null && userSpaces.Any())
                 {
                     @foreach (var space in userSpaces)
                     {
-                        <div class="space-card" @onclick="() => NavigateToSpace(space.Id)">
-                            <div class="space-card-icon">
-                                <span class="material-symbols-outlined">
-                                    @(space.Role == "Admin" ? "admin_panel_settings" : "groups")
-                                </span>
-                            </div>
-                            <div class="space-card-content">
-                                <h3>@space.Name</h3>
-                                <div class="space-meta">
-                                    <span class="badge badge-@(space.Role.ToLower())">@space.Role</span>
-                                    <span class="space-members">@space.MemberCount members</span>
+                        <button type="button"
+                                class="bs-card bs-flex bs-items-center bs-gap-4"
+                                style="width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit;"
+                                @onclick="() => NavigateToSpace(space.Id)">
+                            <span class="material-symbols-outlined" style="color: var(--bs-primary); font-size: 1.75rem; flex-shrink: 0;">
+                                @(space.Role == "Admin" ? "admin_panel_settings" : "groups")
+                            </span>
+                            <div class="bs-flex-1" style="min-width: 0;">
+                                <h3 style="font-size: 1.125rem; font-weight: 600; margin: 0 0 0.5rem 0;">@space.Name</h3>
+                                <div class="bs-flex bs-items-center bs-gap-3">
+                                    <span class="bs-badge @(space.Role == "Admin" ? "bs-badge-warning" : "bs-badge-primary")">@space.Role</span>
+                                    <span class="bs-text-subtle" style="font-size: 0.875rem;">@space.MemberCount members</span>
                                 </div>
                             </div>
-                            <div class="space-card-action">
-                                <span class="material-symbols-outlined">chevron_right</span>
-                            </div>
-                        </div>
+                            <span class="material-symbols-outlined bs-text-subtle" style="flex-shrink: 0;">chevron_right</span>
+                        </button>
                     }
                 }
                 else
                 {
-                    <div class="empty-state">
-                        <span class="material-symbols-outlined">coffee</span>
-                        <p>You haven't joined any spaces yet</p>
-                        <button class="btn-primary" @onclick="NavigateToSpaces">Browse Spaces</button>
+                    <div class="bs-flex bs-flex-col bs-items-center bs-gap-3" style="padding: 2rem; text-align: center;">
+                        <span class="material-symbols-outlined" style="font-size: 3rem; color: var(--bs-text-subtle);">coffee</span>
+                        <p class="bs-text-subtle bs-m-0">You haven't joined any spaces yet</p>
+                        <button class="bs-btn bs-btn-primary" @onclick="NavigateToSpaces">Browse Spaces</button>
                     </div>
                 }
             </div>
         </div>
 
-        <div class="profile-section">
-            <h2>Account Information</h2>
-            <div class="info-grid">
-                <div class="info-item">
-                    <label>Full Name</label>
-                    <div class="info-value">
-                        <input type="text" @bind="editName" disabled="@(!isEditing)" />
-                    </div>
+        <div class="bs-card">
+            <h2 class="bs-mb-4" style="font-size: 1.5rem; font-weight: 600; margin-top: 0;">Account Information</h2>
+            <div class="bs-grid bs-grid-cols-1 md:bs-grid-cols-2 bs-gap-4">
+                <div class="bs-flex bs-flex-col bs-gap-2">
+                    <label for="profileName" class="bs-text-subtle" style="font-size: 0.875rem; font-weight: 500;">Full Name</label>
+                    <input id="profileName" type="text" class="bs-input" @bind="editName" disabled="@(!isEditing)" />
                 </div>
-                <div class="info-item">
-                    <label>Email Address</label>
-                    <div class="info-value">
-                        <input type="email" value="@userProfile?.Email" disabled />
-                        <span class="verified-badge" title="Verified">
-                            <span class="material-symbols-outlined">verified</span>
+                <div class="bs-flex bs-flex-col bs-gap-2">
+                    <label for="profileEmail" class="bs-text-subtle" style="font-size: 0.875rem; font-weight: 500;">Email Address</label>
+                    <div class="bs-flex bs-items-center bs-gap-2">
+                        <input id="profileEmail" type="email" class="bs-input" value="@userProfile?.Email" disabled aria-describedby="profileEmailHint" />
+                        <span class="bs-badge bs-badge-success" title="Verified">
+                            <span class="material-symbols-outlined" style="font-size: 1rem;">verified</span>
+                            Verified
                         </span>
                     </div>
-                </div>
-                <div class="info-item">
-                    <label>Phone Number</label>
-                    <div class="info-value">
-                        <input type="tel" @bind="editPhone" disabled="@(!isEditing)" placeholder="Not set" />
-                    </div>
-                </div>
-                <div class="info-item">
-                    <label>Time Zone</label>
-                    <div class="info-value">
-                        <select @bind="editTimeZone" disabled="@(!isEditing)">
-                            <option value="UTC">UTC</option>
-                            <option value="EST">Eastern Time</option>
-                            <option value="CST">Central Time</option>
-                            <option value="PST">Pacific Time</option>
-                            <option value="CET">Central European Time</option>
-                        </select>
-                    </div>
+                    <p id="profileEmailHint" class="bs-text-subtle bs-m-0" style="font-size: 0.75rem;">
+                        Email is managed by your sign-in and can't be changed here.
+                    </p>
                 </div>
             </div>
-            <div class="profile-actions">
+            <div class="bs-flex bs-gap-3 bs-mt-4" style="justify-content: flex-end;">
                 @if (isEditing)
                 {
-                    <button class="btn-secondary" @onclick="CancelEdit">Cancel</button>
-                    <button class="btn-primary" @onclick="SaveProfile">Save Changes</button>
+                    <button class="bs-btn bs-btn-outline" @onclick="CancelEdit">Cancel</button>
+                    <button class="bs-btn bs-btn-primary" @onclick="SaveProfile">Save Changes</button>
                 }
                 else
                 {
-                    <button class="btn-secondary" @onclick="StartEdit">
+                    <button class="bs-btn bs-btn-secondary" @onclick="StartEdit">
                         <span class="material-symbols-outlined">edit</span>
                         Edit Profile
                     </button>
@@ -194,6 +182,12 @@
     </div>
 </div>
 
+<Toast IsVisible="@showToast"
+       IsError="@isToastError"
+       Title="@toastTitle"
+       Message="@toastMessage"
+       OnClose="@(() => showToast = false)" />
+
 
 @code {
     private UserProfile? userProfile;
@@ -202,12 +196,15 @@
 
     private bool isEditing = false;
     private string editName = "";
-    private string editPhone = "";
-    private string editTimeZone = "UTC";
 
     private bool isUploadingAvatar = false;
     private string? avatarUploadError;
     private int avatarCacheBuster = 0;
+
+    private bool showToast;
+    private bool isToastError;
+    private string toastTitle = "";
+    private string toastMessage = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -307,22 +304,26 @@
     {
         isEditing = false;
         editName = userProfile?.Name ?? "";
-        editPhone = "";
-        editTimeZone = "UTC";
     }
 
     private async Task SaveProfile()
     {
-        if (userProfile != null)
+        if (userProfile == null)
+            return;
+
+        var command = new UpdateProfileCommand(editName, userProfile.PictureUrl);
+        var result = await Mediator.Send(command);
+        if (result.IsSuccess)
         {
-            var command = new UpdateProfileCommand(editName, userProfile.PictureUrl);
-            var result = await Mediator.Send(command);
-            if (result.IsSuccess)
-            {
-                userProfile.Name = editName;
-            }
+            userProfile.Name = editName;
+            isEditing = false;
+            ShowToast(false, "Profile updated", "Your changes have been saved.");
         }
-        isEditing = false;
+        else
+        {
+            ShowToast(true, "Update failed", result.Errors.FirstOrDefault().Message ?? "Could not save your changes.");
+        }
+
         StateHasChanged();
     }
 
@@ -403,6 +404,7 @@
                     await Mediator.Send(updateCommand);
 
                     avatarCacheBuster++;
+                    ShowToast(false, "Photo updated", "Your profile photo has been updated.");
                 }
                 else
                 {
@@ -425,15 +427,14 @@
         }
     }
 
-    private async Task HandleExportData()
+    private void ShowToast(bool isError, string title, string message)
     {
-        await JSRuntime.InvokeVoidAsync("alert", "Data export is not yet available. This feature is coming soon.");
+        isToastError = isError;
+        toastTitle = title;
+        toastMessage = message;
+        showToast = true;
     }
 
-    private async Task HandleDeleteAccount()
-    {
-        await JSRuntime.InvokeVoidAsync("alert", "Account deletion requires contacting support. This feature is coming soon.");
-    }
     private class UserProfile
     {
         public string Name { get; set; } = "";

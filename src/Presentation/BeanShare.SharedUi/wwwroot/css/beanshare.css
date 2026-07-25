@@ -1468,3 +1468,102 @@ body {
     .d-lg-flex { display: flex !important; }
     .d-lg-none { display: none !important; }
 }
+
+/* ==========================================================================
+   Design-system additions (previously-missing component classes)
+   ========================================================================== */
+
+/* Destructive button — used by ConfirmDialog (IsDestructive) and delete actions */
+.bs-btn-error,
+.bs-btn-danger {
+    background-color: var(--bs-error);
+    color: #ffffff;
+    border: none;
+}
+.bs-btn-error:hover,
+.bs-btn-danger:hover { filter: brightness(0.92); }
+
+/* Outline button — secondary emphasis (Help, Notifications, etc.) */
+.bs-btn-outline {
+    background: transparent;
+    color: var(--bs-primary);
+    border: 1px solid var(--bs-primary);
+}
+.bs-btn-outline:hover { background: var(--bs-primary-light); }
+
+/* Neutral/ghost button — low-emphasis icon+text actions */
+.bs-btn-ghost {
+    background: transparent;
+    color: var(--bs-text-subtle);
+    border: 1px solid var(--bs-border);
+}
+.bs-btn-ghost:hover { background: var(--bs-gray-50); color: var(--bs-text); }
+
+/* Spinner — inline loading indicator */
+.bs-spinner {
+    display: inline-block;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 3px solid var(--bs-primary-light);
+    border-top-color: var(--bs-primary);
+    border-radius: 50%;
+    animation: bs-spin 0.7s linear infinite;
+    vertical-align: middle;
+}
+.bs-spinner-sm { width: 1rem; height: 1rem; border-width: 2px; }
+@keyframes bs-spin { to { transform: rotate(360deg); } }
+
+/* Badges / pills — status labels */
+.bs-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 650;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+.bs-badge-primary { background: var(--bs-primary-light); color: var(--bs-primary); }
+.bs-badge-success { background: var(--bs-success-light); color: var(--bs-success-dark); }
+.bs-badge-warning { background: var(--bs-warning-light); color: var(--bs-warning-dark); }
+.bs-badge-error   { background: var(--bs-error-light);   color: var(--bs-error-dark); }
+.bs-badge-secondary { background: var(--bs-gray-100); color: var(--bs-text-subtle); }
+
+/* Tables — consistent data table used by admin, ledger, etc. */
+.bs-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--bs-border);
+    border-radius: 0.5rem;
+}
+.bs-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.bs-table thead th {
+    text-align: left;
+    text-transform: uppercase;
+    font-size: 0.6875rem;
+    letter-spacing: 0.05em;
+    color: var(--bs-text-subtle);
+    font-weight: 650;
+    background: var(--bs-gray-100);
+    padding: 0.6rem 0.75rem;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+}
+.bs-table tbody td {
+    padding: 0.6rem 0.75rem;
+    border-top: 1px solid var(--bs-border);
+    color: var(--bs-text);
+    vertical-align: middle;
+}
+.bs-table tbody tr:hover { background: var(--bs-gray-50); }
+.bs-table .bs-table-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Responsive grid/flex utilities (md breakpoint) — referenced by Help and others */
+@media (min-width: 768px) {
+    .md\:bs-grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .md\:bs-grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .md\:bs-flex-row { flex-direction: row; }
+}

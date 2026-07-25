@@ -1,6 +1,7 @@
 @page "/admin/presets"
 @rendermode InteractiveServer
 @using MediatR
+@using System.ComponentModel.DataAnnotations
 @using BeanShare.Application.Features.Admin.Presets.Queries
 @using BeanShare.Application.Features.Admin.Presets.Commands
 @using BeanShare.Application.Features.Admin.Presets.Dtos
@@ -11,11 +12,11 @@
 
 <PageTitle>Global Presets - Admin - BeanShare</PageTitle>
 
-<div class="admin-page">
-    <div class="admin-header">
-        <div class="header-content">
-            <h1>Global Presets</h1>
-            <p class="admin-subtitle">Manage default coffee presets available to all users</p>
+<div class="bs-container" style="padding: 2rem 0;">
+    <div class="bs-flex bs-items-center bs-justify-between bs-gap-4" style="margin-bottom: 1.5rem; flex-wrap: wrap;">
+        <div>
+            <h1 class="bs-font-bold" style="font-size: 1.5rem; margin: 0 0 0.25rem;">Global Presets</h1>
+            <p class="bs-text-subtle" style="margin: 0;">Manage default coffee presets available to all users</p>
         </div>
         <button class="bs-btn bs-btn-primary" @onclick="OpenCreateDialog">
             <span class="material-symbols-outlined">add</span>
@@ -23,86 +24,81 @@
         </button>
     </div>
 
-    <div class="admin-filters">
-        <div class="filter-group">
-            <label>Filter by Status</label>
-            <select @bind="statusFilter" @bind:after="ApplyFilters">
-                <option value="all">All Presets</option>
-                <option value="active">Active Only</option>
-                <option value="inactive">Inactive Only</option>
-            </select>
-        </div>
+    <div class="bs-flex bs-flex-col bs-gap-2" style="max-width: 16rem; margin-bottom: 1.5rem;">
+        <label class="bs-label">Filter by Status</label>
+        <select class="bs-input" @bind="statusFilter" @bind:after="ApplyFilters">
+            <option value="all">All Presets</option>
+            <option value="active">Active Only</option>
+            <option value="inactive">Inactive Only</option>
+        </select>
     </div>
 
     @if (isLoading)
     {
-        <div class="loading-state">
-            <div class="loading-spinner"></div>
-            <span>Loading presets...</span>
+        <div class="bs-flex bs-flex-col bs-items-center bs-justify-center bs-gap-4" style="padding: 3rem;">
+            <div class="bs-spinner"></div>
+            <span class="bs-text-subtle">Loading presets...</span>
         </div>
     }
     else if (filteredPresets == null || !filteredPresets.Any())
     {
-        <div class="empty-state">
-            <span class="material-symbols-outlined">coffee</span>
-            <h3>No presets found</h3>
-            <p>Create your first global preset to get started.</p>
-            <button class="bs-btn bs-btn-primary" @onclick="OpenCreateDialog">
-                <span class="material-symbols-outlined">add</span>
-                Create Preset
-            </button>
-        </div>
+        <EmptyState Icon="coffee"
+                    Title="No presets found"
+                    Message="Create your first global preset to get started."
+                    ActionText="Create Preset"
+                    ActionIcon="add"
+                    OnAction="OpenCreateDialog" />
     }
     else
     {
-        <div class="presets-grid">
+        <div class="bs-grid bs-gap-4" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
             @foreach (var preset in filteredPresets.OrderBy(p => p.DisplayOrder))
             {
-                <div class="preset-card @(preset.IsActive ? "" : "inactive")">
-                    <div class="preset-header">
-                        <div class="preset-order">#@preset.DisplayOrder</div>
-                        <span class="preset-status @(preset.IsActive ? "active" : "inactive")">
+                <div class="bs-card" style="@(preset.IsActive ? "" : "opacity: 0.6;")">
+                    <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 0.75rem;">
+                        <span class="bs-badge bs-badge-secondary">#@preset.DisplayOrder</span>
+                        <span class="bs-badge @(preset.IsActive ? "bs-badge-success" : "bs-badge-secondary")">
                             @(preset.IsActive ? "Active" : "Inactive")
                         </span>
                     </div>
-                    <h3 class="preset-name">@preset.Name</h3>
+                    <h3 style="font-size: 1.125rem; font-weight: 600; margin: 0 0 0.25rem;">@preset.Name</h3>
                     @if (!string.IsNullOrEmpty(preset.Description))
                     {
-                        <p class="preset-description">@preset.Description</p>
+                        <p class="bs-text-subtle" style="font-size: 0.875rem; margin: 0 0 0.75rem;">@preset.Description</p>
                     }
-                    <div class="preset-details">
-                        <div class="detail">
-                            <span class="material-symbols-outlined">coffee</span>
+                    <div class="bs-flex bs-flex-col bs-gap-2" style="margin: 0.75rem 0;">
+                        <div class="bs-flex bs-items-center bs-gap-2 bs-text-subtle" style="font-size: 0.875rem;">
+                            <span class="material-symbols-outlined" style="font-size: 1.125rem;">coffee</span>
                             @preset.DefaultCoffeeType
                         </div>
-                        <div class="detail">
-                            <span class="material-symbols-outlined">local_cafe</span>
+                        <div class="bs-flex bs-items-center bs-gap-2 bs-text-subtle" style="font-size: 0.875rem;">
+                            <span class="material-symbols-outlined" style="font-size: 1.125rem;">local_cafe</span>
                             @preset.DefaultPreparation
                         </div>
-                        <div class="detail">
-                            <span class="material-symbols-outlined">scale</span>
+                        <div class="bs-flex bs-items-center bs-gap-2 bs-text-subtle" style="font-size: 0.875rem;">
+                            <span class="material-symbols-outlined" style="font-size: 1.125rem;">scale</span>
                             @preset.DefaultGrams g
                         </div>
                     </div>
-                    <div class="preset-footer">
-                        <span class="preset-date">Created @preset.CreatedAt.ToString("MMM dd, yyyy")</span>
-                    </div>
-                    <div class="preset-actions">
-                        <button class="action-btn" title="Edit" @onclick="() => OpenEditDialog(preset)">
-                            <span class="material-symbols-outlined">edit</span>
-                        </button>
-                        @if (preset.IsActive)
-                        {
-                            <button class="action-btn deactivate" title="Deactivate" @onclick="() => TogglePreset(preset.Id, false)">
-                                <span class="material-symbols-outlined">visibility_off</span>
+                    <div class="bs-flex bs-items-center bs-justify-between" style="border-top: 1px solid var(--bs-border); padding-top: 0.75rem; margin-top: 0.75rem;">
+                        <span class="bs-text-subtle" style="font-size: 0.75rem;">Created @preset.CreatedAt.ToString("MMM dd, yyyy")</span>
+                        <div class="bs-flex bs-gap-2">
+                            <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Edit @preset.Name" title="Edit" @onclick="() => OpenEditDialog(preset)">
+                                <span class="material-symbols-outlined">edit</span>
                             </button>
-                        }
-                        else
-                        {
-                            <button class="action-btn activate" title="Activate" @onclick="() => TogglePreset(preset.Id, true)">
-                                <span class="material-symbols-outlined">visibility</span>
-                            </button>
-                        }
+                            @if (preset.IsActive)
+                            {
+                                <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Deactivate @preset.Name" title="Deactivate" @onclick="() => ConfirmDeactivate(preset)">
+                                    <span class="material-symbols-outlined" style="color: var(--bs-error);">visibility_off</span>
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Activate @preset.Name" title="Activate" @onclick="() => TogglePreset(preset.Id, true)">
+                                    <span class="material-symbols-outlined" style="color: var(--bs-success);">visibility</span>
+                                </button>
+                            }
+                        </div>
                     </div>
                 </div>
             }
@@ -112,58 +108,74 @@
 
 @if (showDialog)
 {
-    <div class="dialog-backdrop" @onclick="CloseDialog"></div>
-    <div class="dialog">
-        <div class="dialog-header">
-            <h2>@(isEditing ? "Edit Preset" : "Create Preset")</h2>
-            <button class="dialog-close" @onclick="CloseDialog">
-                <span class="material-symbols-outlined">close</span>
-            </button>
-        </div>
-        <EditForm Model="formModel" OnValidSubmit="SavePreset">
-            <div class="dialog-content">
-                <div class="form-group">
-                    <label>Name *</label>
-                    <InputText @bind-Value="formModel.Name" class="form-input" placeholder="e.g. Morning Espresso" />
-                </div>
-                <div class="form-group">
-                    <label>Description</label>
-                    <InputTextArea @bind-Value="formModel.Description" class="form-input" rows="2" placeholder="Optional description" />
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Coffee Type *</label>
-                        <InputText @bind-Value="formModel.DefaultCoffeeType" class="form-input" placeholder="e.g. Espresso" />
-                    </div>
-                    <div class="form-group">
-                        <label>Preparation *</label>
-                        <InputText @bind-Value="formModel.DefaultPreparation" class="form-input" placeholder="e.g. Single Shot" />
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Default Grams *</label>
-                        <InputNumber @bind-Value="formModel.DefaultGrams" class="form-input" min="1" max="100" />
-                    </div>
-                    <div class="form-group">
-                        <label>Display Order *</label>
-                        <InputNumber @bind-Value="formModel.DisplayOrder" class="form-input" min="1" />
-                    </div>
-                </div>
-            </div>
-            <div class="dialog-footer">
-                <button type="button" class="bs-btn bs-btn-secondary" @onclick="CloseDialog">Cancel</button>
-                <button type="submit" class="bs-btn bs-btn-primary" disabled="@isSaving">
-                    @if (isSaving)
-                    {
-                        <span class="loading-spinner-small"></span>
-                    }
-                    @(isEditing ? "Save Changes" : "Create Preset")
+    <div class="bs-modal-backdrop" @onclick="CloseDialog">
+        <div class="bs-modal" @onclick:stopPropagation="true" @ontouchend:stopPropagation="true">
+            <div class="bs-modal-header bs-flex bs-items-center bs-justify-between">
+                <h2 class="bs-modal-title">@(isEditing ? "Edit Preset" : "Create Preset")</h2>
+                <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Close dialog" @onclick="CloseDialog">
+                    <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
-        </EditForm>
+            <EditForm Model="formModel" OnValidSubmit="SavePreset">
+                <DataAnnotationsValidator />
+                <div class="bs-flex bs-flex-col bs-gap-4">
+                    <div class="bs-form-group">
+                        <label class="bs-label">Name</label>
+                        <InputText @bind-Value="formModel.Name" class="bs-input" placeholder="e.g. Morning Espresso" />
+                        <ValidationMessage For="@(() => formModel.Name)" class="bs-validation-message" />
+                    </div>
+                    <div class="bs-form-group">
+                        <label class="bs-label">Description</label>
+                        <InputTextArea @bind-Value="formModel.Description" class="bs-input" rows="2" placeholder="Optional description" />
+                    </div>
+                    <div class="bs-grid bs-grid-cols-2 bs-gap-4">
+                        <div class="bs-form-group">
+                            <label class="bs-label">Coffee Type</label>
+                            <InputText @bind-Value="formModel.DefaultCoffeeType" class="bs-input" placeholder="e.g. Espresso" />
+                            <ValidationMessage For="@(() => formModel.DefaultCoffeeType)" class="bs-validation-message" />
+                        </div>
+                        <div class="bs-form-group">
+                            <label class="bs-label">Preparation</label>
+                            <InputText @bind-Value="formModel.DefaultPreparation" class="bs-input" placeholder="e.g. Single Shot" />
+                            <ValidationMessage For="@(() => formModel.DefaultPreparation)" class="bs-validation-message" />
+                        </div>
+                    </div>
+                    <div class="bs-grid bs-grid-cols-2 bs-gap-4">
+                        <div class="bs-form-group">
+                            <label class="bs-label">Default Grams</label>
+                            <InputNumber @bind-Value="formModel.DefaultGrams" class="bs-input" min="1" max="100" />
+                            <ValidationMessage For="@(() => formModel.DefaultGrams)" class="bs-validation-message" />
+                        </div>
+                        <div class="bs-form-group">
+                            <label class="bs-label">Display Order</label>
+                            <InputNumber @bind-Value="formModel.DisplayOrder" class="bs-input" min="1" />
+                            <ValidationMessage For="@(() => formModel.DisplayOrder)" class="bs-validation-message" />
+                        </div>
+                    </div>
+                </div>
+                <div class="bs-modal-footer">
+                    <button type="button" class="bs-btn bs-btn-secondary bs-flex-1" @onclick="CloseDialog">Cancel</button>
+                    <button type="submit" class="bs-btn bs-btn-primary bs-flex-1" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="bs-spinner bs-spinner-sm"></span>
+                        }
+                        @(isEditing ? "Save Changes" : "Create Preset")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
     </div>
 }
+
+<ConfirmDialog IsVisible="@showConfirmDialog"
+               Title="@confirmTitle"
+               Message="@confirmMessage"
+               ConfirmText="@confirmText"
+               IsDestructive="@confirmIsDestructive"
+               IsProcessing="@isProcessingConfirm"
+               OnConfirm="OnConfirmDialog"
+               OnCancel="CancelConfirm" />
 
 <Toast IsVisible="@showToast"
        IsError="@isToastError"
@@ -188,6 +200,14 @@
     private bool isToastError;
     private string toastTitle = "";
     private string toastMessage = "";
+
+    private bool showConfirmDialog;
+    private string confirmTitle = "";
+    private string confirmMessage = "";
+    private string confirmText = "Confirm";
+    private bool confirmIsDestructive;
+    private bool isProcessingConfirm;
+    private Func<Task>? confirmAction;
 
     protected override async Task OnInitializedAsync()
     {
@@ -271,15 +291,6 @@
 
     private async Task SavePreset()
     {
-        if (string.IsNullOrWhiteSpace(formModel.Name) ||
-            string.IsNullOrWhiteSpace(formModel.DefaultCoffeeType) ||
-            string.IsNullOrWhiteSpace(formModel.DefaultPreparation) ||
-            formModel.DefaultGrams <= 0)
-        {
-            ShowToast(true, "Validation Error", "Please fill in all required fields");
-            return;
-        }
-
         isSaving = true;
         try
         {
@@ -337,6 +348,46 @@
         }
     }
 
+    private void ConfirmDeactivate(GlobalPresetDto preset) => RequestConfirm(
+        "Deactivate Preset",
+        $"Deactivate \"{preset.Name}\"? This hides it from every space on the platform.",
+        "Deactivate",
+        destructive: true,
+        () => TogglePreset(preset.Id, false));
+
+    private void RequestConfirm(string title, string message, string confirmLabel, bool destructive, Func<Task> action)
+    {
+        confirmTitle = title;
+        confirmMessage = message;
+        confirmText = confirmLabel;
+        confirmIsDestructive = destructive;
+        confirmAction = action;
+        showConfirmDialog = true;
+    }
+
+    private async Task OnConfirmDialog()
+    {
+        if (confirmAction == null) return;
+
+        isProcessingConfirm = true;
+        try
+        {
+            await confirmAction();
+        }
+        finally
+        {
+            isProcessingConfirm = false;
+            showConfirmDialog = false;
+            confirmAction = null;
+        }
+    }
+
+    private void CancelConfirm()
+    {
+        showConfirmDialog = false;
+        confirmAction = null;
+    }
+
     private async Task TogglePreset(Guid presetId, bool activate)
     {
         try
@@ -368,11 +419,22 @@
 
     private class PresetFormModel
     {
+        [Required(ErrorMessage = "Name is required")]
+        [MaxLength(100, ErrorMessage = "Name cannot exceed 100 characters")]
         public string? Name { get; set; }
+
         public string? Description { get; set; }
+
+        [Required(ErrorMessage = "Coffee type is required")]
         public string? DefaultCoffeeType { get; set; }
+
+        [Required(ErrorMessage = "Preparation is required")]
         public string? DefaultPreparation { get; set; }
+
+        [Range(1, 100, ErrorMessage = "Default grams must be between 1 and 100")]
         public decimal DefaultGrams { get; set; } = 18;
+
+        [Range(1, int.MaxValue, ErrorMessage = "Display order must be at least 1")]
         public int DisplayOrder { get; set; } = 1;
     }
 }

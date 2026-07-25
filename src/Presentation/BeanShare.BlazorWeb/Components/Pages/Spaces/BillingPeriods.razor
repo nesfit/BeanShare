@@ -15,12 +15,13 @@
 <div style="position: sticky; top: 0; z-index: 10; background: var(--bs-background-light); border-bottom: 1px solid var(--bs-border); padding: 1rem 0;">
     <div class="bs-container">
         <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 1rem;">
-            <button class="bs-btn-sm" style="background: transparent; border: none; cursor: pointer;" @onclick='@(() => Navigation.NavigateTo($"/spaces/{SpaceId}"))'>
+            <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Back to spaces" @onclick='@(() => Navigation.NavigateTo("/spaces"))'>
                 <span class="material-symbols-outlined">arrow_back</span>
             </button>
             <h1 class="bs-font-bold" style="margin: 0; font-size: 1.25rem;">Billing Periods</h1>
             <div style="width: 2rem;"></div>
         </div>
+        <SpaceTabs SpaceId="@SpaceId" ActiveTab="billing" PreventNavigation="false" />
     </div>
 </div>
 
@@ -47,17 +48,25 @@
     }
     else
     {
-        <div style="margin-bottom: 1.5rem;">
+        <div style="margin-bottom: 1rem;">
             <button class="bs-btn bs-btn-primary" @onclick="() => showCreateModal = true">
                 <span class="material-symbols-outlined">add_circle</span>
                 Create Billing Period
             </button>
         </div>
 
+        <div class="bs-flex bs-items-center bs-gap-4" style="flex-wrap: wrap; margin-bottom: 1.25rem; font-size: 0.75rem; color: var(--bs-text-subtle);">
+            <span style="font-weight: 600;">Lifecycle:</span>
+            <span class="bs-flex bs-items-center" style="gap: 0.35rem;"><span class="bs-badge bs-badge-secondary">Draft</span> being set up</span>
+            <span class="bs-flex bs-items-center" style="gap: 0.35rem;"><span class="bs-badge bs-badge-success">Open</span> collecting cups</span>
+            <span class="bs-flex bs-items-center" style="gap: 0.35rem;"><span class="bs-badge bs-badge-warning">Closed</span> locked for settlement</span>
+            <span class="bs-flex bs-items-center" style="gap: 0.35rem;"><span class="bs-badge bs-badge-primary">Settled</span> paid out</span>
+        </div>
+
         <div class="bs-flex bs-flex-col bs-gap-4">
             @foreach (var period in periods)
             {
-                <div class="bs-card" style="padding: 1.5rem; cursor: pointer; transition: all 0.2s;" @onclick="() => HandlePeriodSelected(period.Id)">
+                <div class="bs-card" style="padding: 1.5rem; cursor: pointer; transition: all 0.2s;" role="button" tabindex="0" @onclick="() => HandlePeriodSelected(period.Id)" @onkeydown="@(e => HandlePeriodKey(e, period.Id))">
                     <div class="bs-flex bs-items-start bs-justify-between" style="margin-bottom: 1rem;">
                         <div>
                             <h3 style="margin: 0 0 0.25rem 0; font-size: 1.125rem; font-weight: 600;">@period.Name</h3>
@@ -65,7 +74,7 @@
                                 @period.FormattedDateRange
                             </p>
                         </div>
-                        <span class="bs-badge" style="background: @GetStateColor(period.State); color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600;">
+                        <span class="bs-badge @GetStateBadgeClass(period.State)">
                             @period.State
                         </span>
                     </div>
@@ -89,7 +98,7 @@
                                 }
                                 else
                                 {
-                                    <p style="font-size: 1.25rem; font-weight: 700; margin: 0;">@period.DaysRemaining</p>
+                                    <p style="font-size: 1.25rem; font-weight: 700; margin: 0;">@period.DaysRemaining days</p>
                                 }
                             </div>
                         }
@@ -159,6 +168,14 @@
         Navigation.NavigateTo($"/spaces/{SpaceId}/billing/{periodId}");
     }
 
+    private void HandlePeriodKey(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e, Guid periodId)
+    {
+        if (e.Key == "Enter" || e.Key == " " || e.Key == "Spacebar")
+        {
+            HandlePeriodSelected(periodId);
+        }
+    }
+
     private async Task HandleCreateBillingPeriod(CreateBillingPeriodModal.CreateBillingPeriodModel model)
     {
         try
@@ -189,15 +206,15 @@
         }
     }
 
-    private string GetStateColor(string state)
+    private string GetStateBadgeClass(string state)
     {
         return state switch
         {
-            "Draft" => "var(--bs-gray-400)",
-            "Open" => "var(--bs-success)",
-            "Closed" => "var(--bs-warning)",
-            "Settled" => "var(--bs-primary)",
-            _ => "var(--bs-gray-400)"
+            "Draft" => "bs-badge-secondary",
+            "Open" => "bs-badge-success",
+            "Closed" => "bs-badge-warning",
+            "Settled" => "bs-badge-primary",
+            _ => "bs-badge-secondary"
         };
     }
 

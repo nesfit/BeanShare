@@ -54,7 +54,6 @@ else
 
             <SpaceTabs SpaceId="@SpaceId"
                       ActiveTab="stock"
-                      OnTabChange="HandleTabChange"
                       PreventNavigation="false" />
         </div>
     </div>
@@ -262,22 +261,6 @@ else
         finally
         {
             isLoadingStock = false;
-        }
-    }
-
-    private async Task HandleTabChange(string newTab)
-    {
-        if (newTab == "members")
-        {
-            Navigation.NavigateTo($"/spaces/{SpaceId}");
-        }
-        else if (newTab == "consumption")
-        {
-            Navigation.NavigateTo($"/spaces/{SpaceId}/consumption");
-        }
-        else if (newTab == "ledger")
-        {
-            Navigation.NavigateTo($"/spaces/{SpaceId}/ledger");
         }
     }
 

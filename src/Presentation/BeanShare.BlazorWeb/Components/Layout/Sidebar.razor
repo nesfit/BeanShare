@@ -20,11 +20,6 @@
         <AuthorizeView>
             <Authorized>
                 <div class="sidebar-section">
-                    <NavLink class="sidebar-link" href="/dashboard">
-                        <span class="material-symbols-outlined">insights</span>
-                        <span class="sidebar-link-text">Dashboard</span>
-                    </NavLink>
-
                     <NavLink class="sidebar-link" href="/spaces" Match="NavLinkMatch.All">
                         <span class="material-symbols-outlined">groups</span>
                         <span class="sidebar-link-text">My Spaces</span>
@@ -34,20 +29,6 @@
                         <span class="material-symbols-outlined">history</span>
                         <span class="sidebar-link-text">History</span>
                     </NavLink>
-
-                    @if (recentSpaces?.Any() == true)
-                    {
-                        <div class="sidebar-subsection">
-                            <div class="sidebar-subtitle">Recent Spaces</div>
-                            @foreach (var space in recentSpaces.Take(5))
-                            {
-                                <NavLink class="sidebar-sublink" href="@($"/spaces/{space.Id}")">
-                                    <span class="material-symbols-outlined">coffee</span>
-                                    <span class="sidebar-link-text">@space.Name</span>
-                                </NavLink>
-                            }
-                        </div>
-                    }
                 </div>
 
                 <AuthorizeView Roles="admin">
@@ -129,7 +110,6 @@
     [Parameter] public EventCallback OnCreateSpace { get; set; }
     [Parameter] public EventCallback OnJoinSpace { get; set; }
 
-    private List<SpaceInfo> recentSpaces = new();
     private string userName = "";
     private string userEmail = "";
     private string? userPictureUrl = null;
@@ -208,11 +188,5 @@
     private void Logout()
     {
         Navigation.NavigateTo("/logout", forceLoad: true);
-    }
-
-    private class SpaceInfo
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = "";
     }
 }

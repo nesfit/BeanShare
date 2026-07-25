@@ -22,13 +22,14 @@
                     </button>
                     @if (isMenuOpen)
                     {
+                        <div style="position: fixed; inset: 0; z-index: 5;" @onclick="CloseMenu"></div>
                         <div style="position: absolute; right: 0; top: 2.5rem; background: var(--bs-surface); border: 1px solid var(--bs-border); border-radius: 0.5rem; box-shadow: var(--bs-shadow-lg); min-width: 12rem; z-index: 10;">
                             <div style="padding: 0.25rem;">
                                 @if (Role == "Member")
                                 {
                                     <button class="bs-flex bs-items-center bs-gap-2 bs-px-4 bs-py-2"
                                             style="width: 100%; background: transparent; border: none; cursor: pointer; text-align: left; font-size: 0.875rem;"
-                                            @onclick="() => OnPromote.InvokeAsync(UserId)">
+                                            @onclick="HandlePromoteClick">
                                         <span class="material-symbols-outlined" style="font-size: 1.25rem;">arrow_upward</span>
                                         Promote to Admin
                                     </button>
@@ -37,7 +38,7 @@
                                 {
                                     <button class="bs-flex bs-items-center bs-gap-2 bs-px-4 bs-py-2"
                                             style="width: 100%; background: transparent; border: none; cursor: pointer; text-align: left; font-size: 0.875rem;"
-                                            @onclick="() => OnDemote.InvokeAsync(UserId)">
+                                            @onclick="HandleDemoteClick">
                                         <span class="material-symbols-outlined" style="font-size: 1.25rem;">arrow_downward</span>
                                         Demote to Member
                                     </button>
@@ -46,7 +47,7 @@
                                 {
                                     <button class="bs-flex bs-items-center bs-gap-2 bs-px-4 bs-py-2"
                                             style="width: 100%; background: transparent; border: none; cursor: pointer; text-align: left; font-size: 0.875rem; color: var(--bs-error);"
-                                            @onclick="() => OnRemove.InvokeAsync(UserId)">
+                                            @onclick="HandleRemoveClick">
                                         <span class="material-symbols-outlined" style="font-size: 1.25rem;">delete</span>
                                         Remove from Space
                                     </button>
@@ -104,5 +105,28 @@
     private void ToggleMenu()
     {
         isMenuOpen = !isMenuOpen;
+    }
+
+    private void CloseMenu()
+    {
+        isMenuOpen = false;
+    }
+
+    private Task HandlePromoteClick()
+    {
+        isMenuOpen = false;
+        return OnPromote.InvokeAsync(UserId);
+    }
+
+    private Task HandleDemoteClick()
+    {
+        isMenuOpen = false;
+        return OnDemote.InvokeAsync(UserId);
+    }
+
+    private Task HandleRemoveClick()
+    {
+        isMenuOpen = false;
+        return OnRemove.InvokeAsync(UserId);
     }
 }

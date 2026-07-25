@@ -31,7 +31,7 @@ else
                 <h1 class="bs-font-bold" style="margin: 0; font-size: 1.25rem; flex: 1; min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@space.Name</h1>
                 <div style="width: 2rem; flex-shrink: 0;"></div>
             </div>
-            <SpaceTabs SpaceId="@SpaceId" ActiveTab="ledger" OnTabChange="HandleTabChange" PreventNavigation="false" />
+            <SpaceTabs SpaceId="@SpaceId" ActiveTab="ledger" PreventNavigation="false" />
         </div>
     </div>
 
@@ -86,8 +86,12 @@ else
                 </select>
             }
 
-            <input type="date" class="bs-input" style="width: auto; font-size: 0.8125rem;" @bind="startDate" @bind:after="ApplyFilters" title="From" />
-            <input type="date" class="bs-input" style="width: auto; font-size: 0.8125rem;" @bind="endDate" @bind:after="ApplyFilters" title="To" />
+            <label class="bs-flex bs-items-center" style="gap: 0.35rem; font-size: 0.75rem; color: var(--bs-text-subtle);">From
+                <input type="date" class="bs-input" style="width: auto; font-size: 0.8125rem;" @bind="startDate" @bind:after="ApplyFilters" aria-label="From date" />
+            </label>
+            <label class="bs-flex bs-items-center" style="gap: 0.35rem; font-size: 0.75rem; color: var(--bs-text-subtle);">To
+                <input type="date" class="bs-input" style="width: auto; font-size: 0.8125rem;" @bind="endDate" @bind:after="ApplyFilters" aria-label="To date" />
+            </label>
 
             <button class="bs-btn bs-btn-sm bs-btn-secondary" @onclick="ClearFilters">Clear</button>
         </div>
@@ -112,7 +116,7 @@ else
                             @Header("kind", "Type")
                             @Header("product", "Product")
                             @Header("bag", "Bag", sortable: false)
-                            @Header("delta", "Δ g", right: true)
+                            @Header("delta", "± g", right: true)
                             @Header("balance", "Balance", right: true)
                             @Header("who", "Member")
                             @Header("cost", "Cost", right: true)
@@ -285,26 +289,19 @@ else
             builder.AddAttribute(2, "onclick", EventCallback.Factory.Create(this, () => ToggleSort(col)));
         builder.AddContent(3, label);
         if (isSorted)
+        {
             builder.AddContent(4, sortDesc ? " ▾" : " ▴");
+        }
+        else if (sortable)
+        {
+            builder.OpenElement(5, "span");
+            builder.AddAttribute(6, "style", "opacity: 0.3;");
+            builder.AddContent(7, " ⇅");
+            builder.CloseElement();
+        }
         builder.CloseElement();
     };
 
-    private async Task HandleTabChange(string newTab)
-    {
-        var target = newTab switch
-        {
-            "members" => $"/spaces/{SpaceId}",
-            "stock" => $"/spaces/{SpaceId}/stock",
-            "consumption" => $"/spaces/{SpaceId}/consumption",
-            "billing" => $"/spaces/{SpaceId}/billing",
-            "settlements" => $"/spaces/{SpaceId}/settlements",
-            "presets" => $"/spaces/{SpaceId}/presets",
-            "analytics" => $"/spaces/{SpaceId}/analytics",
-            _ => $"/spaces/{SpaceId}/ledger",
-        };
-        Navigation.NavigateTo(target);
-        await Task.CompletedTask;
-    }
 
     private string FormatGrams(decimal g) => $"{g.ToString("0.#")} g";
 

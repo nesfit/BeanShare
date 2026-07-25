@@ -13,9 +13,9 @@
 
 <PageTitle>User Details - Admin - BeanShare</PageTitle>
 
-<div class="admin-page">
-    <div class="admin-header">
-        <button class="back-btn" @onclick="GoBack">
+<div class="bs-container" style="padding: 2rem 0;">
+    <div style="margin-bottom: 1.5rem;">
+        <button class="bs-btn bs-btn-sm bs-btn-ghost" @onclick="GoBack">
             <span class="material-symbols-outlined">arrow_back</span>
             Back to Users
         </button>
@@ -23,72 +23,72 @@
 
     @if (isLoading)
     {
-        <div class="loading-state">
-            <div class="loading-spinner"></div>
-            <span>Loading user details...</span>
+        <div class="bs-flex bs-flex-col bs-items-center bs-justify-center bs-gap-4" style="padding: 3rem;">
+            <div class="bs-spinner"></div>
+            <span class="bs-text-subtle">Loading user details...</span>
         </div>
     }
     else if (user == null)
     {
-        <div class="empty-state">
-            <span class="material-symbols-outlined">person_off</span>
-            <h3>User not found</h3>
-            <p>The requested user could not be found.</p>
-            <button class="bs-btn bs-btn-primary" @onclick="GoBack">Go Back</button>
-        </div>
+        <EmptyState Icon="person_off"
+                    Title="User not found"
+                    Message="The requested user could not be found."
+                    ActionText="Go Back"
+                    ActionIcon="arrow_back"
+                    OnAction="GoBack" />
     }
     else
     {
-        <div class="user-detail-layout">
-            <div class="user-profile-card">
-                <div class="user-profile-header">
-                    <div class="user-avatar-large">
+        <div class="bs-grid bs-grid-cols-1 md:bs-grid-cols-2 bs-gap-4" style="align-items: start;">
+            <div class="bs-card">
+                <div class="bs-flex bs-flex-col bs-items-center" style="text-align: center; margin-bottom: 1.5rem;">
+                    <div style="width: 5rem; height: 5rem; border-radius: 9999px; background: var(--bs-primary-light); color: var(--bs-primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.5rem; overflow: hidden; margin-bottom: 1rem;">
                         @if (!string.IsNullOrEmpty(user.PictureUrl))
                         {
-                            <img src="@user.PictureUrl" alt="@user.Name" />
+                            <img src="@user.PictureUrl" alt="@user.Name" style="width: 100%; height: 100%; object-fit: cover;" />
                         }
                         else
                         {
                             @user.Name.GetInitials()
                         }
                     </div>
-                    <h2>@user.Name</h2>
-                    <p class="user-email">@user.Email</p>
-                    <div class="badges">
-                        <span class="role-badge @(user.SystemRole == SystemRole.SystemAdmin ? "role-admin" : "role-user")">
+                    <h2 style="margin: 0 0 0.25rem; font-size: 1.25rem;">@user.Name</h2>
+                    <p class="bs-text-subtle" style="margin: 0 0 0.75rem;">@user.Email</p>
+                    <div class="bs-flex bs-gap-2 bs-justify-center" style="flex-wrap: wrap;">
+                        <span class="bs-badge @(user.SystemRole == SystemRole.SystemAdmin ? "bs-badge-primary" : "bs-badge-secondary")">
                             @(user.SystemRole == SystemRole.SystemAdmin ? "System Admin" : "User")
                         </span>
-                        <span class="status-badge @(user.IsActive ? "status-active" : "status-inactive")">
+                        <span class="bs-badge @(user.IsActive ? "bs-badge-success" : "bs-badge-error")">
                             @(user.IsActive ? "Active" : "Inactive")
                         </span>
                     </div>
                 </div>
 
-                <div class="user-actions">
+                <div class="bs-flex bs-flex-col bs-gap-2">
                     @if (user.SystemRole != SystemRole.SystemAdmin)
                     {
-                        <button class="action-btn-full promote" @onclick="PromoteUser">
+                        <button class="bs-btn bs-btn-primary" style="width: 100%;" @onclick="ConfirmPromote">
                             <span class="material-symbols-outlined">arrow_upward</span>
                             Promote to Admin
                         </button>
                     }
                     else
                     {
-                        <button class="action-btn-full demote" @onclick="DemoteUser">
+                        <button class="bs-btn bs-btn-secondary" style="width: 100%;" @onclick="ConfirmDemote">
                             <span class="material-symbols-outlined">arrow_downward</span>
                             Demote to User
                         </button>
                     }
                     @if (user.IsActive)
                     {
-                        <button class="action-btn-full deactivate" @onclick="DeactivateUser">
+                        <button class="bs-btn bs-btn-error" style="width: 100%;" @onclick="ConfirmDeactivate">
                             <span class="material-symbols-outlined">block</span>
                             Deactivate Account
                         </button>
                     }
                     else
                     {
-                        <button class="action-btn-full reactivate" @onclick="ReactivateUser">
+                        <button class="bs-btn bs-btn-primary" style="width: 100%;" @onclick="ConfirmReactivate">
                             <span class="material-symbols-outlined">check_circle</span>
                             Reactivate Account
                         </button>
@@ -96,43 +96,43 @@
                 </div>
             </div>
 
-            <div class="user-details-section">
-                <div class="detail-card">
-                    <h3>Account Information</h3>
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <span class="detail-label">User ID</span>
-                            <span class="detail-value monospace">@user.Id</span>
+            <div class="bs-flex bs-flex-col bs-gap-4">
+                <div class="bs-card">
+                    <h3 style="margin: 0 0 1rem; font-size: 1.125rem;">Account Information</h3>
+                    <div class="bs-grid bs-grid-cols-1 md:bs-grid-cols-2 bs-gap-4">
+                        <div style="display: flex; flex-direction: column;">
+                            <span class="bs-text-subtle" style="font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">User ID</span>
+                            <span style="font-family: monospace; word-break: break-all;">@user.Id</span>
                         </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Auth Provider</span>
-                            <span class="detail-value">@user.Provider.ToString()</span>
+                        <div style="display: flex; flex-direction: column;">
+                            <span class="bs-text-subtle" style="font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">Auth Provider</span>
+                            <span>@user.Provider.ToString()</span>
                         </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Preferred Currency</span>
-                            <span class="detail-value">@(user.PreferredCurrencyCode ?? "Not set")</span>
+                        <div style="display: flex; flex-direction: column;">
+                            <span class="bs-text-subtle" style="font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">Preferred Currency</span>
+                            <span>@(user.PreferredCurrencyCode ?? "Not set")</span>
                         </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Account Created</span>
-                            <span class="detail-value">@user.CreatedAt.ToString("MMMM dd, yyyy 'at' HH:mm")</span>
+                        <div style="display: flex; flex-direction: column;">
+                            <span class="bs-text-subtle" style="font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">Account Created</span>
+                            <span>@user.CreatedAt.ToString("MMMM dd, yyyy 'at' HH:mm")</span>
                         </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Last Login</span>
-                            <span class="detail-value">@user.LastLoginAt.ToString("MMMM dd, yyyy 'at' HH:mm")</span>
+                        <div style="display: flex; flex-direction: column;">
+                            <span class="bs-text-subtle" style="font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">Last Login</span>
+                            <span>@(user.LastLoginAt == default ? "Never" : user.LastLoginAt.ToString("MMMM dd, yyyy 'at' HH:mm"))</span>
                         </div>
                         @if (user.DeactivatedAt.HasValue)
                         {
-                            <div class="detail-item">
-                                <span class="detail-label">Deactivated At</span>
-                                <span class="detail-value deactivated">@user.DeactivatedAt.Value.ToString("MMMM dd, yyyy 'at' HH:mm")</span>
+                            <div style="display: flex; flex-direction: column;">
+                                <span class="bs-text-subtle" style="font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">Deactivated At</span>
+                                <span style="color: var(--bs-error);">@user.DeactivatedAt.Value.ToString("MMMM dd, yyyy 'at' HH:mm")</span>
                             </div>
                         }
                     </div>
                 </div>
 
-                <div class="detail-card">
-                    <div class="detail-card-header">
-                        <h3>Space Memberships (@user.Memberships.Count)</h3>
+                <div class="bs-card">
+                    <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 1rem;">
+                        <h3 style="margin: 0; font-size: 1.125rem;">Space Memberships (@user.Memberships.Count)</h3>
                         @if (!showAssignForm)
                         {
                             <button class="bs-btn bs-btn-sm bs-btn-primary" @onclick="ShowAssignForm">
@@ -144,57 +144,55 @@
 
                     @if (showAssignForm)
                     {
-                        <div class="assign-space-form">
-                            <div class="assign-space-row">
-                                <select class="form-input" @bind="selectedSpaceId" disabled="@isAssigning">
-                                    <option value="">Select a space...</option>
-                                    @foreach (var space in availableSpaces)
-                                    {
-                                        <option value="@space.Id">@space.Name</option>
-                                    }
-                                </select>
-                                <button class="bs-btn bs-btn-sm bs-btn-primary"
-                                        @onclick="AssignUserToSpace"
-                                        disabled="@(selectedSpaceId == Guid.Empty || isAssigning)">
-                                    @if (isAssigning)
-                                    {
-                                        <span class="loading-spinner-small"></span>
-                                    }
-                                    Add
-                                </button>
-                                <button class="bs-btn bs-btn-sm bs-btn-secondary" @onclick="CancelAssign" disabled="@isAssigning">
-                                    Cancel
-                                </button>
-                            </div>
-                            @if (!availableSpaces.Any())
-                            {
-                                <p class="assign-space-hint">No available spaces to assign. The user is already a member of all active spaces.</p>
-                            }
+                        <div class="bs-flex bs-gap-2" style="flex-wrap: wrap; margin-bottom: 1rem;">
+                            <select class="bs-input" style="flex: 1; min-width: 12rem;" @bind="selectedSpaceId" disabled="@isAssigning">
+                                <option value="">Select a space...</option>
+                                @foreach (var space in availableSpaces)
+                                {
+                                    <option value="@space.Id">@space.Name</option>
+                                }
+                            </select>
+                            <button class="bs-btn bs-btn-primary"
+                                    @onclick="AssignUserToSpace"
+                                    disabled="@(selectedSpaceId == Guid.Empty || isAssigning)">
+                                @if (isAssigning)
+                                {
+                                    <span class="bs-spinner bs-spinner-sm"></span>
+                                }
+                                Add
+                            </button>
+                            <button class="bs-btn bs-btn-secondary" @onclick="CancelAssign" disabled="@isAssigning">
+                                Cancel
+                            </button>
                         </div>
+                        @if (!availableSpaces.Any())
+                        {
+                            <p class="bs-text-subtle" style="font-size: 0.875rem; margin: 0 0 1rem;">No available spaces to assign. The user is already a member of all active spaces.</p>
+                        }
                     }
 
                     @if (user.Memberships.Any())
                     {
-                        <div class="memberships-list">
+                        <div class="bs-flex bs-flex-col bs-gap-2">
                             @foreach (var membership in user.Memberships)
                             {
-                                <div class="membership-item">
-                                    <div class="membership-info">
-                                        <span class="membership-name">@membership.SpaceName</span>
-                                        <span class="membership-role @(membership.Role.ToString() == "Admin" ? "admin" : "member")">
+                                <div class="bs-flex bs-items-center bs-justify-between bs-gap-2" style="padding: 0.75rem; border: 1px solid var(--bs-border); border-radius: 0.5rem;">
+                                    <div class="bs-flex bs-items-center bs-gap-2">
+                                        <span class="bs-font-bold">@membership.SpaceName</span>
+                                        <span class="bs-badge @(membership.Role.ToString() == "Admin" ? "bs-badge-primary" : "bs-badge-secondary")">
                                             @membership.Role
                                         </span>
                                     </div>
-                                    <span class="membership-joined">Joined @membership.JoinedAt.ToString("MMM dd, yyyy")</span>
+                                    <span class="bs-text-subtle" style="font-size: 0.8125rem; white-space: nowrap;">Joined @membership.JoinedAt.ToString("MMM dd, yyyy")</span>
                                 </div>
                             }
                         </div>
                     }
                     else
                     {
-                        <div class="no-memberships">
-                            <span class="material-symbols-outlined">group_off</span>
-                            <p>This user is not a member of any spaces.</p>
+                        <div class="bs-flex bs-flex-col bs-items-center bs-gap-2" style="padding: 2rem; text-align: center; color: var(--bs-text-subtle);">
+                            <span class="material-symbols-outlined" style="font-size: 2.5rem;">group_off</span>
+                            <p style="margin: 0;">This user is not a member of any spaces.</p>
                         </div>
                     }
                 </div>
@@ -202,6 +200,15 @@
         </div>
     }
 </div>
+
+<ConfirmDialog IsVisible="@showConfirmDialog"
+               Title="@confirmTitle"
+               Message="@confirmMessage"
+               ConfirmText="@confirmText"
+               IsDestructive="@confirmIsDestructive"
+               IsProcessing="@isProcessingConfirm"
+               OnConfirm="OnConfirmDialog"
+               OnCancel="CancelConfirm" />
 
 <Toast IsVisible="@showToast"
        IsError="@isToastError"
@@ -221,6 +228,14 @@
     private bool isToastError;
     private string toastTitle = "";
     private string toastMessage = "";
+
+    private bool showConfirmDialog;
+    private string confirmTitle = "";
+    private string confirmMessage = "";
+    private string confirmText = "Confirm";
+    private bool confirmIsDestructive;
+    private bool isProcessingConfirm;
+    private Func<Task>? confirmAction;
 
     private bool showAssignForm;
     private bool isAssigning;
@@ -260,6 +275,67 @@
     private void GoBack()
     {
         Navigation.NavigateTo("/admin/users");
+    }
+
+    private void ConfirmPromote() => RequestConfirm(
+        "Promote to Admin",
+        $"Promote {user!.Name} to system admin? This grants full platform admin rights.",
+        "Promote",
+        destructive: false,
+        PromoteUser);
+
+    private void ConfirmDemote() => RequestConfirm(
+        "Demote to User",
+        $"Remove system admin rights from {user!.Name}? They will become a regular user.",
+        "Demote",
+        destructive: false,
+        DemoteUser);
+
+    private void ConfirmDeactivate() => RequestConfirm(
+        "Deactivate Account",
+        $"Deactivate {user!.Name}? This disables the account; the user cannot sign in.",
+        "Deactivate",
+        destructive: true,
+        DeactivateUser);
+
+    private void ConfirmReactivate() => RequestConfirm(
+        "Reactivate Account",
+        $"Reactivate {user!.Name}? This re-enables the account so the user can sign in again.",
+        "Reactivate",
+        destructive: false,
+        ReactivateUser);
+
+    private void RequestConfirm(string title, string message, string confirmLabel, bool destructive, Func<Task> action)
+    {
+        confirmTitle = title;
+        confirmMessage = message;
+        confirmText = confirmLabel;
+        confirmIsDestructive = destructive;
+        confirmAction = action;
+        showConfirmDialog = true;
+    }
+
+    private async Task OnConfirmDialog()
+    {
+        if (confirmAction == null) return;
+
+        isProcessingConfirm = true;
+        try
+        {
+            await confirmAction();
+        }
+        finally
+        {
+            isProcessingConfirm = false;
+            showConfirmDialog = false;
+            confirmAction = null;
+        }
+    }
+
+    private void CancelConfirm()
+    {
+        showConfirmDialog = false;
+        confirmAction = null;
     }
 
     private async Task PromoteUser()

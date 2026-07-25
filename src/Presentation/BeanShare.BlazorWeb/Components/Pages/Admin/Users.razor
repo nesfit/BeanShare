@@ -13,63 +13,59 @@
 
 <PageTitle>User Management - Admin - BeanShare</PageTitle>
 
-<div class="admin-page">
-    <div class="admin-header">
-        <h1>User Management</h1>
-        <p class="admin-subtitle">Manage system users, roles, and account status</p>
+<div class="bs-container" style="padding: 2rem 0;">
+    <div style="margin-bottom: 1.5rem;">
+        <h1 class="bs-font-bold" style="font-size: 1.5rem; margin: 0 0 0.25rem;">User Management</h1>
+        <p class="bs-text-subtle" style="margin: 0;">Manage system users, roles, and account status</p>
     </div>
 
-    <div class="admin-filters">
-        <div class="filter-group">
-            <label>Filter by Status</label>
-            <select @bind="statusFilter" @bind:after="LoadUsers">
+    <div class="bs-flex bs-gap-4" style="flex-wrap: wrap; margin-bottom: 1.5rem;">
+        <div class="bs-flex bs-flex-col bs-gap-2" style="min-width: 12rem;">
+            <label class="bs-label">Filter by Status</label>
+            <select class="bs-input" @bind="statusFilter" @bind:after="ApplyFilters">
                 <option value="all">All Users</option>
                 <option value="active">Active Only</option>
                 <option value="inactive">Inactive Only</option>
             </select>
         </div>
-        <div class="filter-group">
-            <label>Filter by Role</label>
-            <select @bind="roleFilter" @bind:after="LoadUsers">
+        <div class="bs-flex bs-flex-col bs-gap-2" style="min-width: 12rem;">
+            <label class="bs-label">Filter by Role</label>
+            <select class="bs-input" @bind="roleFilter" @bind:after="ApplyFilters">
                 <option value="all">All Roles</option>
                 <option value="admin">System Admins</option>
                 <option value="user">Regular Users</option>
             </select>
         </div>
-        <div class="filter-group search-group">
-            <label>Search</label>
-            <div class="search-input-wrapper">
-                <span class="material-symbols-outlined search-icon">search</span>
-                <input type="text" placeholder="Search by name or email..." @bind="searchTerm" @bind:after="LoadUsers" />
-            </div>
+        <div class="bs-flex bs-flex-col bs-gap-2" style="flex: 1; min-width: 14rem;">
+            <label class="bs-label">Search</label>
+            <input type="text" class="bs-input" placeholder="Search by name or email..."
+                   value="@searchTerm" @oninput="OnSearchInput" />
         </div>
     </div>
 
     @if (isLoading)
     {
-        <div class="loading-state">
-            <div class="loading-spinner"></div>
-            <span>Loading users...</span>
+        <div class="bs-flex bs-flex-col bs-items-center bs-justify-center bs-gap-4" style="padding: 3rem;">
+            <div class="bs-spinner"></div>
+            <span class="bs-text-subtle">Loading users...</span>
         </div>
     }
     else if (users == null || !users.Any())
     {
-        <div class="empty-state">
-            <span class="material-symbols-outlined">person_off</span>
-            <h3>No users found</h3>
-            <p>No users match your current filters.</p>
-        </div>
+        <EmptyState Icon="person_off"
+                    Title="No users found"
+                    Message="No users match your current filters." />
     }
     else
     {
-        <div class="users-table-wrapper">
-            <table class="users-table">
+        <div class="bs-table-wrap">
+            <table class="bs-table">
                 <thead>
                     <tr>
                         <th>User</th>
                         <th>System Role</th>
                         <th>Status</th>
-                        <th>Spaces</th>
+                        <th class="bs-table-num">Spaces</th>
                         <th>Joined</th>
                         <th>Last Login</th>
                         <th>Actions</th>
@@ -78,64 +74,68 @@
                 <tbody>
                     @foreach (var user in users)
                     {
-                        <tr class="@(user.IsActive ? "" : "inactive-row")">
-                            <td class="user-cell">
-                                <div class="user-avatar">
-                                    @if (!string.IsNullOrEmpty(user.PictureUrl))
-                                    {
-                                        <img src="@user.PictureUrl" alt="@user.Name" />
-                                    }
-                                    else
-                                    {
-                                        @user.Name.GetInitials()
-                                    }
-                                </div>
-                                <div class="user-info">
-                                    <span class="user-name">@user.Name</span>
-                                    <span class="user-email">@user.Email</span>
+                        <tr style="@(user.IsActive ? "" : "opacity: 0.55;")">
+                            <td>
+                                <div class="bs-flex bs-items-center bs-gap-3">
+                                    <div style="width: 2.25rem; height: 2.25rem; border-radius: 9999px; background: var(--bs-primary-light); color: var(--bs-primary); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.8125rem; flex-shrink: 0; overflow: hidden;">
+                                        @if (!string.IsNullOrEmpty(user.PictureUrl))
+                                        {
+                                            <img src="@user.PictureUrl" alt="@user.Name" style="width: 100%; height: 100%; object-fit: cover;" />
+                                        }
+                                        else
+                                        {
+                                            @user.Name.GetInitials()
+                                        }
+                                    </div>
+                                    <div class="bs-flex bs-flex-col">
+                                        <span class="bs-font-bold">@user.Name</span>
+                                        <span class="bs-text-subtle" style="font-size: 0.8125rem;">@user.Email</span>
+                                    </div>
                                 </div>
                             </td>
                             <td>
-                                <span class="role-badge @(user.SystemRole == SystemRole.SystemAdmin ? "role-admin" : "role-user")">
+                                <span class="bs-badge @(user.SystemRole == SystemRole.SystemAdmin ? "bs-badge-primary" : "bs-badge-secondary")">
                                     @(user.SystemRole == SystemRole.SystemAdmin ? "Admin" : "User")
                                 </span>
                             </td>
                             <td>
-                                <span class="status-badge @(user.IsActive ? "status-active" : "status-inactive")">
+                                <span class="bs-badge @(user.IsActive ? "bs-badge-success" : "bs-badge-error")">
                                     @(user.IsActive ? "Active" : "Inactive")
                                 </span>
                             </td>
-                            <td>@user.SpaceCount</td>
+                            <td class="bs-table-num">@user.SpaceCount</td>
                             <td>@user.CreatedAt.ToString("MMM dd, yyyy")</td>
-                            <td>@user.LastLoginAt.ToString("MMM dd, yyyy")</td>
-                            <td class="actions-cell">
-                                <button class="action-btn" title="View Details" @onclick="() => ViewUserDetails(user.Id)">
-                                    <span class="material-symbols-outlined">visibility</span>
-                                </button>
-                                @if (user.SystemRole != SystemRole.SystemAdmin)
-                                {
-                                    <button class="action-btn promote-btn" title="Promote to Admin" @onclick="() => PromoteUser(user.Id)">
-                                        <span class="material-symbols-outlined">arrow_upward</span>
+                            <td>@(user.LastLoginAt == default ? "Never" : user.LastLoginAt.ToString("MMM dd, yyyy"))</td>
+                            <td>
+                                <div class="bs-flex bs-items-center bs-gap-2">
+                                    <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="View details for @user.Name" title="View details" @onclick="() => ViewUserDetails(user.Id)">
+                                        <span class="material-symbols-outlined">visibility</span>
                                     </button>
-                                }
-                                else
-                                {
-                                    <button class="action-btn demote-btn" title="Demote to User" @onclick="() => DemoteUser(user.Id)">
-                                        <span class="material-symbols-outlined">arrow_downward</span>
-                                    </button>
-                                }
-                                @if (user.IsActive)
-                                {
-                                    <button class="action-btn deactivate-btn" title="Deactivate User" @onclick="() => DeactivateUser(user.Id)">
-                                        <span class="material-symbols-outlined">block</span>
-                                    </button>
-                                }
-                                else
-                                {
-                                    <button class="action-btn reactivate-btn" title="Reactivate User" @onclick="() => ReactivateUser(user.Id)">
-                                        <span class="material-symbols-outlined">check_circle</span>
-                                    </button>
-                                }
+                                    @if (user.SystemRole != SystemRole.SystemAdmin)
+                                    {
+                                        <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Promote @user.Name to admin" title="Promote to Admin" @onclick="() => ConfirmPromote(user)">
+                                            <span class="material-symbols-outlined" style="color: var(--bs-primary);">arrow_upward</span>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Demote @user.Name to user" title="Demote to User" @onclick="() => ConfirmDemote(user)">
+                                            <span class="material-symbols-outlined" style="color: var(--bs-text-subtle);">arrow_downward</span>
+                                        </button>
+                                    }
+                                    @if (user.IsActive)
+                                    {
+                                        <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Deactivate @user.Name" title="Deactivate user" @onclick="() => ConfirmDeactivate(user)">
+                                            <span class="material-symbols-outlined" style="color: var(--bs-error);">block</span>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Reactivate @user.Name" title="Reactivate user" @onclick="() => ConfirmReactivate(user)">
+                                            <span class="material-symbols-outlined" style="color: var(--bs-success);">check_circle</span>
+                                        </button>
+                                    }
+                                </div>
                             </td>
                         </tr>
                     }
@@ -144,6 +144,15 @@
         </div>
     }
 </div>
+
+<ConfirmDialog IsVisible="@showConfirmDialog"
+               Title="@confirmTitle"
+               Message="@confirmMessage"
+               ConfirmText="@confirmText"
+               IsDestructive="@confirmIsDestructive"
+               IsProcessing="@isProcessingConfirm"
+               OnConfirm="OnConfirmDialog"
+               OnCancel="CancelConfirm" />
 
 <Toast IsVisible="@showToast"
        IsError="@isToastError"
@@ -164,6 +173,14 @@
     private bool isToastError;
     private string toastTitle = "";
     private string toastMessage = "";
+
+    private bool showConfirmDialog;
+    private string confirmTitle = "";
+    private string confirmMessage = "";
+    private string confirmText = "Confirm";
+    private bool confirmIsDestructive;
+    private bool isProcessingConfirm;
+    private Func<Task>? confirmAction;
 
     private CancellationTokenSource? _loadCts;
 
@@ -223,6 +240,12 @@
         _loadCts?.Dispose();
     }
 
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? "";
+        ApplyFilters();
+    }
+
     private void ApplyFilters()
     {
         if (allUsers == null) return;
@@ -253,6 +276,67 @@
     private void ViewUserDetails(Guid userId)
     {
         Navigation.NavigateTo($"/admin/users/{userId}");
+    }
+
+    private void ConfirmPromote(AdminUserDto user) => RequestConfirm(
+        "Promote to Admin",
+        $"Promote {user.Name} to system admin? This grants full platform admin rights.",
+        "Promote",
+        destructive: false,
+        () => PromoteUser(user.Id));
+
+    private void ConfirmDemote(AdminUserDto user) => RequestConfirm(
+        "Demote to User",
+        $"Remove system admin rights from {user.Name}? They will become a regular user.",
+        "Demote",
+        destructive: false,
+        () => DemoteUser(user.Id));
+
+    private void ConfirmDeactivate(AdminUserDto user) => RequestConfirm(
+        "Deactivate Account",
+        $"Deactivate {user.Name}? This disables the account; the user cannot sign in.",
+        "Deactivate",
+        destructive: true,
+        () => DeactivateUser(user.Id));
+
+    private void ConfirmReactivate(AdminUserDto user) => RequestConfirm(
+        "Reactivate Account",
+        $"Reactivate {user.Name}? This re-enables the account so the user can sign in again.",
+        "Reactivate",
+        destructive: false,
+        () => ReactivateUser(user.Id));
+
+    private void RequestConfirm(string title, string message, string confirmLabel, bool destructive, Func<Task> action)
+    {
+        confirmTitle = title;
+        confirmMessage = message;
+        confirmText = confirmLabel;
+        confirmIsDestructive = destructive;
+        confirmAction = action;
+        showConfirmDialog = true;
+    }
+
+    private async Task OnConfirmDialog()
+    {
+        if (confirmAction == null) return;
+
+        isProcessingConfirm = true;
+        try
+        {
+            await confirmAction();
+        }
+        finally
+        {
+            isProcessingConfirm = false;
+            showConfirmDialog = false;
+            confirmAction = null;
+        }
+    }
+
+    private void CancelConfirm()
+    {
+        showConfirmDialog = false;
+        confirmAction = null;
     }
 
     private async Task PromoteUser(Guid userId)

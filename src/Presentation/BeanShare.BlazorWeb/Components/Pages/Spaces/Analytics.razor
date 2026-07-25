@@ -3,6 +3,7 @@
 @using MediatR
 @using BeanShare.Application.Features.Analytics.Queries.GetSpaceAnalytics
 @using BeanShare.SharedUi.Components.Analytics
+@using BeanShare.SharedUi.Components.Common
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 @inject IMediator Mediator
@@ -13,19 +14,35 @@
 <div style="position: sticky; top: 0; z-index: 10; background: var(--bs-background-light); border-bottom: 1px solid var(--bs-border); padding: 1rem 0;">
     <div class="bs-container">
         <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 1rem;">
-            <button class="bs-btn-sm" style="background: transparent; border: none; cursor: pointer;" @onclick='@(() => Navigation.NavigateTo($"/spaces/{SpaceId}"))'>
+            <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Back to spaces" @onclick='@(() => Navigation.NavigateTo("/spaces"))'>
                 <span class="material-symbols-outlined">arrow_back</span>
             </button>
             <h1 class="bs-font-bold" style="margin: 0; font-size: 1.25rem;">Analytics</h1>
             <div style="width: 2rem;"></div>
         </div>
+        <SpaceTabs SpaceId="@SpaceId" ActiveTab="analytics" PreventNavigation="false" />
     </div>
 </div>
 
 <div class="bs-container" style="padding: 2rem 0;">
+    <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap;">
+        <h2 class="bs-font-bold" style="margin: 0; font-size: 1.15rem;">Space insights</h2>
+        <label class="bs-flex bs-items-center" style="gap: 0.5rem; font-size: 0.875rem; color: var(--bs-text-subtle);">
+            Period
+            <select class="bs-input" style="width: auto; padding: 0.4rem 0.6rem;" @bind="rangeDays" @bind:after="LoadAnalytics">
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+                <option value="365">Last 12 months</option>
+                <option value="3650">All time</option>
+            </select>
+        </label>
+    </div>
+
     <SpaceAnalytics Analytics="@spaceAnalytics"
                    IsLoading="@isLoading" />
 </div>
+
+<Toast IsVisible="@showToast" IsError="true" Title="Error" Message="@toastMessage" OnClose="@(() => showToast = false)" />
 
 @code {
     [Parameter]
@@ -33,6 +50,10 @@
 
     private SpaceAnalyticsDto? spaceAnalytics;
     private bool isLoading = true;
+    private int rangeDays = 30;
+
+    private bool showToast;
+    private string toastMessage = "";
 
     protected override async Task OnParametersSetAsync()
     {
@@ -49,15 +70,16 @@
         {
             var result = await Mediator.Send(new GetSpaceAnalyticsQuery(
                 new BeanShare.Domain.ValueObjects.SpaceId(Guid.Parse(SpaceId)),
-                DateTime.UtcNow.AddDays(-30),
+                DateTime.UtcNow.AddDays(-rangeDays),
                 DateTime.UtcNow
             ));
             spaceAnalytics = result;
         }
         catch (Exception ex)
         {
-            // Analytics loading failed - log but show empty state gracefully
-            Console.Error.WriteLine($"Failed to load analytics: {ex.Message}");
+            spaceAnalytics = null;
+            toastMessage = $"Couldn't load analytics: {ex.Message}";
+            showToast = true;
         }
         finally
         {

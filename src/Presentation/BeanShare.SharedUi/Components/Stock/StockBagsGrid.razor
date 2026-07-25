@@ -1,7 +1,17 @@
 @using BeanShare.Application.Features.CoffeeStock.Dtos
 
 <div class="bs-mb-6">
-    <h2 class="bs-font-bold" style="margin: 0 0 1rem 0; font-size: 1.25rem;">Current Stock</h2>
+    <h2 class="bs-font-bold" style="margin: 0 0 0.5rem 0; font-size: 1.25rem;">Current Stock</h2>
+
+    @if (CurrentBags.Any())
+    {
+        <div class="bs-flex bs-items-center bs-gap-4" style="flex-wrap: wrap; margin: 0 0 1rem 0; font-size: 0.75rem; color: var(--bs-text-subtle);">
+            <span style="font-weight: 600;">Bag status:</span>
+            <span class="bs-flex bs-items-center" style="gap: 0.35rem;"><span class="bs-pill" style="background: var(--bs-gray-100); color: var(--bs-text-subtle);">Sealed</span> unopened</span>
+            <span class="bs-flex bs-items-center" style="gap: 0.35rem;"><span class="bs-pill" style="background: var(--bs-primary-light); color: var(--bs-primary);">Open</span> in use now</span>
+            <span class="bs-flex bs-items-center" style="gap: 0.35rem;"><span class="bs-pill" style="background: var(--bs-error-light); color: var(--bs-error);">Empty</span> used up</span>
+        </div>
+    }
 
     @if (!CurrentBags.Any())
     {
@@ -23,10 +33,13 @@
                                 @group.First().ProductType · @group.Count() bag@(group.Count() == 1 ? "" : "s") · @onHand.ToString("0.#") g on hand
                             </p>
                         </div>
-                        <button class="bs-btn bs-btn-secondary bs-btn-sm" title="Generate a QR code for this coffee"
-                                @onclick="@(() => level != null ? OnShowQr.InvokeAsync(level) : Task.CompletedTask)">
-                            <span class="material-symbols-outlined" style="font-size: 1rem;">qr_code_2</span>
-                        </button>
+                        @if (IsAdmin)
+                        {
+                            <button class="bs-btn bs-btn-secondary bs-btn-sm" aria-label="Generate a QR code for this coffee" title="Generate a QR code for this coffee"
+                                    @onclick="@(() => level != null ? OnShowQr.InvokeAsync(level) : Task.CompletedTask)">
+                                <span class="material-symbols-outlined" style="font-size: 1rem;">qr_code_2</span>
+                            </button>
+                        }
                     </div>
 
                     <div style="overflow-x: auto;">

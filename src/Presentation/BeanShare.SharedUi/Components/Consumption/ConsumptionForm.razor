@@ -10,9 +10,16 @@
         @if (StockProducts == null || !StockProducts.Any())
         {
             <div style="padding: 1rem; background: var(--bs-warning-light); border-radius: 0.5rem; margin-bottom: 1rem;">
-                <p style="margin: 0; color: var(--bs-warning-dark); font-size: 0.875rem;">
-                    No coffee products in stock. Please add coffee to stock first.
+                <p style="margin: 0 0 0.75rem 0; color: var(--bs-warning-dark); font-size: 0.875rem;">
+                    No coffee in stock yet. Add a bag before logging cups.
                 </p>
+                @if (OnAddStock.HasDelegate)
+                {
+                    <button type="button" class="bs-btn bs-btn-sm bs-btn-primary" @onclick="OnAddStock">
+                        <span class="material-symbols-outlined" style="font-size: 1.1rem;">add</span>
+                        Add coffee to stock
+                    </button>
+                }
             </div>
         }
         else
@@ -190,7 +197,7 @@
                     }
                 </button>
                 <button type="button" class="bs-btn bs-btn-secondary bs-flex-1" @onclick="Reset">
-                    Cancel
+                    Reset
                 </button>
             </div>
         }
@@ -224,6 +231,9 @@
 
     [Parameter]
     public Guid? DefaultStockLevelId { get; set; }
+
+    [Parameter]
+    public EventCallback OnAddStock { get; set; }
 
     private ConsumptionFormModel model = new() { ConsumedAt = DateTime.Now };
     private EditContext editContext = default!;

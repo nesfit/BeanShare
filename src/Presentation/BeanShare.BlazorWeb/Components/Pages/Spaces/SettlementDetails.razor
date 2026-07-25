@@ -20,7 +20,7 @@
 <div style="position: sticky; top: 0; z-index: 10; background: var(--bs-background-light); border-bottom: 1px solid var(--bs-border); padding: 1rem 0;">
     <div class="bs-container">
         <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 1rem;">
-            <button class="bs-btn-sm" style="background: transparent; border: none; cursor: pointer;" @onclick='@(() => Navigation.NavigateTo($"/spaces/{SpaceId}/settlements"))'>
+            <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Back to settlements" @onclick='@(() => Navigation.NavigateTo($"/spaces/{SpaceId}/settlements"))'>
                 <span class="material-symbols-outlined">arrow_back</span>
             </button>
             <h1 class="bs-font-bold" style="margin: 0; font-size: 1.25rem;">Settlement</h1>
@@ -51,7 +51,7 @@
         <div class="bs-card" style="padding: 2rem; margin-bottom: 1.5rem;">
             <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 0.5rem;">
                 <h2 style="margin: 0; font-size: 1.5rem; font-weight: 700;">@settlement.BillingPeriodName</h2>
-                <span class="@GetStatusBadgeClass(settlement.Status)" style="padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600;">
+                <span class="bs-badge @GetStatusBadgeClass(settlement.Status)">
                     @GetStatusDisplayText(settlement.Status)
                 </span>
             </div>
@@ -96,41 +96,32 @@
         @if (Debtors.Any() || Creditors.Any())
         {
             <div class="bs-card" style="padding: 2rem; margin-bottom: 1.5rem;">
-                <h3 style="margin: 0 0 1.5rem 0; font-size: 1.25rem; font-weight: 600;">Who Owes Whom</h3>
-                <div class="bs-flex bs-gap-4" style="flex-wrap: wrap;">
-                    @if (Debtors.Any())
-                    {
-                        <div class="bs-flex-1" style="min-width: 220px;">
-                            <div class="bs-flex bs-items-center bs-gap-2" style="margin-bottom: 0.75rem;">
-                                <span class="material-symbols-outlined" style="color: var(--bs-error, #ef4444); font-size: 1.25rem;">arrow_upward</span>
-                                <span style="font-weight: 600; font-size: 0.875rem; color: var(--bs-error, #ef4444);">OWE MONEY</span>
+                <h3 style="margin: 0 0 0.25rem 0; font-size: 1.25rem; font-weight: 600;">Who owes whom</h3>
+                <p class="bs-text-subtle" style="margin: 0 0 1.25rem 0; font-size: 0.875rem;">Suggested payments to settle everyone up with the fewest transfers.</p>
+                @{
+                    var transfers = BuildTransfers();
+                }
+                @if (transfers.Any())
+                {
+                    <div class="bs-flex bs-flex-col" style="gap: 0.5rem;">
+                        @foreach (var t in transfers)
+                        {
+                            <div class="bs-flex bs-items-center" style="gap: 0.6rem; padding: 0.65rem 0.85rem; background: var(--bs-gray-50); border: 1px solid var(--bs-border); border-radius: 0.5rem; flex-wrap: wrap;">
+                                <span style="font-weight: 600;">@t.From</span>
+                                <span class="material-symbols-outlined" style="color: var(--bs-text-subtle); font-size: 1.15rem;" title="pays">arrow_forward</span>
+                                <span style="font-weight: 600;">@t.To</span>
+                                <span style="margin-left: auto; font-weight: 700; color: var(--bs-primary); font-variant-numeric: tabular-nums;">@t.Currency @t.Amount.ToString("F2")</span>
                             </div>
-                            @foreach (var d in Debtors)
-                            {
-                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--bs-border);">
-                                    <span style="font-weight: 500;">@d.UserName</span>
-                                    <span style="font-weight: 700; color: var(--bs-error, #ef4444);">@d.Currency @Math.Abs(d.NetBalance).ToString("F2")</span>
-                                </div>
-                            }
-                        </div>
-                    }
-                    @if (Creditors.Any())
-                    {
-                        <div class="bs-flex-1" style="min-width: 220px;">
-                            <div class="bs-flex bs-items-center bs-gap-2" style="margin-bottom: 0.75rem;">
-                                <span class="material-symbols-outlined" style="color: var(--bs-success); font-size: 1.25rem;">arrow_downward</span>
-                                <span style="font-weight: 600; font-size: 0.875rem; color: var(--bs-success);">ARE OWED</span>
-                            </div>
-                            @foreach (var c in Creditors)
-                            {
-                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--bs-border);">
-                                    <span style="font-weight: 500;">@c.UserName</span>
-                                    <span style="font-weight: 700; color: var(--bs-success);">@c.Currency @c.NetBalance.ToString("F2")</span>
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="bs-flex bs-items-center" style="gap: 0.5rem; color: var(--bs-success);">
+                        <span class="material-symbols-outlined">check_circle</span>
+                        <span style="font-weight: 600;">Everyone's square — no payments needed.</span>
+                    </div>
+                }
             </div>
         }
 
@@ -199,7 +190,7 @@
                                 <button class="bs-btn bs-btn-sm bs-btn-primary"
                                         style="font-size: 0.875rem;"
                                         disabled="@isConfirming"
-                                        @onclick="@(() => HandleConfirmPayment(line.UserId))">
+                                        @onclick="@(() => RequestConfirmPayment(line.UserId, line.UserName))">
                                     @if (isConfirming && confirmingUserId == line.UserId)
                                     {
                                         <span>Confirming...</span>
@@ -260,6 +251,14 @@
     }
 </div>
 
+<ConfirmDialog IsVisible="@showConfirmPayment"
+               Title="Confirm payment?"
+               Message="@confirmPaymentMessage"
+               ConfirmText="Mark as paid"
+               IsProcessing="@isConfirming"
+               OnConfirm="ExecuteConfirmPayment"
+               OnCancel="@(() => showConfirmPayment = false)" />
+
 <Toast IsVisible="@showToast"
        IsError="@isToastError"
        Title="@toastTitle"
@@ -286,14 +285,66 @@
     private Guid confirmingUserId;
     private bool isSendingEmails;
 
+    private bool showConfirmPayment;
+    private Guid pendingPaymentUserId;
+    private string confirmPaymentMessage = "";
+
+    private sealed record Transfer(string From, string To, decimal Amount, string Currency);
+
     private List<SettlementLineDto> Debtors => settlement?.Lines.Where(l => l.NetBalance < -0.01m).OrderBy(l => l.NetBalance).ToList() ?? new();
     private List<SettlementLineDto> Creditors => settlement?.Lines.Where(l => l.NetBalance > 0.01m).OrderByDescending(l => l.NetBalance).ToList() ?? new();
 
     protected override async Task OnInitializedAsync()
     {
-        currentUserId = UserContext.CurrentUserId.Value;
+        try
+        {
+            currentUserId = UserContext.CurrentUserId.Value;
+        }
+        catch
+        {
+            currentUserId = Guid.Empty;
+        }
         await LoadSpace();
         await LoadSettlement();
+    }
+
+    // Greedy min-transfer settlement: match the largest debtor to the largest creditor.
+    private List<Transfer> BuildTransfers()
+    {
+        var transfers = new List<Transfer>();
+        if (settlement == null)
+        {
+            return transfers;
+        }
+
+        var debtors = settlement.Lines
+            .Where(l => l.NetBalance < -0.01m)
+            .Select(l => new { l.UserName, Amount = -l.NetBalance, l.Currency })
+            .OrderByDescending(x => x.Amount)
+            .ToList();
+        var creditors = settlement.Lines
+            .Where(l => l.NetBalance > 0.01m)
+            .Select(l => new { l.UserName, Amount = l.NetBalance, l.Currency })
+            .OrderByDescending(x => x.Amount)
+            .ToList();
+
+        int i = 0, j = 0;
+        var owe = debtors.Select(d => d.Amount).ToList();
+        var due = creditors.Select(c => c.Amount).ToList();
+        while (i < debtors.Count && j < creditors.Count)
+        {
+            var pay = Math.Min(owe[i], due[j]);
+            if (pay > 0.01m)
+            {
+                transfers.Add(new Transfer(debtors[i].UserName, creditors[j].UserName, pay, debtors[i].Currency));
+            }
+            owe[i] -= pay;
+            due[j] -= pay;
+            if (owe[i] <= 0.01m) i++;
+            if (due[j] <= 0.01m) j++;
+        }
+
+        return transfers;
     }
 
     private async Task LoadSpace()
@@ -342,6 +393,21 @@
     private bool CanConfirmPayment(Guid lineUserId)
     {
         return isAdmin || lineUserId == currentUserId;
+    }
+
+    private void RequestConfirmPayment(Guid memberUserId, string memberName)
+    {
+        pendingPaymentUserId = memberUserId;
+        confirmPaymentMessage = memberUserId == currentUserId
+            ? "This marks your share of this settlement as paid. Only do this once you've actually settled up."
+            : $"This marks {memberName}'s share as paid.";
+        showConfirmPayment = true;
+    }
+
+    private async Task ExecuteConfirmPayment()
+    {
+        showConfirmPayment = false;
+        await HandleConfirmPayment(pendingPaymentUserId);
     }
 
     private async Task HandleConfirmPayment(Guid memberUserId)

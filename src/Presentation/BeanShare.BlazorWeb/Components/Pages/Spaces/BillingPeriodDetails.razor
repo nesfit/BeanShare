@@ -5,6 +5,7 @@
 @using BeanShare.Application.Features.Billing.Commands.OpenBillingPeriod
 @using BeanShare.Application.Features.Billing.Commands.CloseBillingPeriod
 @using BeanShare.Application.Features.Settlement.Commands.GenerateSettlement
+@using BeanShare.Application.Features.Settlement.Queries.GetSpaceSettlements
 @using BeanShare.Application.Features.Billing.Commands.ReopenBillingPeriod
 @using BeanShare.Application.Features.Billing.Dtos
 @using BeanShare.Domain.ValueObjects
@@ -18,7 +19,7 @@
 <div style="position: sticky; top: 0; z-index: 10; background: var(--bs-background-light); border-bottom: 1px solid var(--bs-border); padding: 1rem 0;">
     <div class="bs-container">
         <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 1rem;">
-            <button class="bs-btn-sm" style="background: transparent; border: none; cursor: pointer;" @onclick='@(() => Navigation.NavigateTo($"/spaces/{SpaceId}/billing"))'>
+            <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Back to billing periods" @onclick='@(() => Navigation.NavigateTo($"/spaces/{SpaceId}/billing"))'>
                 <span class="material-symbols-outlined">arrow_back</span>
             </button>
             <h1 class="bs-font-bold" style="margin: 0; font-size: 1.25rem;">@(period?.Name ?? "Loading...")</h1>
@@ -49,7 +50,7 @@
         <div class="bs-card" style="padding: 2rem; margin-bottom: 1.5rem;">
             <div class="bs-flex bs-items-start bs-justify-between" style="margin-bottom: 1.5rem;">
                 <div>
-                    <span class="bs-badge" style="background: @GetStateColor(period.State); color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600;">
+                    <span class="bs-badge @GetStateBadgeClass(period.State)">
                         @period.State
                     </span>
                     <h2 style="margin: 1rem 0 0.5rem 0; font-size: 1.5rem; font-weight: 700;">@period.Name</h2>
@@ -96,7 +97,7 @@
                 }
                 else if (period.State == "Open")
                 {
-                    <button class="bs-btn bs-btn-secondary" @onclick="HandleClosePeriod" disabled="@isProcessing">
+                    <button class="bs-btn bs-btn-secondary" @onclick="RequestClose" disabled="@isProcessing">
                         @if (isProcessing)
                         {
                             <span>Closing...</span>
@@ -110,7 +111,7 @@
                 }
                 else if (period.State == "Closed" && !period.SettledAt.HasValue)
                 {
-                    <button class="bs-btn bs-btn-primary" @onclick="HandleGenerateSettlement" disabled="@isProcessing">
+                    <button class="bs-btn bs-btn-primary" @onclick="RequestGenerate" disabled="@isProcessing">
                         @if (isProcessing)
                         {
                             <span>Generating...</span>
@@ -121,7 +122,7 @@
                             <span>Generate Settlement</span>
                         }
                     </button>
-                    <button class="bs-btn bs-btn-secondary" @onclick="HandleReopenPeriod" disabled="@isProcessing">
+                    <button class="bs-btn bs-btn-secondary" @onclick="RequestReopen" disabled="@isProcessing">
                         @if (isProcessing)
                         {
                             <span>Reopening...</span>
@@ -193,6 +194,15 @@
     }
 </div>
 
+<ConfirmDialog IsVisible="@showConfirm"
+               Title="@confirmTitle"
+               Message="@confirmMessage"
+               ConfirmText="@confirmText"
+               IsDestructive="@confirmDestructive"
+               IsProcessing="@isProcessing"
+               OnConfirm="ExecuteConfirm"
+               OnCancel="@(() => showConfirm = false)" />
+
 <Toast IsVisible="@showToast"
        IsError="@isToastError"
        Title="@toastTitle"
@@ -213,6 +223,52 @@
     private bool isToastError;
     private string toastTitle = "";
     private string toastMessage = "";
+
+    private bool showConfirm;
+    private string confirmTitle = "";
+    private string confirmMessage = "";
+    private string confirmText = "Confirm";
+    private bool confirmDestructive;
+    private Func<Task>? confirmCallback;
+
+    private void RequestClose()
+    {
+        confirmTitle = "Close billing period?";
+        confirmMessage = "Closing locks every consumption entry in this period so a settlement can be generated. You can reopen it later if you need to make changes.";
+        confirmText = "Close period";
+        confirmDestructive = false;
+        confirmCallback = HandleClosePeriod;
+        showConfirm = true;
+    }
+
+    private void RequestGenerate()
+    {
+        confirmTitle = "Generate settlement?";
+        confirmMessage = "This calculates who owes what for this period from the logged cups and marks it settled. You can reopen the period and regenerate if entries change.";
+        confirmText = "Generate settlement";
+        confirmDestructive = false;
+        confirmCallback = HandleGenerateSettlement;
+        showConfirm = true;
+    }
+
+    private void RequestReopen()
+    {
+        confirmTitle = "Reopen billing period?";
+        confirmMessage = "Reopening unlocks entries for editing. Any settlement already generated for this period may become out of date.";
+        confirmText = "Reopen";
+        confirmDestructive = true;
+        confirmCallback = HandleReopenPeriod;
+        showConfirm = true;
+    }
+
+    private async Task ExecuteConfirm()
+    {
+        showConfirm = false;
+        if (confirmCallback != null)
+        {
+            await confirmCallback();
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -340,10 +396,6 @@
 
             if (result.IsSuccess)
             {
-                ShowToast(false, "Success", "Settlement generated successfully!");
-                await LoadPeriod();
-                // Navigate to settlement details after a brief delay
-                await Task.Delay(1500);
                 Navigation.NavigateTo($"/spaces/{SpaceId}/settlements/{result.Value.Id}");
             }
             else
@@ -361,22 +413,43 @@
         }
     }
 
-    private void ViewSettlement()
+    private async Task ViewSettlement()
     {
-        // This would need to fetch the settlement ID for this period
-        // For now, navigate to settlements list
+        // The billing-period DTO doesn't carry the settlement id, so resolve it from the
+        // space's settlements by matching this period (latest generated wins).
+        try
+        {
+            var result = await Mediator.Send(new GetSpaceSettlementsQuery(new SpaceId(Guid.Parse(SpaceId))));
+            if (result.IsSuccess && period != null)
+            {
+                var match = result.Value
+                    .Where(s => s.BillingPeriodName == period.Name)
+                    .OrderByDescending(s => s.GeneratedAt)
+                    .FirstOrDefault();
+                if (match != null)
+                {
+                    Navigation.NavigateTo($"/spaces/{SpaceId}/settlements/{match.Id}");
+                    return;
+                }
+            }
+        }
+        catch
+        {
+            // fall through to the list
+        }
+
         Navigation.NavigateTo($"/spaces/{SpaceId}/settlements");
     }
 
-    private string GetStateColor(string state)
+    private string GetStateBadgeClass(string state)
     {
         return state switch
         {
-            "Draft" => "var(--bs-gray-400)",
-            "Open" => "var(--bs-success)",
-            "Closed" => "var(--bs-warning)",
-            "Settled" => "var(--bs-primary)",
-            _ => "var(--bs-gray-400)"
+            "Draft" => "bs-badge-secondary",
+            "Open" => "bs-badge-success",
+            "Closed" => "bs-badge-warning",
+            "Settled" => "bs-badge-primary",
+            _ => "bs-badge-secondary"
         };
     }
 

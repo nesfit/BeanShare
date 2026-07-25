@@ -59,7 +59,6 @@ else
 
             <SpaceTabs SpaceId="@SpaceId"
                       ActiveTab="consumption"
-                      OnTabChange="HandleTabChange"
                       PreventNavigation="false" />
         </div>
     </div>
@@ -92,7 +91,8 @@ else
                            QuickPresets="@quickPresets"
                            SpaceMembers="@space?.Members?.ToList()"
                            CurrentUserId="@UserContext.CurrentUserId.Value"
-                           DefaultStockLevelId="@DefaultProductId()" />
+                           DefaultStockLevelId="@DefaultProductId()"
+                           OnAddStock="@(() => Navigation.NavigateTo($"/spaces/{SpaceId}/stock"))" />
 
             <div>
                 <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 0.75rem;">
@@ -378,22 +378,6 @@ else
         }
     }
 
-    private async Task HandleTabChange(string newTab)
-    {
-        if (newTab == "members")
-        {
-            Navigation.NavigateTo($"/spaces/{SpaceId}");
-        }
-        else if (newTab == "stock")
-        {
-            Navigation.NavigateTo($"/spaces/{SpaceId}/stock");
-        }
-        else if (newTab == "ledger")
-        {
-            Navigation.NavigateTo($"/spaces/{SpaceId}/ledger");
-        }
-    }
-
     private async Task HandleLogConsumption(ConsumptionFormModel model)
     {
         try
@@ -444,8 +428,8 @@ else
             if (successCount > 0)
             {
                 var msg = successCount == 1
-                    ? "Consumption logged successfully!"
-                    : $"Logged {successCount} cups!";
+                    ? $"Logged 1 cup of {model.ProductName}."
+                    : $"Logged {successCount} cups of {model.ProductName}.";
                 ShowToast(false, "Success", msg);
                 await LoadStock();
                 await LoadConsumption();

@@ -13,6 +13,21 @@
 
 <PageTitle>Presets - BeanShare</PageTitle>
 
+<div style="position: sticky; top: 0; z-index: 10; background: var(--bs-background-light); border-bottom: 1px solid var(--bs-border); padding: 1rem 0;">
+    <div class="bs-container">
+        <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 1rem;">
+            <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Back to spaces" @onclick='@(() => Navigation.NavigateTo("/spaces"))'>
+                <span class="material-symbols-outlined">arrow_back</span>
+            </button>
+            <h1 class="bs-font-bold" style="margin: 0; font-size: 1.25rem;">Preset Recipes</h1>
+            <button class="bs-btn bs-btn-sm bs-btn-primary" aria-label="Create preset recipe" @onclick="ShowCreateModal">
+                <span class="material-symbols-outlined">add</span>
+            </button>
+        </div>
+        <SpaceTabs SpaceId="@SpaceId" ActiveTab="presets" PreventNavigation="false" />
+    </div>
+</div>
+
 <div style="background: var(--bs-background); border-bottom: 1px solid var(--bs-border); padding: 1rem 0;">
     <div class="bs-container">
         <div class="bs-flex bs-items-center bs-justify-between" style="cursor: pointer;" @onclick="ToggleGlobalPresetsSection">
@@ -60,7 +75,7 @@
                                         </p>
                                     </div>
                                     <label class="toggle-switch">
-                                        <input type="checkbox" checked="@preset.IsEnabled" @onchange="() => ToggleGlobalPreset(preset)" disabled="@isTogglingPreset" />
+                                        <input type="checkbox" checked="@preset.IsEnabled" @onchange="() => ToggleGlobalPreset(preset)" disabled="@isTogglingPreset" aria-label="@($"Toggle built-in preset {preset.Name}")" />
                                         <span class="toggle-slider"></span>
                                     </label>
                                 </div>
@@ -70,20 +85,6 @@
                 }
             </div>
         }
-    </div>
-</div>
-
-<div style="position: sticky; top: 0; z-index: 10; background: var(--bs-background-light); border-bottom: 1px solid var(--bs-border); padding: 1rem 0;">
-    <div class="bs-container">
-        <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 1rem;">
-            <button class="bs-btn-sm" style="background: transparent; border: none; cursor: pointer;" @onclick='@(() => Navigation.NavigateTo($"/spaces/{SpaceId}"))'>
-                <span class="material-symbols-outlined">arrow_back</span>
-            </button>
-            <h1 class="bs-font-bold" style="margin: 0; font-size: 1.25rem;">Preset Recipes</h1>
-            <button class="bs-btn-sm bs-btn-primary" @onclick="ShowCreateModal">
-                <span class="material-symbols-outlined">add</span>
-            </button>
-        </div>
     </div>
 </div>
 
@@ -170,7 +171,7 @@
                                     <button class="bs-btn bs-btn-sm bs-btn-secondary" @onclick="() => ShowEditModal(preset)">
                                         Edit
                                     </button>
-                                    <button class="bs-btn bs-btn-sm bs-btn-danger" @onclick="() => DeletePreset(preset)">
+                                    <button class="bs-btn bs-btn-sm bs-btn-danger" @onclick="() => RequestDeletePreset(preset)">
                                         Delete
                                     </button>
                                 }
@@ -189,7 +190,7 @@
         <div class="bs-modal" @onclick:stopPropagation="true" @ontouchend:stopPropagation="true">
             <div class="bs-modal-header">
                 <h2 class="bs-modal-title">@(showEditModal ? "Edit" : "Create") Preset Recipe</h2>
-                <button class="bs-modal-close" @onclick="CloseModal">
+                <button class="bs-modal-close" aria-label="Close" @onclick="CloseModal">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
@@ -261,6 +262,21 @@
     </div>
 }
 
+<ConfirmDialog IsVisible="@showDeleteDialog"
+               Title="Delete preset?"
+               Message="@($"Delete preset '{pendingDeleteName}'? This can't be undone.")"
+               ConfirmText="Delete"
+               IsDestructive="true"
+               IsProcessing="@isDeleting"
+               OnConfirm="ConfirmDeletePreset"
+               OnCancel="@(() => showDeleteDialog = false)" />
+
+<Toast IsVisible="@showToast"
+       IsError="@isToastError"
+       Title="@toastTitle"
+       Message="@toastMessage"
+       OnClose="@(() => showToast = false)" />
+
 
 @code {
     [Parameter] public string SpaceId { get; set; } = "";
@@ -276,6 +292,16 @@
     private bool isSaving = false;
     private PresetFormModel presetForm = new();
     private ContractPresets.PresetDto? editingPreset;
+
+    private bool showToast;
+    private bool isToastError;
+    private string toastTitle = "";
+    private string toastMessage = "";
+
+    private bool showDeleteDialog;
+    private bool isDeleting;
+    private Guid pendingDeleteId;
+    private string pendingDeleteName = "this preset";
 
     protected override async Task OnInitializedAsync()
     {
@@ -379,9 +405,15 @@
                 var result = await Mediator.Send(command);
                 if (result.IsFailure)
                 {
-                    Logger.LogError("Failed to update preset: {Errors}", string.Join(", ", result.Errors.Select(e => e.Message)));
+                    var message = string.Join(", ", result.Errors.Select(e => e.Message));
+                    Logger.LogError("Failed to update preset: {Errors}", message);
+                    ShowToast(true, "Error", string.IsNullOrWhiteSpace(message) ? "Failed to update preset." : message);
                     return;
                 }
+
+                CloseModal();
+                await LoadPresets();
+                ShowToast(false, "Success", "Preset updated.");
             }
             else
             {
@@ -397,17 +429,21 @@
                 var result = await Mediator.Send(command);
                 if (result.IsFailure)
                 {
-                    Logger.LogError("Failed to create preset: {Errors}", string.Join(", ", result.Errors.Select(e => e.Message)));
+                    var message = string.Join(", ", result.Errors.Select(e => e.Message));
+                    Logger.LogError("Failed to create preset: {Errors}", message);
+                    ShowToast(true, "Error", string.IsNullOrWhiteSpace(message) ? "Failed to create preset." : message);
                     return;
                 }
-            }
 
-            CloseModal();
-            await LoadPresets();
+                CloseModal();
+                await LoadPresets();
+                ShowToast(false, "Success", "Preset created.");
+            }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error saving preset");
+            ShowToast(true, "Error", $"Failed to save preset: {ex.Message}");
         }
         finally
         {
@@ -415,27 +451,44 @@
         }
     }
 
-    private async Task DeletePreset(ContractPresets.PresetDto preset)
+    private void RequestDeletePreset(ContractPresets.PresetDto preset)
     {
         if (!preset.IsOwner)
             return;
 
+        pendingDeleteId = preset.Id;
+        pendingDeleteName = preset.Name;
+        showDeleteDialog = true;
+    }
+
+    private async Task ConfirmDeletePreset()
+    {
+        isDeleting = true;
         try
         {
-            var command = new DeletePresetCommand(preset.Id);
+            var command = new DeletePresetCommand(pendingDeleteId);
             var result = await Mediator.Send(command);
 
             if (result.IsFailure)
             {
-                Logger.LogError("Failed to delete preset: {Errors}", string.Join(", ", result.Errors.Select(e => e.Message)));
+                var message = string.Join(", ", result.Errors.Select(e => e.Message));
+                Logger.LogError("Failed to delete preset: {Errors}", message);
+                ShowToast(true, "Error", string.IsNullOrWhiteSpace(message) ? "Failed to delete preset." : message);
                 return;
             }
 
             await LoadPresets();
+            ShowToast(false, "Success", "Preset deleted.");
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error deleting preset");
+            ShowToast(true, "Error", $"Failed to delete preset: {ex.Message}");
+        }
+        finally
+        {
+            isDeleting = false;
+            showDeleteDialog = false;
         }
     }
 
@@ -504,7 +557,9 @@
 
             if (result.IsFailure)
             {
-                Logger.LogError("Failed to toggle global preset: {Errors}", string.Join(", ", result.Errors.Select(e => e.Message)));
+                var message = string.Join(", ", result.Errors.Select(e => e.Message));
+                Logger.LogError("Failed to toggle global preset: {Errors}", message);
+                ShowToast(true, "Error", string.IsNullOrWhiteSpace(message) ? "Failed to update built-in preset." : message);
                 return;
             }
 
@@ -523,16 +578,27 @@
                     DisplayOrder = preset.DisplayOrder
                 };
             }
+
+            ShowToast(false, "Success", $"{preset.Name} {(!preset.IsEnabled ? "enabled" : "disabled")}.");
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error toggling global preset");
+            ShowToast(true, "Error", $"Failed to update built-in preset: {ex.Message}");
         }
         finally
         {
             isTogglingPreset = false;
             StateHasChanged();
         }
+    }
+
+    private void ShowToast(bool isError, string title, string message)
+    {
+        isToastError = isError;
+        toastTitle = title;
+        toastMessage = message;
+        showToast = true;
     }
 
     private class PresetFormModel
