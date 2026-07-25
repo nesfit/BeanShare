@@ -34,7 +34,11 @@ public sealed record LedgerEntryDto(
     string UserName,
     decimal? CostAmount,
     string? CostCurrency,
-    string? Note);
+    string? Note,
+    Guid? ConsumptionEntryId = null,
+    bool CanEdit = false,
+    string ProductName = "",
+    string ProductBrand = "");
 
 public sealed record LedgerTotalsDto(
     decimal PurchasedGrams,

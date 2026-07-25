@@ -40,6 +40,8 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
             return Result<LedgerPageDto>.Failure(Error.InsufficientSpacePrivileges("view the ledger"));
 
         var currency = space.Currency.Code;
+        var currentUser = _userContext.CurrentUserId;
+        var isAdmin = space.IsAdmin(currentUser);
 
         var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
         var purchases = coffeeStock?.Purchases.ToList() ?? [];
@@ -63,6 +65,8 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
                 CostCurrency = p.Cost.Currency.Code,
                 Note = p.Vendor,
                 Key = ProductKey(p.Product),
+                ProductName = p.Product.Name,
+                ProductBrand = p.Product.Brand,
             });
         }
 
@@ -84,6 +88,10 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
                 CostCurrency = c.Cost?.Currency.Code,
                 Note = c.PresetName,
                 Key = ProductKey(c.Product),
+                EntryId = c.Id.Value,
+                CanEdit = c.UserId == currentUser || isAdmin,
+                ProductName = c.Product.Name,
+                ProductBrand = c.Product.Brand,
             });
         }
 
@@ -149,7 +157,7 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
         var entries = pageItems.Select(m => new LedgerEntryDto(
             m.Timestamp, m.Kind, m.Product, m.ProductType, m.Bag, m.Delta, m.Balance,
             m.UserId, userNames.GetValueOrDefault(m.UserId, "Unknown"),
-            m.CostAmount, m.CostCurrency, m.Note)).ToList();
+            m.CostAmount, m.CostCurrency, m.Note, m.EntryId, m.CanEdit, m.ProductName, m.ProductBrand)).ToList();
 
         return Result<LedgerPageDto>.Success(new LedgerPageDto(totalCount, query.Page, query.PageSize, entries, totals));
     }
@@ -188,5 +196,9 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
         public string? CostCurrency { get; init; }
         public string? Note { get; init; }
         public (string, string, CoffeeType) Key { get; init; }
+        public Guid? EntryId { get; init; }
+        public bool CanEdit { get; init; }
+        public string ProductName { get; init; } = "";
+        public string ProductBrand { get; init; } = "";
     }
 }

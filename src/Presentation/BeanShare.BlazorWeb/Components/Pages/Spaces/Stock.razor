@@ -58,7 +58,7 @@ else
         </div>
     </div>
 
-    <div class="bs-container" style="padding: 2rem 0;">
+    <div class="bs-container" style="padding: 2rem 0 6rem 0;">
         <div>
             <StockBagsGrid Purchases="@purchases"
                            StockLevels="@stockLevels"
@@ -106,51 +106,6 @@ else
                  CurrencyCode="@(space?.CurrencyCode ?? "USD")"
                  PrefillFrom="@purchasePrefill" />
 
-@if (showSplitModal && selectedStockLevel != null)
-{
-    <div class="bs-modal-overlay" @onclick="@(() => showSplitModal = false)">
-        <div class="bs-modal" @onclick:stopPropagation="true" @ontouchend:stopPropagation="true">
-            <div class="bs-modal-header">
-                <h3 class="bs-font-bold" style="margin: 0;">Split Remaining Stock</h3>
-                <button class="bs-btn-icon" @onclick="@(() => showSplitModal = false)">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
-            </div>
-            <div class="bs-modal-body">
-                <div style="background: var(--bs-warning-light); border: 1px solid var(--bs-warning); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
-                    <p class="bs-font-bold" style="margin: 0 0 0.5rem 0; color: var(--bs-warning-dark);">
-                        <span class="material-symbols-outlined" style="vertical-align: middle; margin-right: 0.5rem;">warning</span>
-                        Phantom Stock Adjustment
-                    </p>
-                    <p style="margin: 0; font-size: 0.875rem; color: var(--bs-warning-dark);">
-                        This will distribute <strong>@selectedStockLevel.CurrentStockGrams g</strong> of
-                        <strong>@selectedStockLevel.ProductDisplayName</strong> among team members based on their consumption history.
-                        Use this when the physical coffee is gone but the system still shows remaining stock.
-                    </p>
-                </div>
-
-                <div class="bs-form-group">
-                    <label class="bs-label" for="splitReason">Reason (optional)</label>
-                    <input type="text" id="splitReason" class="bs-input" @bind="splitReason" placeholder="Phantom stock adjustment" />
-                </div>
-            </div>
-            <div class="bs-modal-footer">
-                <button class="bs-btn bs-btn-secondary" @onclick="@(() => showSplitModal = false)">Cancel</button>
-                <button class="bs-btn bs-btn-primary" @onclick="HandleSplitStock" disabled="@isSplitting">
-                    @if (isSplitting)
-                    {
-                        <span>Splitting...</span>
-                    }
-                    else
-                    {
-                        <span>Split Stock</span>
-                    }
-                </button>
-            </div>
-        </div>
-    </div>
-}
-
 <QrCodeModal IsVisible="@showQrModal"
             StockLevel="@selectedQrStockLevel"
             SpaceId="@(Guid.TryParse(SpaceId, out var sid) ? sid : Guid.Empty)"
@@ -188,10 +143,6 @@ else
 
     private bool showAddPurchaseModal;
     private AddPurchaseModal.PurchasePrefill? purchasePrefill;
-    private bool showSplitModal;
-    private bool isSplitting;
-    private StockLevelDto? selectedStockLevel;
-    private string splitReason = "";
     private bool showQrModal;
     private StockLevelDto? selectedQrStockLevel;
     private List<ActiveQrCodeDto> activeQrCodes = new();
@@ -387,52 +338,6 @@ else
         toastTitle = title;
         toastMessage = message;
         showToast = true;
-    }
-
-    private async Task HandleArchiveStockLevel(StockLevelDto stockLevel)
-    {
-        try
-        {
-            var command = new ArchiveStockLevelCommand(Guid.Parse(SpaceId), stockLevel.Id);
-            var result = await Mediator.Send(command);
-
-            if (result.IsSuccess)
-            {
-                ShowToast(false, "Archived", $"{stockLevel.ProductDisplayName} has been archived.");
-                await LoadStock();
-            }
-            else
-            {
-                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
-            }
-        }
-        catch (Exception ex)
-        {
-            ShowToast(true, "Error", $"Failed to archive: {ex.Message}");
-        }
-    }
-
-    private async Task HandleToggleCurrentlyUsed(StockLevelDto stockLevel)
-    {
-        try
-        {
-            var command = new SetCurrentlyUsedStockLevelCommand(Guid.Parse(SpaceId), stockLevel.Id);
-            var result = await Mediator.Send(command);
-
-            if (result.IsSuccess)
-            {
-                ShowToast(false, "Updated", $"{stockLevel.ProductDisplayName} is now the currently used coffee.");
-                await LoadStock();
-            }
-            else
-            {
-                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
-            }
-        }
-        catch (Exception ex)
-        {
-            ShowToast(true, "Error", $"Failed to update currently used coffee: {ex.Message}");
-        }
     }
 
     private async Task HandleOpenBag(Guid bagId)
@@ -691,52 +596,6 @@ else
 
             createdQrCodeId = qrCodeId;
             showQrModal = true;
-        }
-    }
-
-    private void ShowSplitModal(StockLevelDto stockLevel)
-    {
-        selectedStockLevel = stockLevel;
-        splitReason = "Phantom stock adjustment";
-        showSplitModal = true;
-    }
-
-    private async Task HandleSplitStock()
-    {
-        if (selectedStockLevel == null) return;
-
-        isSplitting = true;
-        StateHasChanged();
-
-        try
-        {
-            var command = new SplitRemainingStockCommand(
-                Guid.Parse(SpaceId),
-                selectedStockLevel.Id,
-                string.IsNullOrWhiteSpace(splitReason) ? "Phantom stock adjustment" : splitReason);
-
-            var result = await Mediator.Send(command);
-
-            if (result.IsSuccess)
-            {
-                showSplitModal = false;
-                var dto = result.Value;
-                ShowToast(false, "Success", $"Successfully distributed {dto.TotalDistributedGrams}g among {dto.Allocations.Count} members");
-                await LoadStock();
-            }
-            else
-            {
-                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
-            }
-        }
-        catch (Exception ex)
-        {
-            ShowToast(true, "Error", $"Failed to split stock: {ex.Message}");
-        }
-        finally
-        {
-            isSplitting = false;
-            StateHasChanged();
         }
     }
 }

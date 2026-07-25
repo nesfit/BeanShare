@@ -4,6 +4,7 @@
 @using BeanShare.Application.Features.Spaces.Queries
 @using BeanShare.Application.Features.CoffeeStock.Queries
 @using BeanShare.Application.Features.CoffeeStock.Queries.GetSpaceLedger
+@using BeanShare.Application.Features.Consumption.Commands
 @using BeanShare.Application.Abstractions
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
@@ -121,6 +122,7 @@ else
                             @Header("who", "Member")
                             @Header("cost", "Cost", right: true)
                             @Header("note", "Detail", sortable: false)
+                            @Header("actions", "", sortable: false)
                         </tr>
                     </thead>
                     <tbody>
@@ -147,6 +149,17 @@ else
                                 <td style="padding: 0.5rem 0.75rem;">@e.UserName</td>
                                 <td style="padding: 0.5rem 0.75rem; text-align: right; font-variant-numeric: tabular-nums;">@(e.CostAmount.HasValue ? MoneyIn(e.CostAmount.Value, e.CostCurrency) : "—")</td>
                                 <td style="padding: 0.5rem 0.75rem; color: var(--bs-text-subtle);">@e.Note</td>
+                                <td style="padding: 0.5rem 0.5rem; text-align: right; white-space: nowrap;">
+                                    @if (e.Kind == "Cup" && e.CanEdit && e.ConsumptionEntryId.HasValue)
+                                    {
+                                        <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Edit cup" title="Edit" @onclick="@(() => OpenEdit(e))">
+                                            <span class="material-symbols-outlined" style="font-size: 1rem;">edit</span>
+                                        </button>
+                                        <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Delete cup" title="Delete" @onclick="@(() => RequestDelete(e))">
+                                            <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--bs-error);">delete</span>
+                                        </button>
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -165,6 +178,51 @@ else
         }
     </div>
 }
+
+@if (showEditModal && editEntry != null)
+{
+    <div class="bs-modal-backdrop" @onclick="CloseEdit">
+        <div class="bs-modal" @onclick:stopPropagation="true" @ontouchend:stopPropagation="true">
+            <div class="bs-modal-header">
+                <h3 class="bs-modal-title">Edit cup</h3>
+            </div>
+            <div class="bs-flex bs-flex-col" style="gap: 1rem;">
+                <div>
+                    <div class="bs-text-subtle" style="font-size: 0.8125rem;">Product</div>
+                    <div style="font-weight: 600; margin-top: 0.15rem;">@editEntry.ProductDisplayName</div>
+                    <div class="bs-text-subtle" style="font-size: 0.75rem;">To change the coffee, delete this cup and log a new one.</div>
+                </div>
+                <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                    <label for="editGrams" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Amount (g)</label>
+                    <input id="editGrams" type="number" class="bs-input" step="0.1" min="0.1" @bind="editGrams" />
+                </div>
+                <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                    <label for="editWhen" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">When</label>
+                    <input id="editWhen" type="datetime-local" class="bs-input" @bind="editWhen" />
+                </div>
+            </div>
+            <div class="bs-modal-footer">
+                <button class="bs-btn bs-btn-secondary bs-flex-1" @onclick="CloseEdit">Cancel</button>
+                <button class="bs-btn bs-btn-primary bs-flex-1" @onclick="SaveEdit" disabled="@isSavingEdit">@(isSavingEdit ? "Saving..." : "Save")</button>
+            </div>
+        </div>
+    </div>
+}
+
+<ConfirmDialog IsVisible="@showDeleteConfirm"
+               Title="Delete this cup?"
+               Message="This removes the logged cup and returns its grams to the bag it was drawn from. This can't be undone."
+               ConfirmText="Delete"
+               IsDestructive="true"
+               IsProcessing="@isDeleting"
+               OnConfirm="ConfirmDelete"
+               OnCancel="@(() => showDeleteConfirm = false)" />
+
+<Toast IsVisible="@showToast"
+       IsError="@isToastError"
+       Title="@toastTitle"
+       Message="@toastMessage"
+       OnClose="@(() => showToast = false)" />
 
 @code {
     [Parameter] public string SpaceId { get; set; } = "";
@@ -185,6 +243,124 @@ else
     private bool sortDesc = true;
     private int page = 1;
     private const int pageSize = 25;
+
+    private bool showEditModal;
+    private LedgerEntryDto? editEntry;
+    private decimal editGrams;
+    private DateTime editWhen;
+    private bool isSavingEdit;
+
+    private bool showDeleteConfirm;
+    private LedgerEntryDto? deleteEntry;
+    private bool isDeleting;
+
+    private bool showToast;
+    private bool isToastError;
+    private string toastTitle = "";
+    private string toastMessage = "";
+
+    private void OpenEdit(LedgerEntryDto e)
+    {
+        editEntry = e;
+        editGrams = -e.DeltaGrams; // a cup's delta is stored negative
+        editWhen = e.Timestamp.ToLocalTime();
+        showEditModal = true;
+    }
+
+    private void CloseEdit()
+    {
+        showEditModal = false;
+        editEntry = null;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (editEntry?.ConsumptionEntryId is not { } entryId)
+        {
+            return;
+        }
+
+        isSavingEdit = true;
+        try
+        {
+            var result = await Mediator.Send(new UpdateConsumptionCommand(
+                entryId,
+                Guid.Parse(SpaceId),
+                editEntry.ProductName,
+                editEntry.ProductBrand,
+                editEntry.ProductType,
+                editGrams,
+                editWhen.ToUniversalTime()));
+
+            if (result.IsSuccess)
+            {
+                ShowToast(false, "Saved", "Cup updated.");
+                showEditModal = false;
+                editEntry = null;
+                await LoadLedger();
+            }
+            else
+            {
+                ShowToast(true, "Error", result.Errors.FirstOrDefault().Message ?? "Couldn't update the cup.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", ex.Message);
+        }
+        finally
+        {
+            isSavingEdit = false;
+        }
+    }
+
+    private void RequestDelete(LedgerEntryDto e)
+    {
+        deleteEntry = e;
+        showDeleteConfirm = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (deleteEntry?.ConsumptionEntryId is not { } entryId)
+        {
+            showDeleteConfirm = false;
+            return;
+        }
+
+        isDeleting = true;
+        try
+        {
+            var result = await Mediator.Send(new DeleteConsumptionCommand(entryId, Guid.Parse(SpaceId)));
+            if (result.IsSuccess)
+            {
+                ShowToast(false, "Deleted", "Cup removed and its grams returned to the bag.");
+                await LoadLedger();
+            }
+            else
+            {
+                ShowToast(true, "Error", result.Errors.FirstOrDefault().Message ?? "Couldn't delete the cup.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", ex.Message);
+        }
+        finally
+        {
+            isDeleting = false;
+            showDeleteConfirm = false;
+            deleteEntry = null;
+        }
+    }
+
+    private void ShowToast(bool isError, string title, string message)
+    {
+        isToastError = isError;
+        toastTitle = title;
+        toastMessage = message;
+        showToast = true;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
