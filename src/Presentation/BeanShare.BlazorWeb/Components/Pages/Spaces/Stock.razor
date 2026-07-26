@@ -4,6 +4,7 @@
 @using BeanShare.Application.Features.Spaces.Queries
 @using BeanShare.Application.Features.CoffeeStock.Queries
 @using BeanShare.Application.Features.CoffeeStock.Queries.LookupBarcode
+@using BeanShare.Application.Features.CoffeeStock.Queries.GetRestockForecast
 @using BeanShare.Application.Features.CoffeeStock.Commands
 @using BeanShare.Application.Features.CoffeeStock.Dtos
 @using BeanShare.Application.Features.ActiveQrCodes.Queries
@@ -61,6 +62,8 @@ else
 
     <div class="bs-container" style="padding: 2rem 0 6rem 0;">
         <div>
+            <RestockPanel Forecast="@restockForecast" />
+
             <StockBagsGrid Purchases="@purchases"
                            StockLevels="@stockLevels"
                            IsAdmin="@isAdmin"
@@ -136,6 +139,7 @@ else
 
     private List<StockPurchaseDto> purchases = new();
     private List<StockLevelDto> stockLevels = new();
+    private RestockForecastDto? restockForecast;
     // The stock aggregate loads all its bags (Purchases) into memory server-side, and Blazor renders
     // in-process, so we fetch them all in one query. Bags also feed the current-stock grid and the QR
     // bag pickers, which must be complete (not capped). This value is an "effectively unbounded" cap.
@@ -214,6 +218,25 @@ else
         finally
         {
             isLoadingStock = false;
+        }
+
+        await LoadRestock();
+    }
+
+    private async Task LoadRestock()
+    {
+        // Best-effort planning aid — never block the stock view if it fails.
+        try
+        {
+            var result = await Mediator.Send(new GetRestockForecastQuery(Guid.Parse(SpaceId)));
+            if (result.IsSuccess)
+            {
+                restockForecast = result.Value;
+            }
+        }
+        catch
+        {
+            restockForecast = null;
         }
     }
 

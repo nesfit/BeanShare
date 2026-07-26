@@ -1,0 +1,77 @@
+@using BeanShare.Application.Features.CoffeeStock.Queries.GetRestockForecast
+
+@if (Forecast is not null && Forecast.NeedsRestockCount > 0)
+{
+    <div class="bs-card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--bs-warning);">
+        <div class="bs-flex bs-items-center bs-justify-between" style="gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+            <div class="bs-flex bs-items-center" style="gap: 0.5rem;">
+                <span class="material-symbols-outlined" style="color: var(--bs-warning-dark);">shopping_cart</span>
+                <h2 class="bs-font-bold" style="margin: 0; font-size: 1.15rem;">Time to restock</h2>
+            </div>
+            <span class="bs-text-subtle" style="font-size: 0.8125rem;">@Forecast.NeedsRestockCount running low · order ~@Forecast.LeadTimeDays days ahead</span>
+        </div>
+
+        <div class="bs-flex bs-flex-col" style="gap: 0.5rem;">
+            @foreach (var item in Forecast.Items.Where(i => i.Status != "ok"))
+            {
+                <div class="bs-flex bs-items-center bs-justify-between" style="gap: 0.6rem; padding: 0.6rem 0.75rem; background: var(--bs-gray-50); border: 1px solid var(--bs-border); border-radius: 0.5rem; flex-wrap: wrap;">
+                    <div style="min-width: 0;">
+                        <span style="font-weight: 600;">@item.ProductDisplayName</span>
+                        <span class="bs-badge @(item.Status == "critical" ? "bs-badge-error" : "bs-badge-warning")" style="margin-left: 0.4rem;">@RunsOut(item)</span>
+                        <div class="bs-text-subtle" style="font-size: 0.75rem;">@item.OnHandGrams.ToString("0.#") g left · using ~@item.VelocityGramsPerDay.ToString("0.#") g/day</div>
+                    </div>
+                    @if (item.SuggestedReorderGrams > 0)
+                    {
+                        <div style="text-align: right; white-space: nowrap;">
+                            <div style="font-weight: 600;">buy ~@item.SuggestedReorderGrams g</div>
+                            @if (item.EstimatedCost.HasValue)
+                            {
+                                <div class="bs-text-subtle" style="font-size: 0.8125rem;">≈ @FormatMoney(item.EstimatedCost.Value)</div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="bs-flex bs-items-center bs-justify-between" style="gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--bs-border);">
+            <span style="font-weight: 700;">Estimated basket: @FormatMoney(Forecast.SuggestedBasketCost)</span>
+            @if (Forecast.WorthOrdering)
+            {
+                <span class="bs-badge bs-badge-success">
+                    <span class="material-symbols-outlined" style="font-size: 1rem;">check_circle</span>
+                    Worth ordering now (≥ @FormatMoney(Forecast.MinOrderValue))
+                </span>
+            }
+            else if (Forecast.SuggestedBasketCost > 0)
+            {
+                <span class="bs-text-subtle" style="font-size: 0.8125rem;">Add ~@FormatMoney(Forecast.MinOrderValue - Forecast.SuggestedBasketCost) more to reach a @FormatMoney(Forecast.MinOrderValue) order</span>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public RestockForecastDto? Forecast { get; set; }
+
+    private static string RunsOut(RestockItemDto item)
+    {
+        if (item.OnHandGrams <= 0) return "out of stock";
+        if (item.DaysToEmpty is null) return "low";
+        if (item.DaysToEmpty <= 0) return "out today";
+        if (item.DaysToEmpty == 1) return "~1 day left";
+        return $"~{item.DaysToEmpty} days left";
+    }
+
+    private string FormatMoney(decimal amount)
+    {
+        try
+        {
+            return BeanShare.Domain.ValueObjects.Currency.Create(Forecast?.Currency ?? "USD").FormatAmount(amount);
+        }
+        catch
+        {
+            return amount.ToString("0.00");
+        }
+    }
+}
