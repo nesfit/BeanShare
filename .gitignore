@@ -143,3 +143,6 @@ tests/*.md
 
 # Production configs (may contain secrets)
 **/appsettings.Production.json
+
+# Playwright MCP scratch snapshots/screenshots
+.playwright-mcp/
