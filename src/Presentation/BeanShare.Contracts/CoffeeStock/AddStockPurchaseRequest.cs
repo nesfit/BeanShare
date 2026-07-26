@@ -14,4 +14,7 @@ public sealed record AddStockPurchaseRequest
 
     // Number of identical bags of this size/price to record as separate lots. Defaults to 1.
     public int BagCount { get; init; } = 1;
+
+    // Optional product barcode (e.g. scanned EAN/UPC) associated with this purchase.
+    public string? Barcode { get; init; }
 }

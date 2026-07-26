@@ -105,6 +105,10 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<Guid>("CoffeeStockId")
                         .HasColumnType("uuid");
 
@@ -154,6 +158,8 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("PurchasedAt");
+
+                    b.HasIndex("CoffeeStockId", "Barcode");
 
                     b.HasIndex("CoffeeStockId", "PurchasedAt");
 

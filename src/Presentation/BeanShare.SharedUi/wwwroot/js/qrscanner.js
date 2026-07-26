@@ -50,6 +50,52 @@ window.beanshareQrScanner = {
         }
     },
 
+    // Scans 1D product barcodes (EAN/UPC) — no BeanShare-payload filter; returns the raw code.
+    startBarcode: async function (elementId, dotnetHelper) {
+        try {
+            if (this._instance) {
+                await this.stop();
+            }
+
+            this._alreadyScanned = false;
+
+            var formats;
+            if (typeof Html5QrcodeSupportedFormats !== 'undefined') {
+                formats = [
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.QR_CODE
+                ];
+            }
+
+            this._instance = formats
+                ? new Html5Qrcode(elementId, { formatsToSupport: formats, verbose: false })
+                : new Html5Qrcode(elementId);
+
+            var self = this;
+            await this._instance.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 280, height: 160 }, aspectRatio: 1.777 },
+                function (decodedText) {
+                    if (self._alreadyScanned) {
+                        return;
+                    }
+                    self._alreadyScanned = true;
+                    dotnetHelper.invokeMethodAsync('OnBarcodeScanned', decodedText);
+                },
+                function () {
+                }
+            );
+            return true;
+        } catch (err) {
+            console.error('[BeanShare] Barcode camera init failed:', err.message || err);
+            return false;
+        }
+    },
+
     stop: async function () {
         try {
             if (this._instance) {

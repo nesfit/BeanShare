@@ -29,6 +29,9 @@ public sealed class Purchase : Entity
     public DateTime? OpenedAt { get; private set; }
     public DateTime? DepletedAt { get; private set; }
 
+    /// <summary>Optional scanned EAN/UPC barcode of the bag, so repeat purchases can be prefilled.</summary>
+    public string? Barcode { get; private init; }
+
     private Purchase()
     {
         Product = null!;
@@ -49,7 +52,8 @@ public sealed class Purchase : Entity
         UserId purchasedBy,
         DateTime purchasedAt,
         DateTime createdAt,
-        string label)
+        string label,
+        string? barcode)
     {
         Id = id;
         Product = product;
@@ -60,6 +64,7 @@ public sealed class Purchase : Entity
         PurchasedAt = purchasedAt;
         CreatedAt = createdAt;
         Label = label;
+        Barcode = barcode;
         ConsumedGrams = 0;
         Status = LotStatus.Sealed;
     }
@@ -72,7 +77,8 @@ public sealed class Purchase : Entity
         UserId purchasedBy,
         DateTime purchasedAt,
         IClock clock,
-        string label = "")
+        string label = "",
+        string? barcode = null)
     {
         ArgumentNullException.ThrowIfNull(product);
         ArgumentNullException.ThrowIfNull(quantity);
@@ -94,6 +100,8 @@ public sealed class Purchase : Entity
         if (purchasedAt > clock.UtcNow)
             throw new ArgumentException("Purchase date cannot be in the future", nameof(purchasedAt));
 
+        var normalizedBarcode = string.IsNullOrWhiteSpace(barcode) ? null : barcode.Trim();
+
         return new Purchase(
             Guid.NewGuid(),
             product,
@@ -103,7 +111,8 @@ public sealed class Purchase : Entity
             purchasedBy,
             purchasedAt,
             clock.UtcNow,
-            label?.Trim() ?? string.Empty);
+            label?.Trim() ?? string.Empty,
+            normalizedBarcode);
     }
 
     /// <summary>Grams still available in this bag.</summary>

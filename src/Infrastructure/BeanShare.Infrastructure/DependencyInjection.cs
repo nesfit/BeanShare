@@ -28,6 +28,15 @@ public static class DependencyInjection
         services.AddSingleton<ISettlementPdfGenerator>(sp =>
             new SettlementPdfGeneratorAdapter(sp.GetRequiredService<ISettlementReportGenerator>()));
 
+        // Open Food Facts product lookup (no API key needed). Best-effort barcode → product metadata.
+        services.AddHttpClient<IProductCatalogService, OpenFoodFactsProvider>(client =>
+        {
+            client.BaseAddress = new Uri("https://world.openfoodfacts.org/");
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+            client.DefaultRequestHeaders.Add("User-Agent", "BeanShare/1.0 (+https://beanshare.dev)");
+            client.Timeout = TimeSpan.FromSeconds(6);
+        });
+
         // services.AddIdentity();
 
         return services;

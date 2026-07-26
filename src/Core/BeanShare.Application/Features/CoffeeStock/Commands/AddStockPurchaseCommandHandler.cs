@@ -92,7 +92,8 @@ public sealed class AddStockPurchaseCommandHandler : IRequestHandler<AddStockPur
                 currentUserId,
                 command.PurchasedAt,
                 _clock,
-                command.BagCount);
+                command.BagCount,
+                command.Barcode);
 
             if (!isNewStock)
             {

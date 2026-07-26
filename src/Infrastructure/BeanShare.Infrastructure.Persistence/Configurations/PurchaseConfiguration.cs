@@ -100,6 +100,9 @@ public sealed class PurchaseConfiguration : IEntityTypeConfiguration<Purchase>
         builder.Property(p => p.OpenedAt);
         builder.Property(p => p.DepletedAt);
 
+        builder.Property(p => p.Barcode)
+            .HasMaxLength(64);
+
         // Computed, non-persisted.
         builder.Ignore(p => p.RemainingGrams);
         builder.Ignore(p => p.UnitCostPerGram);
@@ -111,5 +114,6 @@ public sealed class PurchaseConfiguration : IEntityTypeConfiguration<Purchase>
         builder.HasIndex(p => p.CreatedAt);
         builder.HasIndex("CoffeeStockId");
         builder.HasIndex("CoffeeStockId", nameof(Purchase.PurchasedAt));
+        builder.HasIndex("CoffeeStockId", nameof(Purchase.Barcode));
     }
 }

@@ -65,7 +65,8 @@ public sealed class CoffeeStock : AggregateRoot
         UserId purchasedBy,
         DateTime purchasedAt,
         IClock clock,
-        int bagCount = 1)
+        int bagCount = 1,
+        string? barcode = null)
     {
         ArgumentNullException.ThrowIfNull(product);
 
@@ -85,7 +86,7 @@ public sealed class CoffeeStock : AggregateRoot
             var lotQuantity = Weight.FromGrams(quantity.Grams);
             var lotCost = Money.Create(cost.Amount, cost.Currency);
 
-            var lot = Purchase.Create(lotProduct, lotQuantity, lotCost, vendor, purchasedBy, purchasedAt, clock, label);
+            var lot = Purchase.Create(lotProduct, lotQuantity, lotCost, vendor, purchasedBy, purchasedAt, clock, label, barcode);
             _purchases.Add(lot);
 
             RaiseDomainEvent(new StockPurchaseAdded(

@@ -1,0 +1,132 @@
+@using BeanShare.SharedUi.Services
+@using Microsoft.JSInterop
+@inject IQrScannerService QrScannerService
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+@if (IsVisible)
+{
+    <div class="bs-modal-backdrop" @onclick="HandleClose">
+        <div class="bs-modal" role="dialog" aria-label="Scan barcode" aria-modal="true" @onclick:stopPropagation="true" @ontouchend:stopPropagation="true" style="max-width: 28rem;">
+            <div class="bs-modal-header bs-flex bs-items-center bs-justify-between" style="margin-bottom: 1rem;">
+                <h3 class="bs-modal-title" style="margin: 0;">Scan barcode</h3>
+                <button class="bs-btn-icon" aria-label="Close" @onclick="HandleClose" style="background: transparent; border: none; cursor: pointer;">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div style="background: var(--bs-error-light); border: 1px solid var(--bs-error); border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem;">
+                    <p style="margin: 0; font-size: 0.875rem; color: var(--bs-error-dark);">@errorMessage</p>
+                </div>
+            }
+
+            @if (scannerActive)
+            {
+                <div style="text-align: center;">
+                    <div id="barcode-reader" style="width: 100%;"></div>
+                    <p class="bs-text-subtle" style="font-size: 0.875rem; margin-top: 0.75rem;">
+                        Point your camera at the bag's barcode (EAN / UPC).
+                    </p>
+                </div>
+                <div class="bs-modal-footer" style="display: flex; justify-content: center; margin-top: 1rem;">
+                    <button class="bs-btn bs-btn-secondary" @onclick="StopCamera">Cancel scan</button>
+                </div>
+            }
+            else
+            {
+                <div style="text-align: center; padding: 2rem 0;">
+                    <span class="material-symbols-outlined" style="font-size: 4rem; color: var(--bs-primary); margin-bottom: 1rem; display: block;">barcode_scanner</span>
+                    <p style="margin: 0 0 1.5rem 0; font-size: 0.875rem; color: var(--bs-text-subtle);">
+                        Scan the barcode on the coffee bag to fill in the product automatically.
+                    </p>
+                    <button class="bs-btn bs-btn-primary" @onclick="StartCamera" style="gap: 0.5rem;">
+                        <span class="material-symbols-outlined" style="font-size: 1.25rem;">photo_camera</span>
+                        Open camera
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnScanned { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private bool scannerActive;
+    private string errorMessage = "";
+    private DotNetObjectReference<BarcodeScannerModal>? dotNetRef;
+    private bool wasVisible;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!IsVisible && wasVisible)
+        {
+            await StopCamera();
+            errorMessage = "";
+        }
+        wasVisible = IsVisible;
+    }
+
+    private async Task StartCamera()
+    {
+        errorMessage = "";
+
+        var hasPermission = await QrScannerService.RequestCameraPermissionAsync();
+        if (!hasPermission)
+        {
+            errorMessage = "Camera permission is required to scan a barcode.";
+            return;
+        }
+
+        scannerActive = true;
+        StateHasChanged();
+
+        await Task.Delay(100); // let the DOM render #barcode-reader
+
+        dotNetRef ??= DotNetObjectReference.Create(this);
+        var started = await JSRuntime.InvokeAsync<bool>("beanshareQrScanner.startBarcode", "barcode-reader", dotNetRef);
+        if (!started)
+        {
+            errorMessage = "Could not access camera. Please ensure camera permissions are granted.";
+            scannerActive = false;
+        }
+    }
+
+    private async Task StopCamera()
+    {
+        if (scannerActive)
+        {
+            await JSRuntime.InvokeVoidAsync("beanshareQrScanner.stop");
+            scannerActive = false;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnBarcodeScanned(string code)
+    {
+        await StopCamera();
+        await OnScanned.InvokeAsync(code);
+    }
+
+    private async Task HandleClose()
+    {
+        await StopCamera();
+        errorMessage = "";
+        await OnClose.InvokeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopCamera();
+        dotNetRef?.Dispose();
+    }
+}

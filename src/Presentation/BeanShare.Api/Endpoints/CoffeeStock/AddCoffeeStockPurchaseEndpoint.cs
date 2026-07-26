@@ -57,7 +57,8 @@ public sealed class AddCoffeeStockPurchaseEndpoint : Endpoint<AddStockPurchaseRe
             req.CostCurrency,
             req.Vendor,
             req.PurchasedAt,
-            req.BagCount);
+            req.BagCount,
+            req.Barcode);
 
         var result = await _mediator.Send(command, ct);
 

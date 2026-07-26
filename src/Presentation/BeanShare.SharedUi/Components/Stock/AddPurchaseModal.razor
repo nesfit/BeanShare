@@ -24,6 +24,34 @@
             <EditForm Model="@model" OnValidSubmit="HandleSubmit">
                 <DataAnnotationsValidator />
 
+                @if (OnBarcodeScanned.HasDelegate)
+                {
+                    <div class="bs-form-group">
+                        @if (string.IsNullOrEmpty(model.Barcode))
+                        {
+                            <button type="button" class="bs-btn bs-btn-outline bs-w-full" @onclick="OpenScanner" style="gap: 0.5rem;">
+                                <span class="material-symbols-outlined">barcode_scanner</span>
+                                Scan barcode to fill in
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="bs-flex bs-items-center bs-justify-between" style="gap: 0.5rem; background: var(--bs-gray-50); border: 1px solid var(--bs-border); border-radius: 0.5rem; padding: 0.5rem 0.75rem;">
+                                <span class="bs-flex bs-items-center" style="gap: 0.4rem; font-size: 0.8125rem; min-width: 0;">
+                                    <span class="material-symbols-outlined" style="font-size: 1.1rem; color: var(--bs-primary); flex-shrink: 0;">barcode_scanner</span>
+                                    <span style="font-family: monospace; overflow: hidden; text-overflow: ellipsis;">@model.Barcode</span>
+                                </span>
+                                <div class="bs-flex" style="gap: 0.25rem; flex-shrink: 0;">
+                                    <button type="button" class="bs-btn bs-btn-sm bs-btn-ghost" @onclick="OpenScanner" title="Rescan">Rescan</button>
+                                    <button type="button" class="bs-btn bs-btn-sm bs-btn-ghost" @onclick="@(() => model.Barcode = null)" aria-label="Remove barcode" title="Remove">
+                                        <span class="material-symbols-outlined" style="font-size: 1rem;">close</span>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
                 <div class="bs-form-group">
                     <label class="bs-label" for="productBrand">Brand</label>
                     <InputText id="productBrand"
@@ -111,6 +139,10 @@
             }
         </div>
     </div>
+
+    <BarcodeScannerModal IsVisible="@showBarcodeScanner"
+                         OnScanned="HandleBarcodeScanned"
+                         OnClose="@(() => showBarcodeScanner = false)" />
 }
 
 @code {
@@ -129,10 +161,16 @@
     [Parameter]
     public PurchasePrefill? PrefillFrom { get; set; }
 
+    /// <summary>Raised with the raw scanned barcode; the parent looks it up and pushes a fresh
+    /// <see cref="PrefillFrom"/>. When not provided, the scan affordance is hidden.</summary>
+    [Parameter]
+    public EventCallback<string> OnBarcodeScanned { get; set; }
+
     private AddPurchaseModel model = new();
     private bool isSubmitting;
     private bool showDiscardConfirm;
-    private bool prefillApplied;
+    private bool showBarcodeScanner;
+    private PurchasePrefill? appliedPrefill;
 
     protected override void OnInitialized()
     {
@@ -142,7 +180,9 @@
 
     protected override void OnParametersSet()
     {
-        if (PrefillFrom != null && !prefillApplied)
+        // Re-apply whenever a NEW prefill instance arrives (e.g. after a barcode lookup),
+        // not just the first time.
+        if (PrefillFrom != null && !ReferenceEquals(PrefillFrom, appliedPrefill))
         {
             model.ProductBrand = PrefillFrom.ProductBrand;
             model.ProductName = PrefillFrom.ProductName;
@@ -151,11 +191,35 @@
             model.CoffeeType = PrefillFrom.CoffeeType;
             model.PurchasedAt = DateTime.UtcNow;
             model.Currency = CurrencyCode;
-            prefillApplied = true;
+            if (!string.IsNullOrWhiteSpace(PrefillFrom.Barcode))
+            {
+                model.Barcode = PrefillFrom.Barcode;
+            }
+            appliedPrefill = PrefillFrom;
         }
 
         if (PrefillFrom == null)
-            prefillApplied = false;
+            appliedPrefill = null;
+    }
+
+    private void OpenScanner()
+    {
+        showBarcodeScanner = true;
+    }
+
+    private async Task HandleBarcodeScanned(string code)
+    {
+        showBarcodeScanner = false;
+        var trimmed = code?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return;
+        }
+
+        // Remember the code on the model immediately (saved even if the lookup finds nothing),
+        // then let the parent resolve product + price and push a prefill back.
+        model.Barcode = trimmed;
+        await OnBarcodeScanned.InvokeAsync(trimmed);
     }
 
     private async Task HandleSubmit()
@@ -209,6 +273,7 @@
         public int QuantityGrams { get; set; }
         public decimal CostAmount { get; set; }
         public string CoffeeType { get; set; } = "Espresso";
+        public string? Barcode { get; set; }
     }
 
     public class AddPurchaseModel
@@ -239,5 +304,8 @@
         public DateTime PurchasedAt { get; set; } = DateTime.UtcNow;
 
         public string Currency { get; set; } = "USD";
+
+        [StringLength(64)]
+        public string? Barcode { get; set; }
     }
 }
