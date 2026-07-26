@@ -47,6 +47,50 @@ public class SpaceBusinessRuleTests
         result!.Id.Should().Be(spaceId);
     }
 
+    [Fact]
+    public void NewSpace_HasDefaultRestockSettings()
+    {
+        var space = CreateTestSpace(SpaceId.New());
+
+        space.RestockLeadTimeDays.Should().Be(7);
+        space.RestockMinOrderValue.Should().Be(2000m);
+    }
+
+    [Fact]
+    public void SetRestockSettings_WithValidValues_UpdatesBoth()
+    {
+        var space = CreateTestSpace(SpaceId.New());
+
+        space.SetRestockSettings(10, 1500.5m);
+
+        space.RestockLeadTimeDays.Should().Be(10);
+        space.RestockMinOrderValue.Should().Be(1500.5m);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(91)]
+    public void SetRestockSettings_WithLeadTimeOutOfRange_Throws(int leadTimeDays)
+    {
+        var space = CreateTestSpace(SpaceId.New());
+
+        var act = () => space.SetRestockSettings(leadTimeDays, 2000m);
+
+        act.Should().Throw<Domain.Exceptions.SpaceDomainException>();
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(1_000_001)]
+    public void SetRestockSettings_WithMinOrderOutOfRange_Throws(decimal minOrderValue)
+    {
+        var space = CreateTestSpace(SpaceId.New());
+
+        var act = () => space.SetRestockSettings(7, minOrderValue);
+
+        act.Should().Throw<Domain.Exceptions.SpaceDomainException>();
+    }
+
     private static Space CreateTestSpace(SpaceId id)
     {
         var creatorId = UserId.New();

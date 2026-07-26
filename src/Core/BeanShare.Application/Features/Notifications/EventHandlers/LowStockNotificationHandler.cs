@@ -19,13 +19,21 @@ public sealed class LowStockNotificationHandler(
     IConsumptionRepository consumptionRepository,
     IClock clock) : INotificationHandler<StockConsumed>
 {
-    private const int LeadTimeDays = 7;
     private const int ForecastWindowDays = 30;
     private const decimal HardFloorGrams = 50m;
 
     public async Task Handle(StockConsumed notification, CancellationToken cancellationToken)
     {
         var remaining = notification.RemainingStock.Grams;
+
+        var space = await spaceRepository.GetByIdAsync(notification.SpaceId, cancellationToken);
+        if (space is null)
+        {
+            return;
+        }
+
+        // Alert once the product is forecast to run dry within the space's delivery lead time.
+        var leadTimeDays = space.RestockLeadTimeDays;
 
         // Velocity (g/day) for THIS product over the recent window → days until it runs out.
         var windowStart = clock.UtcNow.AddDays(-ForecastWindowDays);
@@ -40,15 +48,9 @@ public sealed class LowStockNotificationHandler(
         var velocity = (double)consumed / ForecastWindowDays;
         int? daysToEmpty = velocity > 0.01 ? (int)Math.Floor((double)remaining / velocity) : null;
 
-        var predictedSoon = daysToEmpty.HasValue && daysToEmpty.Value <= LeadTimeDays;
+        var predictedSoon = daysToEmpty.HasValue && daysToEmpty.Value <= leadTimeDays;
         var belowFloor = remaining <= HardFloorGrams;
         if (!predictedSoon && !belowFloor)
-        {
-            return;
-        }
-
-        var space = await spaceRepository.GetByIdAsync(notification.SpaceId, cancellationToken);
-        if (space is null)
         {
             return;
         }

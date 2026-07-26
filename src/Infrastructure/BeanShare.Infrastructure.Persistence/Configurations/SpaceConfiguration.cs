@@ -44,6 +44,15 @@ public sealed class SpaceConfiguration : IEntityTypeConfiguration<Space>
         builder.Property(s => s.CreatedAt)
             .IsRequired();
 
+        builder.Property(s => s.RestockLeadTimeDays)
+            .IsRequired()
+            .HasDefaultValue(7);
+
+        builder.Property(s => s.RestockMinOrderValue)
+            .HasColumnType("decimal(18,2)")
+            .IsRequired()
+            .HasDefaultValue(2000m);
+
         builder.OwnsMany(s => s.Members, memberBuilder =>
         {
             memberBuilder.ToTable("SpaceMemberships");

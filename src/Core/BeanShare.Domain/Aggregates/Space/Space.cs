@@ -17,6 +17,11 @@ public sealed class Space : AggregateRoot
     public bool IsActive { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
+    // Restock-planner tuning (per space). Defaults match a ~1-week delivery lead time
+    // and a worthwhile batch-order threshold; admins can override both.
+    public int RestockLeadTimeDays { get; private set; } = 7;
+    public decimal RestockMinOrderValue { get; private set; } = 2000m;
+
     public IReadOnlyCollection<SpaceMembership> Members => _members.AsReadOnly();
 
     private Space()
@@ -164,6 +169,22 @@ public sealed class Space : AggregateRoot
             throw new ArgumentException("Space name cannot exceed 100 characters", nameof(newName));
 
         Name = newName.Trim();
+    }
+
+    // A generous ceiling well within the numeric(18,2) column precision, so an out-of-range
+    // input is rejected cleanly here instead of overflowing on write.
+    public const decimal MaxRestockMinOrderValue = 1_000_000m;
+
+    public void SetRestockSettings(int leadTimeDays, decimal minOrderValue)
+    {
+        if (leadTimeDays < 0 || leadTimeDays > 90)
+            throw new SpaceDomainException("Restock lead time must be between 0 and 90 days");
+
+        if (minOrderValue < 0 || minOrderValue > MaxRestockMinOrderValue)
+            throw new SpaceDomainException($"Minimum order value must be between 0 and {MaxRestockMinOrderValue:0}");
+
+        RestockLeadTimeDays = leadTimeDays;
+        RestockMinOrderValue = decimal.Round(minOrderValue, 2, MidpointRounding.AwayFromZero);
     }
 
     public void Deactivate(IClock clock)

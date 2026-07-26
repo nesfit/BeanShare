@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using MediatR
 @using BeanShare.Application.Features.Spaces.Queries
+@using BeanShare.Application.Features.Spaces.Commands
 @using BeanShare.Application.Features.CoffeeStock.Queries
 @using BeanShare.Application.Features.CoffeeStock.Queries.LookupBarcode
 @using BeanShare.Application.Features.CoffeeStock.Queries.GetRestockForecast
@@ -62,6 +63,20 @@ else
 
     <div class="bs-container" style="padding: 2rem 0 6rem 0;">
         <div>
+            @if (isAdmin && restockForecast is not null)
+            {
+                <div class="bs-flex bs-items-center bs-justify-between" style="gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 0.5rem 0.75rem; background: var(--bs-gray-50); border: 1px solid var(--bs-border); border-radius: 0.5rem;">
+                    <span class="bs-text-subtle" style="font-size: 0.8125rem;">
+                        <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: middle;">tune</span>
+                        Alerts ~@restockForecast.LeadTimeDays days ahead · order at @(restockForecast.MinOrderValue.ToString("0")) @(space?.CurrencyCode ?? "")
+                    </span>
+                    <button class="bs-btn bs-btn-sm bs-btn-ghost" @onclick="@(() => showRestockSettings = true)">
+                        <span class="material-symbols-outlined" style="font-size: 1rem;">settings</span>
+                        Restock settings
+                    </button>
+                </div>
+            }
+
             <RestockPanel Forecast="@restockForecast" />
 
             <StockBagsGrid Purchases="@purchases"
@@ -121,6 +136,14 @@ else
             QuickPresets="@quickPresets"
             ProductBags="@BagsForSelectedQr()" />
 
+<RestockSettingsModal IsVisible="@showRestockSettings"
+                     LeadTimeDays="@(restockForecast?.LeadTimeDays ?? 7)"
+                     MinOrderValue="@(restockForecast?.MinOrderValue ?? 2000m)"
+                     CurrencyCode="@(space?.CurrencyCode ?? "USD")"
+                     IsProcessing="@isSavingRestockSettings"
+                     OnSave="HandleSaveRestockSettings"
+                     OnCancel="@(() => showRestockSettings = false)" />
+
 <Toast IsVisible="@showToast"
        IsError="@isToastError"
        Title="@toastTitle"
@@ -155,6 +178,9 @@ else
     private bool isLoadingActiveQrs;
     private Guid? createdQrCodeId;
     private List<PresetOption> quickPresets = new();
+
+    private bool showRestockSettings;
+    private bool isSavingRestockSettings;
 
     private bool showToast;
     private bool isToastError;
@@ -237,6 +263,33 @@ else
         catch
         {
             restockForecast = null;
+        }
+    }
+
+    private async Task HandleSaveRestockSettings((int LeadTimeDays, decimal MinOrderValue) settings)
+    {
+        isSavingRestockSettings = true;
+        try
+        {
+            var result = await Mediator.Send(new SetRestockSettingsCommand(Guid.Parse(SpaceId), settings.LeadTimeDays, settings.MinOrderValue));
+            if (result.IsSuccess)
+            {
+                showRestockSettings = false;
+                await LoadRestock();
+                ShowToast(false, "Saved", "Restock settings updated.");
+            }
+            else
+            {
+                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Failed to save settings: {ex.Message}");
+        }
+        finally
+        {
+            isSavingRestockSettings = false;
         }
     }
 

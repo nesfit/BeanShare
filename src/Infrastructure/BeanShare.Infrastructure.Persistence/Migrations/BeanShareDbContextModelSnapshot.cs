@@ -241,6 +241,16 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<int>("RestockLeadTimeDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(7);
+
+                    b.Property<decimal>("RestockMinOrderValue")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(2000m);
+
                     b.HasKey("Id");
 
                     b.ToTable("Spaces", (string)null);

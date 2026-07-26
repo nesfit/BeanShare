@@ -8,12 +8,13 @@ namespace BeanShare.Application.Features.CoffeeStock.Queries.GetRestockForecast;
 
 public sealed class GetRestockForecastQueryHandler : IRequestHandler<GetRestockForecastQuery, Result<RestockForecastDto>>
 {
-    // Batch-ordering defaults: order ~1 week ahead of running out, worthwhile basket ~2000.
-    private const int LeadTimeDays = 7;
+    // Batch-ordering defaults (used when a space has no override): order ~1 week ahead of
+    // running out, worthwhile basket ~2000. Lead time + min-order are configurable per space.
+    private const int DefaultLeadTimeDays = 7;
+    private const decimal DefaultMinOrderValue = 2000m;
     private const int SafetyBufferDays = 7;     // "soon" window = lead time + buffer
     private const int ForecastWindowDays = 30;  // consumption sample used for velocity
     private const int CoverageDays = 30;        // reorder enough to last this long beyond lead time
-    private const decimal MinOrderValue = 2000m;
 
     private readonly ICoffeeStockRepository _coffeeStockRepository;
     private readonly IConsumptionRepository _consumptionRepository;
@@ -37,8 +38,10 @@ public sealed class GetRestockForecastQueryHandler : IRequestHandler<GetRestockF
         var spaceId = new SpaceId(query.SpaceId);
         var space = await _spaceRepository.GetByIdAsync(spaceId, cancellationToken);
         var currency = space?.Currency.Code ?? "USD";
+        var leadTimeDays = space?.RestockLeadTimeDays ?? DefaultLeadTimeDays;
+        var minOrderValue = space?.RestockMinOrderValue ?? DefaultMinOrderValue;
 
-        var empty = new RestockForecastDto([], 0, 0m, currency, LeadTimeDays, MinOrderValue, false);
+        var empty = new RestockForecastDto([], 0, 0m, currency, leadTimeDays, minOrderValue, false);
 
         var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
         if (coffeeStock is null)
@@ -76,8 +79,8 @@ public sealed class GetRestockForecastQueryHandler : IRequestHandler<GetRestockF
             var status = daysToEmpty switch
             {
                 null => "ok",
-                <= LeadTimeDays => "critical",
-                _ when daysToEmpty <= LeadTimeDays + SafetyBufferDays => "soon",
+                _ when daysToEmpty <= leadTimeDays => "critical",
+                _ when daysToEmpty <= leadTimeDays + SafetyBufferDays => "soon",
                 _ => "ok",
             };
 
@@ -91,7 +94,7 @@ public sealed class GetRestockForecastQueryHandler : IRequestHandler<GetRestockF
                 if (lastPurchaseByKey.TryGetValue(key, out var last))
                 {
                     var bagSize = last.Quantity.Grams > 0 ? last.Quantity.Grams : 1000m;
-                    var target = (decimal)(velocity * (LeadTimeDays + CoverageDays));
+                    var target = (decimal)(velocity * (leadTimeDays + CoverageDays));
                     var needed = Math.Max(0m, target - onHand);
                     var bags = Math.Clamp((int)Math.Ceiling(needed / bagSize), 1, 20);
                     suggestedGrams = (int)(bags * bagSize);
@@ -122,9 +125,9 @@ public sealed class GetRestockForecastQueryHandler : IRequestHandler<GetRestockF
             needs,
             basket,
             currency,
-            LeadTimeDays,
-            MinOrderValue,
-            basket >= MinOrderValue);
+            leadTimeDays,
+            minOrderValue,
+            basket >= minOrderValue);
 
         return Result<RestockForecastDto>.Success(dto);
     }
