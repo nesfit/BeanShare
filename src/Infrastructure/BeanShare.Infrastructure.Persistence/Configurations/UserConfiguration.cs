@@ -55,6 +55,10 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(3)
             .IsRequired(false);
 
+        builder.Property(u => u.RevolutTag)
+            .HasMaxLength(30)
+            .IsRequired(false);
+
         builder.Property(u => u.SystemRole)
             .HasConversion<int>()
             .HasDefaultValue(SystemRole.User)

@@ -630,6 +630,10 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("RevolutTag")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<int>("SystemRole")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")

@@ -108,7 +108,8 @@ public sealed class GetSettlementByIdHandler : IRequestHandler<GetSettlementById
                 consumptionPercentage,
                 line.IsConfirmed,
                 line.Confirmation?.ConfirmedBy.Value,
-                line.Confirmation?.ConfirmedAt
+                line.Confirmation?.ConfirmedAt,
+                user?.RevolutTag
             );
 
             lines.Add(lineDto);

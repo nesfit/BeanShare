@@ -12,5 +12,6 @@ public sealed record SettlementLineDto(
     decimal ConsumptionPercentage,
     bool IsConfirmed,
     Guid? ConfirmedBy,
-    DateTime? ConfirmedAt
+    DateTime? ConfirmedAt,
+    string? RevolutTag = null
 );

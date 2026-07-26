@@ -8,6 +8,7 @@
 @using BeanShare.Application.Features.Spaces.Queries
 @using BeanShare.Application.Features.Analytics.Queries.GetUserStatistics
 @using BeanShare.Application.Features.Users.Commands.UpdateProfile
+@using BeanShare.Application.Features.Users.Commands.SetRevolutTag
 @using BeanShare.Application.Services
 @using BeanShare.Infrastructure.Services
 @using BeanShare.Domain.Common
@@ -162,6 +163,16 @@
                         Email is managed by your sign-in and can't be changed here.
                     </p>
                 </div>
+                <div class="bs-flex bs-flex-col bs-gap-2">
+                    <label for="profileRevolutTag" class="bs-text-subtle" style="font-size: 0.875rem; font-weight: 500;">Revolut username</label>
+                    <div class="bs-flex bs-items-center bs-gap-2">
+                        <span class="bs-text-subtle" style="font-size: 0.875rem; white-space: nowrap;">revolut.me/</span>
+                        <input id="profileRevolutTag" type="text" class="bs-input" @bind="editRevolutTag" disabled="@(!isEditing)" placeholder="username" aria-describedby="profileRevolutTagHint" />
+                    </div>
+                    <p id="profileRevolutTagHint" class="bs-text-subtle bs-m-0" style="font-size: 0.75rem;">
+                        Used for 'Pay me' links on settlements — just your handle (revolut.me/&lt;handle&gt;).
+                    </p>
+                </div>
             </div>
             <div class="bs-flex bs-gap-3 bs-mt-4" style="justify-content: flex-end;">
                 @if (isEditing)
@@ -196,6 +207,8 @@
 
     private bool isEditing = false;
     private string editName = "";
+    private string editRevolutTag = "";
+    private string loadedRevolutTag = "";
 
     private bool isUploadingAvatar = false;
     private string? avatarUploadError;
@@ -235,6 +248,8 @@
                         if (user.PictureUrl is not null)
                             pictureUrl = user.PictureUrl;
                         joinedDate = user.CreatedAt;
+                        loadedRevolutTag = user.RevolutTag ?? "";
+                        editRevolutTag = loadedRevolutTag;
                     }
                 }
                 catch
@@ -304,6 +319,7 @@
     {
         isEditing = false;
         editName = userProfile?.Name ?? "";
+        editRevolutTag = loadedRevolutTag;
     }
 
     private async Task SaveProfile()
@@ -315,6 +331,8 @@
         var result = await Mediator.Send(command);
         if (result.IsSuccess)
         {
+            await Mediator.Send(new SetRevolutTagCommand(editRevolutTag));
+            loadedRevolutTag = editRevolutTag;
             userProfile.Name = editName;
             isEditing = false;
             ShowToast(false, "Profile updated", "Your changes have been saved.");

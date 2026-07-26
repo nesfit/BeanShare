@@ -14,6 +14,7 @@
 @inject NavigationManager Navigation
 @inject IUserContext UserContext
 @inject IJSRuntime JSRuntime
+@inject BeanShare.SharedUi.Services.IQrCodeService QrCodeService
 
 <PageTitle>Settlement Details - BeanShare</PageTitle>
 
@@ -106,11 +107,31 @@
                     <div class="bs-flex bs-flex-col" style="gap: 0.5rem;">
                         @foreach (var t in transfers)
                         {
-                            <div class="bs-flex bs-items-center" style="gap: 0.6rem; padding: 0.65rem 0.85rem; background: var(--bs-gray-50); border: 1px solid var(--bs-border); border-radius: 0.5rem; flex-wrap: wrap;">
-                                <span style="font-weight: 600;">@t.From</span>
-                                <span class="material-symbols-outlined" style="color: var(--bs-text-subtle); font-size: 1.15rem;" title="pays">arrow_forward</span>
-                                <span style="font-weight: 600;">@t.To</span>
-                                <span style="margin-left: auto; font-weight: 700; color: var(--bs-primary); font-variant-numeric: tabular-nums;">@t.Currency @t.Amount.ToString("F2")</span>
+                            <div>
+                                <div class="bs-flex bs-items-center" style="gap: 0.6rem; padding: 0.65rem 0.85rem; background: var(--bs-gray-50); border: 1px solid var(--bs-border); border-radius: 0.5rem; flex-wrap: wrap;">
+                                    <span style="font-weight: 600;">@t.From</span>
+                                    <span class="material-symbols-outlined" style="color: var(--bs-text-subtle); font-size: 1.15rem;" title="pays">arrow_forward</span>
+                                    <span style="font-weight: 600;">@t.To</span>
+                                    <span style="margin-left: auto; font-weight: 700; color: var(--bs-primary); font-variant-numeric: tabular-nums;">@t.Currency @t.Amount.ToString("F2")</span>
+                                    @if (!string.IsNullOrEmpty(t.ToRevolutTag))
+                                    {
+                                        var link = RevolutLink(t.ToRevolutTag, t.Amount, t.Currency);
+                                        <a class="bs-btn bs-btn-sm bs-btn-primary" href="@link" target="_blank" rel="noopener" style="gap: 0.3rem;" title="@($"Pay {t.To} with Revolut")">
+                                            <span class="material-symbols-outlined" style="font-size: 1rem;">send</span>
+                                            Pay
+                                        </a>
+                                        <button type="button" class="bs-btn bs-btn-sm bs-btn-ghost" @onclick="@(() => ToggleQr(link))" aria-label="@($"Show payment QR for {t.To}")" title="Show QR">
+                                            <span class="material-symbols-outlined" style="font-size: 1rem;">qr_code_2</span>
+                                        </button>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrEmpty(t.ToRevolutTag) && openQrLink == RevolutLink(t.ToRevolutTag, t.Amount, t.Currency))
+                                {
+                                    <div style="text-align: center; padding: 0.75rem;">
+                                        <img src="@QrCodeService.GenerateQrCodeBase64ForUrl(openQrLink)" alt="Revolut payment QR" style="width: 176px; height: 176px;" />
+                                        <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0.5rem 0 0 0;">Scan to pay @t.To @t.Currency @t.Amount.ToString("F2")</p>
+                                    </div>
+                                }
                             </div>
                         }
                     </div>
@@ -289,7 +310,18 @@
     private Guid pendingPaymentUserId;
     private string confirmPaymentMessage = "";
 
-    private sealed record Transfer(string From, string To, decimal Amount, string Currency);
+    private sealed record Transfer(string From, string To, decimal Amount, string Currency, string? ToRevolutTag);
+
+    private string? openQrLink;
+
+    private void ToggleQr(string link) => openQrLink = openQrLink == link ? null : link;
+
+    private static string RevolutLink(string tag, decimal amount, string currency)
+    {
+        var amt = amount.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        var ccy = (currency ?? string.Empty).ToUpperInvariant();
+        return $"https://revolut.me/{tag}/{amt}{ccy}";
+    }
 
     private List<SettlementLineDto> Debtors => settlement?.Lines.Where(l => l.NetBalance < -0.01m).OrderBy(l => l.NetBalance).ToList() ?? new();
     private List<SettlementLineDto> Creditors => settlement?.Lines.Where(l => l.NetBalance > 0.01m).OrderByDescending(l => l.NetBalance).ToList() ?? new();
@@ -324,7 +356,7 @@
             .ToList();
         var creditors = settlement.Lines
             .Where(l => l.NetBalance > 0.01m)
-            .Select(l => new { l.UserName, Amount = l.NetBalance, l.Currency })
+            .Select(l => new { l.UserName, Amount = l.NetBalance, l.Currency, l.RevolutTag })
             .OrderByDescending(x => x.Amount)
             .ToList();
 
@@ -336,7 +368,7 @@
             var pay = Math.Min(owe[i], due[j]);
             if (pay > 0.01m)
             {
-                transfers.Add(new Transfer(debtors[i].UserName, creditors[j].UserName, pay, debtors[i].Currency));
+                transfers.Add(new Transfer(debtors[i].UserName, creditors[j].UserName, pay, debtors[i].Currency, creditors[j].RevolutTag));
             }
             owe[i] -= pay;
             due[j] -= pay;

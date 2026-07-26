@@ -57,6 +57,11 @@ public sealed partial class QrCodeService : IQrCodeService
         return result;
     }
 
+    public string GenerateQrCodeBase64ForUrl(string url)
+    {
+        return GenerateQrWithLogo(url ?? string.Empty);
+    }
+
     public QrConsumptionPayload? ParseQrPayload(string rawData)
     {
         if (string.IsNullOrWhiteSpace(rawData))
