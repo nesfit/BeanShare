@@ -107,15 +107,21 @@
                     <div class="bs-flex bs-flex-col" style="gap: 0.5rem;">
                         @foreach (var t in transfers)
                         {
+                            var isMine = t.FromUserId == currentUserId;
+                            var canPay = isMine && !string.IsNullOrEmpty(t.ToRevolutTag);
                             <div>
-                                <div class="bs-flex bs-items-center" style="gap: 0.6rem; padding: 0.65rem 0.85rem; background: var(--bs-gray-50); border: 1px solid var(--bs-border); border-radius: 0.5rem; flex-wrap: wrap;">
+                                <div class="bs-flex bs-items-center" style="gap: 0.6rem; padding: 0.65rem 0.85rem; background: @(isMine ? "var(--bs-primary-light)" : "var(--bs-gray-50)"); border: 1px solid @(isMine ? "var(--bs-primary)" : "var(--bs-border)"); border-radius: 0.5rem; flex-wrap: wrap;">
                                     <span style="font-weight: 600;">@t.From</span>
+                                    @if (isMine)
+                                    {
+                                        <span class="bs-badge bs-badge-primary">You</span>
+                                    }
                                     <span class="material-symbols-outlined" style="color: var(--bs-text-subtle); font-size: 1.15rem;" title="pays">arrow_forward</span>
                                     <span style="font-weight: 600;">@t.To</span>
                                     <span style="margin-left: auto; font-weight: 700; color: var(--bs-primary); font-variant-numeric: tabular-nums;">@t.Currency @t.Amount.ToString("F2")</span>
-                                    @if (!string.IsNullOrEmpty(t.ToRevolutTag))
+                                    @if (canPay)
                                     {
-                                        var link = RevolutLink(t.ToRevolutTag, t.Amount, t.Currency);
+                                        var link = RevolutLink(t.ToRevolutTag!, t.Amount, t.Currency);
                                         <a class="bs-btn bs-btn-sm bs-btn-primary" href="@link" target="_blank" rel="noopener" style="gap: 0.3rem;" title="@($"Pay {t.To} with Revolut")">
                                             <span class="material-symbols-outlined" style="font-size: 1rem;">send</span>
                                             Pay
@@ -125,7 +131,7 @@
                                         </button>
                                     }
                                 </div>
-                                @if (!string.IsNullOrEmpty(t.ToRevolutTag) && openQrLink == RevolutLink(t.ToRevolutTag, t.Amount, t.Currency))
+                                @if (canPay && openQrLink == RevolutLink(t.ToRevolutTag!, t.Amount, t.Currency))
                                 {
                                     <div style="text-align: center; padding: 0.75rem;">
                                         <img src="@QrCodeService.GenerateQrCodeBase64ForUrl(openQrLink)" alt="Revolut payment QR" style="width: 176px; height: 176px;" />
@@ -310,7 +316,7 @@
     private Guid pendingPaymentUserId;
     private string confirmPaymentMessage = "";
 
-    private sealed record Transfer(string From, string To, decimal Amount, string Currency, string? ToRevolutTag);
+    private sealed record Transfer(string From, string To, decimal Amount, string Currency, string? ToRevolutTag, Guid FromUserId);
 
     private string? openQrLink;
 
@@ -351,7 +357,7 @@
 
         var debtors = settlement.Lines
             .Where(l => l.NetBalance < -0.01m)
-            .Select(l => new { l.UserName, Amount = -l.NetBalance, l.Currency })
+            .Select(l => new { l.UserName, l.UserId, Amount = -l.NetBalance, l.Currency })
             .OrderByDescending(x => x.Amount)
             .ToList();
         var creditors = settlement.Lines
@@ -368,7 +374,7 @@
             var pay = Math.Min(owe[i], due[j]);
             if (pay > 0.01m)
             {
-                transfers.Add(new Transfer(debtors[i].UserName, creditors[j].UserName, pay, debtors[i].Currency, creditors[j].RevolutTag));
+                transfers.Add(new Transfer(debtors[i].UserName, creditors[j].UserName, pay, debtors[i].Currency, creditors[j].RevolutTag, debtors[i].UserId));
             }
             owe[i] -= pay;
             due[j] -= pay;
