@@ -67,6 +67,10 @@ if (useOidc)
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.ExpireTimeSpan = TimeSpan.FromDays(30);
         options.SlidingExpiration = true;
+        // ExpireTimeSpan only bounds the ticket inside the cookie; MaxAge is what actually
+        // tells the browser to keep it on disk. Without it the cookie is session-scoped and
+        // iOS re-prompts for login every time it recycles the web view.
+        options.Cookie.MaxAge = TimeSpan.FromDays(30);
     })
     .AddOpenIdConnect(options =>
     {

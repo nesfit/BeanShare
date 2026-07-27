@@ -30,9 +30,13 @@ public static class AccountEndpoints
 
         if (useOidc)
         {
+            // IsPersistent makes the cookie handler write Expires/Max-Age into the browser
+            // cookie. Without it the auth cookie is a session cookie, which iOS drops every
+            // time it evicts the Safari tab or the home-screen web app from memory.
             var properties = new AuthenticationProperties
             {
-                RedirectUri = returnUrl ?? "/"
+                RedirectUri = returnUrl ?? "/",
+                IsPersistent = true
             };
 
             return Task.FromResult(Results.Challenge(properties, new[] { OpenIdConnectDefaults.AuthenticationScheme }));
@@ -53,7 +57,8 @@ public static class AccountEndpoints
         {
             var properties = new AuthenticationProperties
             {
-                RedirectUri = returnUrl ?? "/"
+                RedirectUri = returnUrl ?? "/",
+                IsPersistent = true
             };
 
             var idpHint = provider.ToLowerInvariant() switch
