@@ -1,4 +1,5 @@
 @using BeanShare.Application.Features.CoffeeStock.Dtos
+@using BeanShare.Application.Features.Consumption.Dtos
 @using BeanShare.Application.Features.Spaces.Dtos
 @using BeanShare.SharedUi.Components.Consumption.Models
 
@@ -54,7 +55,7 @@
                                 <span>Loading products...</span>
                             </div>
                         }
-                        else if (stockProducts == null || !stockProducts.Any())
+                        else if (!HasBags && (stockProducts == null || !stockProducts.Any()))
                         {
                             <div class="quick-modal-empty">
                                 <span class="material-symbols-outlined">inventory_2</span>
@@ -63,18 +64,61 @@
                         }
                         else
                         {
-                            <div class="quick-form-group">
-                                <label class="quick-label">Coffee Product</label>
-                                <select class="quick-select" @onchange="OnProductChanged" value="@selectedProductId">
-                                    <option value="">Select coffee...</option>
-                                    @foreach (var product in stockProducts)
+                            @* Same bag-first picker as the full form: pick the physical bag, with the
+                               one the space has been pouring from preselected. *@
+                            @if (HasBags)
+                            {
+                                var openBags = bagOptions!.Where(b => b.IsOpen).ToList();
+                                var sealedBags = bagOptions!.Where(b => !b.IsOpen).ToList();
+
+                                <div class="quick-form-group">
+                                    <label class="quick-label">Coffee</label>
+                                    <select class="quick-select" @onchange="OnBagChanged" value="@selectedLotId">
+                                        @if (openBags.Any())
+                                        {
+                                            <optgroup label="Open bags">
+                                                @foreach (var bag in openBags)
+                                                {
+                                                    <option value="@bag.LotId">@BagOptionLabel(bag)</option>
+                                                }
+                                            </optgroup>
+                                        }
+                                        @if (sealedBags.Any())
+                                        {
+                                            <optgroup label="@(openBags.Any() ? "Not opened yet" : "In stock")">
+                                                @foreach (var bag in sealedBags)
+                                                {
+                                                    <option value="@bag.LotId">@BagOptionLabel(bag)</option>
+                                                }
+                                            </optgroup>
+                                        }
+                                    </select>
+                                    @if (SelectedBag is { } bagInfo)
                                     {
-                                        <option value="@product.Id">
-                                            @product.ProductDisplayName (@product.CurrentStockGrams g)
-                                        </option>
+                                        <p style="margin: 0.375rem 0 0 0; font-size: 0.75rem; color: @(bagInfo.IsSuggested ? "var(--bs-primary)" : "var(--bs-text-subtle)");">
+                                            <span class="material-symbols-outlined" style="font-size: 0.875rem; vertical-align: middle;">
+                                                @(bagInfo.IsSuggested ? "auto_awesome" : "inventory_2")
+                                            </span>
+                                            @BagHint(bagInfo)
+                                        </p>
                                     }
-                                </select>
-                            </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="quick-form-group">
+                                    <label class="quick-label">Coffee Product</label>
+                                    <select class="quick-select" @onchange="OnProductChanged" value="@selectedProductId">
+                                        <option value="">Select coffee...</option>
+                                        @foreach (var product in stockProducts!)
+                                        {
+                                            <option value="@product.Id">
+                                                @product.ProductDisplayName (@product.CurrentStockGrams g)
+                                            </option>
+                                        }
+                                    </select>
+                                </div>
+                            }
 
                             @if (SpaceMembers != null && SpaceMembers.Count > 1)
                             {
@@ -124,7 +168,7 @@
                                 </div>
                             }
 
-                            @if (!string.IsNullOrEmpty(selectedProductId))
+                            @if (HasSelection)
                             {
                                 <div class="quick-form-group">
                                     <label class="quick-label">Amount</label>
@@ -237,6 +281,13 @@
     [Parameter]
     public List<PresetOption>? Presets { get; set; }
 
+    /// <summary>
+    /// Bags ranked best-first by <c>GetBagSuggestionsQuery</c> for the selected space. When
+    /// supplied, the picker offers bags instead of products and preselects the suggested one.
+    /// </summary>
+    [Parameter]
+    public List<BagSuggestionDto>? BagOptions { get; set; }
+
     [Parameter]
     public bool IsLoadingStock { get; set; }
 
@@ -248,7 +299,9 @@
 
     private string selectedSpaceId = "";
     private string selectedProductId = "";
+    private string selectedLotId = "";
     private List<StockLevelDto>? stockProducts;
+    private List<BagSuggestionDto>? bagOptions;
     private List<PresetOption>? presets;
     private bool isLoadingStock;
     private int selectedGrams;
@@ -263,6 +316,13 @@
     private int myselfCount = 1;
 
     private const int MaxCupsPerPerson = 20;
+
+    private bool HasBags => bagOptions is { Count: > 0 };
+
+    private BagSuggestionDto? SelectedBag
+        => bagOptions?.FirstOrDefault(b => b.LotId.ToString() == selectedLotId);
+
+    private bool HasSelection => HasBags ? SelectedBag != null : !string.IsNullOrEmpty(selectedProductId);
 
     // Compact stepper button style; dimmed + non-interactive when disabled.
 
@@ -289,6 +349,7 @@
     protected override void OnParametersSet()
     {
         stockProducts = StockProducts;
+        bagOptions = BagOptions;
         presets = Presets;
         isLoadingStock = IsLoadingStock;
 
@@ -306,9 +367,17 @@
             }
         }
 
-        // Once stock has loaded, pre-select the product (open bag → most stock) and its
-        // default preset, so the common case is "open modal, tap Log Coffee".
-        if (!string.IsNullOrEmpty(selectedSpaceId) && string.IsNullOrEmpty(selectedProductId)
+        // Once suggestions have loaded, pre-select the bag the space has been pouring from (and its
+        // default preset), so the common case is "open modal, tap Log Coffee".
+        if (!string.IsNullOrEmpty(selectedSpaceId) && HasBags
+            && (string.IsNullOrEmpty(selectedLotId) || SelectedBag == null))
+        {
+            ApplyBag(bagOptions!.FirstOrDefault(b => b.IsSuggested) ?? bagOptions![0]);
+            SelectDefaultPreset();
+        }
+
+        // Product-level fallback for callers that haven't wired suggestions up.
+        if (!HasBags && !string.IsNullOrEmpty(selectedSpaceId) && string.IsNullOrEmpty(selectedProductId)
             && stockProducts != null && stockProducts.Any())
         {
             var def = stockProducts.FirstOrDefault(s => s.IsCurrentlyUsed)
@@ -316,21 +385,72 @@
             if (def != null)
             {
                 selectedProductId = def.Id.ToString();
-                if (presets != null && presets.Any())
-                {
-                    var defaultPreset = presets.FirstOrDefault(p => p.IsFavorite) ?? presets.FirstOrDefault();
-                    if (defaultPreset != null)
-                        SelectPreset(defaultPreset);
-                }
+                SelectDefaultPreset();
             }
         }
+    }
+
+    private void SelectDefaultPreset()
+    {
+        if (presets == null || !presets.Any())
+            return;
+
+        var defaultPreset = presets.FirstOrDefault(p => p.IsFavorite) ?? presets.FirstOrDefault();
+        if (defaultPreset != null)
+            SelectPreset(defaultPreset);
+    }
+
+    private static string BagOptionLabel(BagSuggestionDto bag)
+    {
+        var label = string.IsNullOrWhiteSpace(bag.Label) ? "" : $"{bag.Label} ";
+        var text = $"{label}{bag.ProductDisplayName} · {bag.RemainingGrams:0} g left";
+
+        if (bag.RecentCups > 0)
+            text += $" · {bag.RecentCups} recent cup{(bag.RecentCups == 1 ? "" : "s")}";
+
+        return bag.IsOpen ? text : $"{text} · unopened";
+    }
+
+    private static string BagHint(BagSuggestionDto bag)
+    {
+        if (bag.IsSuggested && !string.IsNullOrWhiteSpace(bag.SuggestionReason))
+            return $"Picked for you — {char.ToLowerInvariant(bag.SuggestionReason[0])}{bag.SuggestionReason[1..]}";
+
+        if (!bag.IsOpen)
+            return "This bag isn't open yet — logging a cup opens it.";
+
+        return bag.RecentCups > 0
+            ? $"Open · {bag.RecentCups} recent cup{(bag.RecentCups == 1 ? "" : "s")} from this bag"
+            : "Open · no cups logged from this bag yet";
+    }
+
+    private void ApplyBag(BagSuggestionDto bag)
+    {
+        selectedLotId = bag.LotId.ToString();
+        selectedProductId = stockProducts?.FirstOrDefault(p => p.Id == bag.StockLevelId)?.Id.ToString() ?? "";
+        errorMessage = null;
+    }
+
+    private void OnBagChanged(ChangeEventArgs e)
+    {
+        var lotId = e.Value?.ToString() ?? "";
+        var bag = bagOptions?.FirstOrDefault(b => b.LotId.ToString() == lotId);
+        if (bag == null)
+            return;
+
+        ApplyBag(bag);
+
+        if (selectedGrams == 0 && !isCustomMode)
+            SelectDefaultPreset();
     }
 
     private async Task OnSpaceChanged(ChangeEventArgs e)
     {
         selectedSpaceId = e.Value?.ToString() ?? "";
         selectedProductId = "";
+        selectedLotId = "";
         stockProducts = null;
+        bagOptions = null;
         presets = null;
         selectedGrams = 0;
         selectedPresetName = null;
@@ -434,9 +554,9 @@
             return;
         }
 
-        if (string.IsNullOrEmpty(selectedProductId))
+        if (!HasSelection)
         {
-            errorMessage = "Please select a coffee product.";
+            errorMessage = HasBags ? "Please select which bag to log from." : "Please select a coffee product.";
             return;
         }
 
@@ -446,14 +566,16 @@
             return;
         }
 
+        var bag = HasBags ? SelectedBag : null;
         var selectedProduct = stockProducts?.FirstOrDefault(p => p.Id.ToString() == selectedProductId);
-        if (selectedProduct == null)
+
+        if (bag == null && selectedProduct == null)
         {
             errorMessage = "Selected product not found.";
             return;
         }
 
-        if (grams > selectedProduct.CurrentStockGrams)
+        if (bag == null && grams > selectedProduct!.CurrentStockGrams)
         {
             errorMessage = $"Not enough stock. Only {selectedProduct.CurrentStockGrams}g available.";
             return;
@@ -464,6 +586,18 @@
         {
             errorMessage = "Please select at least one member.";
             return;
+        }
+
+        // A cup is never split across bags, so the whole batch has to fit in the chosen one.
+        if (bag != null)
+        {
+            var cups = Math.Max(1, TotalCups);
+            if (grams * cups > bag.RemainingGrams)
+            {
+                var batch = cups == 1 ? $"{grams} g" : $"{cups} cups of {grams} g";
+                errorMessage = $"Bag {bag.Label} has only {bag.RemainingGrams:0} g left — not enough for {batch}. Pick another bag.";
+                return;
+            }
         }
 
         isSubmitting = true;
@@ -498,12 +632,13 @@
             {
                 SpaceId = spaceGuid,
                 Grams = grams,
-                ProductName = selectedProduct.ProductName,
-                ProductBrand = selectedProduct.ProductBrand,
-                ProductType = selectedProduct.ProductType,
+                ProductName = bag?.ProductName ?? selectedProduct!.ProductName,
+                ProductBrand = bag?.ProductBrand ?? selectedProduct!.ProductBrand,
+                ProductType = bag?.ProductType ?? selectedProduct!.ProductType,
                 PresetName = isCustomMode ? null : selectedPresetName,
                 ConsumedAt = DateTime.UtcNow,
-                ForUserIds = forUserIds
+                ForUserIds = forUserIds,
+                StockLotId = bag?.LotId
             };
 
             await OnSubmit.InvokeAsync(request);
@@ -543,7 +678,9 @@
     {
         selectedSpaceId = DefaultSpaceId ?? "";
         selectedProductId = "";
+        selectedLotId = "";
         stockProducts = null;
+        bagOptions = null;
         presets = null;
         selectedGrams = 0;
         selectedPresetName = null;

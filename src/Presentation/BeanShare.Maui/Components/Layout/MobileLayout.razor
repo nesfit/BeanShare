@@ -4,6 +4,7 @@
 @using BeanShare.Maui.Services
 @using BeanShare.Application.Features.Spaces.Dtos
 @using BeanShare.Application.Features.CoffeeStock.Dtos
+@using BeanShare.Application.Features.Consumption.Dtos
 @using BeanShare.SharedUi.Components.Consumption.Models
 @using BeanShare.SharedUi.Services
 @using Microsoft.Extensions.Logging
@@ -68,6 +69,7 @@
     Spaces="@userSpaces"
     DefaultSpaceId="@currentSpaceId"
     StockProducts="@quickConsumptionStock"
+    BagOptions="@quickConsumptionBags"
     Presets="@quickConsumptionPresets"
     SpaceMembers="@quickConsumptionMembers"
     IsLoadingStock="@isLoadingQuickConsumptionData"
@@ -108,6 +110,7 @@
     // Quick consumption modal state
     private List<SpaceSummaryDto>? userSpaces;
     private List<StockLevelDto>? quickConsumptionStock;
+    private List<BagSuggestionDto>? quickConsumptionBags;
     private List<PresetOption>? quickConsumptionPresets;
     private List<MembershipDto>? quickConsumptionMembers;
     private bool isLoadingQuickConsumptionData;
@@ -302,6 +305,7 @@
     {
         showConsumptionModal = false;
         quickConsumptionStock = null;
+        quickConsumptionBags = null;
         quickConsumptionPresets = null;
         quickConsumptionMembers = null;
     }
@@ -310,6 +314,7 @@
     {
         isLoadingQuickConsumptionData = true;
         quickConsumptionStock = null;
+        quickConsumptionBags = null;
         quickConsumptionPresets = null;
         quickConsumptionMembers = null;
         StateHasChanged();
@@ -319,13 +324,21 @@
             var stockTask = StockService.GetSpaceStockAsync(spaceId);
             var presetsTask = PresetService.GetQuickPresetsAsync(spaceId);
             var spaceTask = SpacesService.GetSpaceByIdAsync(spaceId);
+            var bagsTask = ConsumptionService.GetBagSuggestionsAsync(spaceId);
 
-            await Task.WhenAll(stockTask, presetsTask, spaceTask);
+            await Task.WhenAll(stockTask, presetsTask, spaceTask, bagsTask);
 
             var stockResult = await stockTask;
             if (stockResult?.StockLevels != null)
             {
                 quickConsumptionStock = stockResult.StockLevels.ToList();
+            }
+
+            // Ranked bags — the modal preselects whichever the space has been pouring from.
+            var bagsResult = await bagsTask;
+            if (bagsResult?.Bags != null)
+            {
+                quickConsumptionBags = bagsResult.Bags.ToList();
             }
 
             quickConsumptionPresets = await presetsTask;

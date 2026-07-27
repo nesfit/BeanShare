@@ -3,6 +3,7 @@
 @using BeanShare.SharedUi.Components.Analytics
 @using BeanShare.Application.Features.Analytics.Queries.GetSpaceAnalytics
 @using BeanShare.Application.Features.CoffeeStock.Dtos
+@using BeanShare.Application.Features.Consumption.Dtos
 @using BeanShare.Application.Abstractions
 @using BeanShare.Maui.Services
 @inject ISpacesService SpacesService
@@ -80,6 +81,7 @@ else
                 <ConsumptionForm OnSubmit="HandleLogConsumption"
                                  OnValidationError="HandleFormValidationError"
                                  StockProducts="@stockProducts"
+                                 BagOptions="@bagOptions"
                                  QuickPresets="@quickPresets"
                                  SpaceMembers="@space?.Members?.ToList()"
                                  CurrentUserId="@UserContext.CurrentUserId.Value" />
@@ -166,6 +168,7 @@ else
     private int currentPurchasePage = 1;
     private bool isLoadingMorePurchases;
     private List<StockLevelDto> stockProducts = new();
+    private List<BagSuggestionDto> bagOptions = new();
     private List<PresetOption> quickPresets = new();
     private List<ConsumptionEntryDto> recentConsumptions = new();
     private int myCupsToday = 0;
@@ -307,8 +310,9 @@ else
             var consumptionTask = ConsumptionService.GetRecentConsumptionsAsync(spaceGuid);
             var stockTask = StockService.GetSpaceStockAsync(spaceGuid);
             var presetsTask = PresetService.GetQuickPresetsAsync(spaceGuid);
+            var bagsTask = ConsumptionService.GetBagSuggestionsAsync(spaceGuid);
 
-            await Task.WhenAll(consumptionTask, stockTask, presetsTask);
+            await Task.WhenAll(consumptionTask, stockTask, presetsTask, bagsTask);
 
             var consumptionData = consumptionTask.Result;
             if (consumptionData != null)
@@ -323,6 +327,13 @@ else
             if (stockData?.StockLevels != null)
             {
                 stockProducts = stockData.StockLevels.ToList();
+            }
+
+            // Ranked bags — the log form preselects whichever the space has been pouring from.
+            var bagsData = bagsTask.Result;
+            if (bagsData?.Bags != null)
+            {
+                bagOptions = bagsData.Bags.ToList();
             }
 
             quickPresets = presetsTask.Result;

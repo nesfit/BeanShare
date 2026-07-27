@@ -3,6 +3,7 @@
 @using MediatR
 @using BeanShare.Application.Features.Spaces.Queries
 @using BeanShare.Application.Features.Consumption.Queries
+@using BeanShare.Application.Features.Consumption.Queries.GetBagSuggestions
 @using BeanShare.Application.Features.Consumption.Commands
 @using BeanShare.Application.Features.Consumption.Dtos
 @using BeanShare.Application.Common
@@ -92,6 +93,7 @@ else
                            SpaceMembers="@space?.Members?.ToList()"
                            CurrentUserId="@UserContext.CurrentUserId.Value"
                            DefaultStockLevelId="@DefaultProductId()"
+                           BagOptions="@bagOptions"
                            OnAddStock="@(() => Navigation.NavigateTo($"/spaces/{SpaceId}/stock"))" />
 
             <div>
@@ -178,6 +180,7 @@ else
 
     private List<ConsumptionEntryDto> recentConsumptions = new();
     private List<StockLevelDto> stockProducts = new();
+    private List<BagSuggestionDto> bagOptions = new();
     private List<PresetOption> quickPresets = new();
     private int myCupsToday = 0;
     private decimal myTotalCost = 0m;
@@ -210,6 +213,7 @@ else
             await LoadSpace();
             // Sequential to avoid DbContext concurrent access in Blazor Server
             await LoadStock();
+            await LoadBagSuggestions();
             await LoadConsumption();
             await LoadQuickPresets();
             await LoadPresetIfProvided();
@@ -295,7 +299,28 @@ else
         }
     }
 
-    // Which product the log form pre-selects, so most logs are one tap (no product picking):
+    // Bag-level ranking for the log form: open bags first, then whichever the space has actually
+    // been pouring from lately (my own cups weighted heavier). The form preselects the head of
+    // this list, so most logs stay one tap.
+    private async Task LoadBagSuggestions()
+    {
+        try
+        {
+            var result = await Mediator.Send(new GetBagSuggestionsQuery(Guid.Parse(SpaceId)));
+            if (result.IsSuccess)
+            {
+                bagOptions = result.Value.Bags.ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            // A failed ranking is not worth blocking a log on — the form falls back to the
+            // product-level picker.
+            ShowToast(true, "Error", $"Failed to load bag suggestions: {ex.Message}");
+        }
+    }
+
+    // Fallback for when suggestions are unavailable — which product the log form pre-selects:
     //   1) the open / "currently used" bag (the natural default once someone opens a bag),
     //   2) otherwise the product with the most stock left — a sensible starting point that
     //      also trivially covers the single-product case. The user can always change it.
@@ -432,6 +457,7 @@ else
                     : $"Logged {successCount} cups of {model.ProductName}.";
                 ShowToast(false, "Success", msg);
                 await LoadStock();
+                await LoadBagSuggestions();
                 await LoadConsumption();
                 presetData = null;
             }
@@ -491,6 +517,7 @@ else
         csvImportResult = null;
         await LoadConsumption();
         await LoadStock();
+        await LoadBagSuggestions();
     }
 
     private async Task HandleEditConsumption(ConsumptionEntryDto updated)
@@ -533,6 +560,7 @@ else
                 ShowToast(false, "Success", "Consumption deleted successfully!");
                 await LoadConsumption();
                 await LoadStock();
+                await LoadBagSuggestions();
             }
             else
             {

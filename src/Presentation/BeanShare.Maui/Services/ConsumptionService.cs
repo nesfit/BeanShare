@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Web;
 using BeanShare.Application.Features.Consumption.Queries;
+using BeanShare.Application.Features.Consumption.Queries.GetBagSuggestions;
 using BeanShare.Application.Features.Consumption.Dtos;
 
 namespace BeanShare.Maui.Services;
@@ -32,6 +33,29 @@ public class ConsumptionService : IConsumptionService
                 url += $"?forUserId={forUserId.Value}";
 
             var result = await _httpClient.GetFromJsonAsync<GetRecentConsumptionsResult>(url);
+            if (result != null)
+                _cache.Set(cacheKey, result, TimeSpan.FromSeconds(15));
+            return result;
+        }
+        catch
+        {
+            return stale;
+        }
+    }
+
+    public async Task<BagSuggestionsResult?> GetBagSuggestionsAsync(Guid spaceId)
+    {
+        var cacheKey = $"consumption:bags:{spaceId}";
+        var fresh = _cache.Get<BagSuggestionsResult>(cacheKey);
+        if (fresh != null)
+            return fresh;
+
+        var stale = _cache.GetStale<BagSuggestionsResult>(cacheKey);
+
+        try
+        {
+            var result = await _httpClient.GetFromJsonAsync<BagSuggestionsResult>(
+                $"/api/spaces/{spaceId}/consumption/bag-suggestions");
             if (result != null)
                 _cache.Set(cacheKey, result, TimeSpan.FromSeconds(15));
             return result;

@@ -77,6 +77,12 @@ bag/lot with its own `RemainingGrams`, `Label` ("#N" per product), and lifecycle
   legacy split/currently-used/archive endpoints remain as shims).
 - **QR → bag:** `ActiveQrCode`, `RecordConsumptionCommand`, and the Create/Reassign QR commands carry an
   optional `StockLotId`; a scan logs against the bound bag, falling back to the open bag if it is empty/gone.
+- **Manual log picks a bag too, not a product.** `GetBagSuggestionsQuery` ranks non-empty lots via
+  `BagSuggestionPolicy` (Domain/Services): open bags first, then a histogram over the space's last 20 cups
+  with the caller's own cups weighted ×2, tie-broken by last use → most recently opened → oldest purchase.
+  The head of the list is `IsSuggested` and both heads' pickers (`ConsumptionForm`,
+  `QuickConsumptionModal`) preselect it and submit its `StockLotId`; they fall back to the old
+  product-level dropdown when no suggestions are supplied.
 - **Ledger:** `GetSpaceLedgerQuery` is the unified, filterable/sortable/paged view of every purchase (+) and
   cup (−) with a per-product running balance and totals (web: the Ledger tab; API: `GET /stock/ledger`).
 

@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using BeanShare.Application.Features.Consumption.Queries;
+using BeanShare.Application.Features.Consumption.Queries.GetBagSuggestions;
 using BeanShare.Application.Features.CoffeeStock.Dtos;
 using BeanShare.Application.Features.Spaces.Dtos;
 using BeanShare.SharedUi.Components.Consumption.Models;
@@ -58,6 +59,9 @@ public class SpaceDashboardData
     public SpaceDashboardStockInfo? Stock { get; set; }
     public GetRecentConsumptionsResult? Consumption { get; set; }
     public GetQuickPresetsResult? Presets { get; set; }
+
+    /// <summary>Bags ranked for the log picker (open first, then by recent use).</summary>
+    public BagSuggestionsResult? Bags { get; set; }
 }
 
 public class SpaceDashboardSpaceInfo
@@ -74,7 +78,8 @@ public class SpaceDashboardSpaceInfo
 
 public class SpaceDashboardStockInfo
 {
-    public int TotalCurrentStockGrams { get; set; }
+    // decimal, matching CoffeeStockDto — an int here throws on any fractional gram total.
+    public decimal TotalCurrentStockGrams { get; set; }
     public decimal TotalInvestmentAmount { get; set; }
     public string TotalInvestmentCurrency { get; set; } = "";
     public List<StockLevelDto> StockLevels { get; set; } = new();

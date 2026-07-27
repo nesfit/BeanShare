@@ -8,6 +8,7 @@
 @using BeanShare.Application.Features.Presets.Queries
 @using BeanShare.Application.Features.Consumption.Commands
 @using BeanShare.Application.Features.Consumption.Queries.GetUserConsumptionHistory
+@using BeanShare.Application.Features.Consumption.Queries.GetBagSuggestions
 @using BeanShare.Application.Features.Consumption.Dtos
 @using BeanShare.Application.Features.ActiveQrCodes.Queries
 @using BeanShare.Application.Features.Analytics.Queries.GetUserStatistics
@@ -241,6 +242,7 @@
     IsVisible="@showQuickConsumptionModal"
     Spaces="@spaces"
     StockProducts="@quickConsumptionStock"
+    BagOptions="@quickConsumptionBags"
     Presets="@quickConsumptionPresets"
     SpaceMembers="@quickConsumptionMembers"
     IsLoadingStock="@isLoadingQuickConsumptionData"
@@ -289,6 +291,7 @@
     private string toastMessage = "";
 
     private List<StockLevelDto>? quickConsumptionStock;
+    private List<BagSuggestionDto>? quickConsumptionBags;
     private List<PresetOption>? quickConsumptionPresets;
     private List<MembershipDto>? quickConsumptionMembers;
     private bool isLoadingQuickConsumptionData;
@@ -431,6 +434,7 @@
     private void OpenQuickConsumption()
     {
         quickConsumptionStock = null;
+        quickConsumptionBags = null;
         quickConsumptionPresets = null;
         quickConsumptionMembers = null;
         showQuickConsumptionModal = true;
@@ -440,6 +444,7 @@
     {
         showQuickConsumptionModal = false;
         quickConsumptionStock = null;
+        quickConsumptionBags = null;
         quickConsumptionPresets = null;
         quickConsumptionMembers = null;
     }
@@ -448,6 +453,7 @@
     {
         isLoadingQuickConsumptionData = true;
         quickConsumptionStock = null;
+        quickConsumptionBags = null;
         quickConsumptionPresets = null;
         quickConsumptionMembers = null;
         StateHasChanged();
@@ -455,12 +461,19 @@
         try
         {
             var stockResult = await Mediator.Send(new GetSpaceStockQuery(spaceId));
+            var bagsResult = await Mediator.Send(new GetBagSuggestionsQuery(spaceId));
             var presetsResult = await Mediator.Send(new GetQuickPresetsQuery(spaceId));
             var spaceResult = await Mediator.Send(new GetSpaceByIdQuery(spaceId));
 
             if (stockResult.IsSuccess)
             {
                 quickConsumptionStock = stockResult.Value.StockLevels.ToList();
+            }
+
+            // Ranked bags — the modal preselects whichever the space has been pouring from.
+            if (bagsResult.IsSuccess)
+            {
+                quickConsumptionBags = bagsResult.Value.Bags.ToList();
             }
 
             if (presetsResult.IsSuccess)
@@ -523,7 +536,8 @@
                     request.Grams,
                     request.ConsumedAt,
                     request.PresetName,
-                    targetUserId
+                    targetUserId,
+                    request.StockLotId
                 );
 
                 var result = await Mediator.Send(command);
