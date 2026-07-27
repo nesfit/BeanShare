@@ -165,26 +165,16 @@
     }
 </div>
 
-@if (showDeleteConfirm)
-{
-    <div class="bs-modal-backdrop" @onclick="CancelDelete">
-        <div class="bs-modal" style="max-width: 24rem;" @onclick:stopPropagation="true" @ontouchend:stopPropagation="true">
-            <div class="bs-modal-header">
-                <h5 style="margin: 0; font-weight: 600;">Delete consumption?</h5>
-                <button class="bs-btn-icon" @onclick="CancelDelete">
-                    <span class="material-symbols-outlined">close</span>
-                </button>
-            </div>
-            <div class="bs-modal-body">
-                <p>This action cannot be undone.</p>
-            </div>
-            <div class="bs-modal-footer">
-                <button class="bs-btn bs-btn-secondary bs-btn-sm" @onclick="CancelDelete">Cancel</button>
-                <button class="bs-btn bs-btn-sm" style="background: var(--bs-error); color: white;" @onclick="ExecuteDelete">Delete</button>
-            </div>
-        </div>
-    </div>
-}
+@* Was a hand-rolled backdrop duplicating RecentConsumptionList's identical
+   "Delete consumption?" dialog. Both now share ConfirmDialog, so the emphasis
+   and layout decision lives in exactly one place. *@
+<ConfirmDialog IsVisible="@showDeleteConfirm"
+               Title="Delete consumption?"
+               Message="This action cannot be undone."
+               ConfirmText="Delete"
+               IsDestructive="true"
+               OnConfirm="ExecuteDelete"
+               OnCancel="CancelDelete" />
 
 @code {
     [Parameter] public ConsumptionHistoryDto? History { get; set; }

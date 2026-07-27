@@ -29,6 +29,17 @@
     --bs-error-light: #fee2e2;
     --bs-error-dark: #991b1b;
     --bs-warning-light: #fef3c7;
+
+    /* Interaction sizing. Lengths only — no need to restate these in the dark theme. */
+    --bs-tap-min: 44px;              /* Apple HIG minimum touch target */
+    --bs-hero-btn-height: 3.5rem;    /* 56px — oversized primary CTA */
+    --bs-hero-btn-font: 1.0625rem;   /* 17px */
+    --bs-quiet-btn-height: 2.75rem;  /* 44px — borderless dismiss */
+    --bs-hero-actions-gap: 0.5rem;
+
+    /* Was referenced as var(--bs-shadow-lg) by 4 call sites but never defined,
+       so those box-shadows silently resolved to none. Matches .bs-shadow-lg. */
+    --bs-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 /* Dark Theme */
@@ -1499,6 +1510,37 @@ body {
 }
 .bs-btn-ghost:hover { background: var(--bs-gray-50); color: var(--bs-text); }
 
+/* Icon-only button. Self-sufficient: call sites use it WITHOUT .bs-btn.
+   Sized with min-width/min-height rather than padding on purpose — most call
+   sites carry an inline `padding: .25rem`, which beats any selector, but none
+   sets min-*. Since used width is max(min-width, width), this also overrides
+   the inline `width: 2rem` on MemberRow's kebab.
+   Deliberately no width/height, so content and per-site inline styles breathe;
+   `color` is overridden inline at the red delete sites, which is intended. */
+.bs-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--bs-tap-min);
+    min-height: var(--bs-tap-min);
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0.5rem;
+    color: var(--bs-text-subtle);
+    cursor: pointer;
+    transition: background-color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+.bs-btn-icon:hover { background: var(--bs-gray-100); }
+.bs-btn-icon:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Material's 48px on genuinely touch-primary devices */
+@media (pointer: coarse) {
+    .bs-btn-icon { min-width: 48px; min-height: 48px; }
+}
+
 /* Spinner — inline loading indicator */
 .bs-spinner {
     display: inline-block;
@@ -1567,3 +1609,100 @@ body {
     .md\:bs-grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .md\:bs-flex-row { flex-direction: row; }
 }
+
+/* ==========================================================================
+   Hero action footer — one oversized primary CTA, quiet dismiss beneath it.
+   Primary is authored FIRST in the markup so DOM order == visual order,
+   which keeps tab order and screen-reader order correct.
+
+   MUST STAY AT THE END OF THIS FILE. The `@media (max-width: 640px)` block
+   above sets `.bs-btn { padding: .625rem 1.25rem; font-size: .8125rem }`,
+   which has the same (0,1,0) specificity as `.bs-btn-hero`. A media query
+   adds no specificity, so only source order stops the hero from being shrunk
+   on mobile — precisely the width where it matters most. The pattern is
+   intentionally identical at every viewport size.
+
+   Replaces `.bs-modal-footer` on migrated rows rather than modifying it, so
+   the existing mobile stacking rule has nothing to fight and the rows that
+   keep `.bs-modal-footer` (co-equal peers) are untouched.
+   ========================================================================== */
+
+.bs-hero-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--bs-hero-actions-gap);
+}
+
+/* Defensive: neutralises any stray .bs-flex-1 left in markup. In a column
+   flex container `flex: 1 1 0%` applies the basis to HEIGHT, which collapses
+   the buttons and silently defeats min-height. */
+.bs-hero-actions > .bs-btn { width: 100%; flex: 0 0 auto; }
+
+/* Oversized primary — ~56px vs the ~40px default .bs-btn.
+   Composes with .bs-btn-primary / .bs-btn-secondary / .bs-btn-error. */
+.bs-btn-hero {
+    min-height: var(--bs-hero-btn-height);
+    padding: 1rem 1.5rem;
+    font-size: var(--bs-hero-btn-font);
+    font-weight: 700;
+    border-radius: 0.75rem;
+    line-height: 1.2;
+}
+.bs-btn-hero .material-symbols-outlined { font-size: 1.375rem; }
+
+/* Quiet dismiss — text-only, borderless, still a >=44px tap target.
+   Deliberately NOT .bs-btn-ghost: that class carries a 1px border and reads
+   as an outlined button, which is the exact visual weight being removed from
+   Cancel. This fills a missing rung on the emphasis ladder:
+   solid fill -> light fill -> outline -> ghost (bordered) -> quiet (text). */
+.bs-btn-quiet {
+    background: transparent;
+    border: none;
+    color: var(--bs-text-subtle);
+    font-weight: 600;
+    min-height: var(--bs-quiet-btn-height);
+    padding: 0.5rem 1rem;
+}
+.bs-btn-quiet:hover:not(:disabled)  { background: var(--bs-gray-50); color: var(--bs-text); }
+.bs-btn-quiet:active:not(:disabled) { background: var(--bs-gray-100); }
+
+/* This design system has no focus ring anywhere. A borderless button has no
+   border to lose on focus, so it needs one more than most. */
+.bs-btn-hero:focus-visible,
+.bs-btn-quiet:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+}
+
+/* Opt-in width cap for wide modals — CsvImportModal is max-width: 56rem,
+   where a full-width hero would be an ~896px button. */
+.bs-hero-actions--capped > .bs-btn {
+    max-width: 24rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Floating action button. The MAUI head has its own `.fab` in mobile.css that
+   additionally clears the bottom tab bar; this is the web equivalent, where there
+   is no tab bar to clear. */
+.bs-fab {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
+    background: var(--bs-primary);
+    color: #ffffff;
+    border: none;
+    box-shadow: var(--bs-shadow-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 30;
+}
+.bs-fab:hover { background: var(--bs-primary-dark); }
+.bs-fab:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; }

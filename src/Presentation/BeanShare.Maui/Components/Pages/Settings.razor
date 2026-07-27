@@ -128,9 +128,12 @@
                     <input type="password" @bind="confirmPassword" placeholder="Confirm new password" />
                 </div>
             </div>
+            @* Keeps .modal-footer for its padding and top border; the class now
+               stacks like .bs-hero-actions, and the buttons carry the shared
+               emphasis classes directly. *@
             <div class="modal-footer">
-                <button class="footer-btn cancel-btn" @onclick="ClosePasswordModal">Cancel</button>
-                <button class="footer-btn save-btn" @onclick="UpdatePassword">Update Password</button>
+                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="UpdatePassword">Update Password</button>
+                <button type="button" class="bs-btn bs-btn-quiet" @onclick="ClosePasswordModal">Cancel</button>
             </div>
         </div>
     </div>

@@ -173,19 +173,19 @@
                 </div>
             }
 
-            <div class="bs-modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-                <button class="bs-btn bs-btn-secondary" @onclick="HandleCancel">Cancel</button>
-                <button class="bs-btn bs-btn-primary" @onclick="HandleConfirm" disabled="@isSubmitting">
+            <div class="bs-hero-actions">
+                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="HandleConfirm" disabled="@isSubmitting">
                     @if (isSubmitting)
                     {
                         <span>Logging...</span>
                     }
                     else
                     {
-                        <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: middle; margin-right: 0.25rem;">coffee</span>
+                        <span class="material-symbols-outlined">coffee</span>
                         <span>Log Coffee</span>
                     }
                 </button>
+                <button type="button" class="bs-btn bs-btn-quiet" @onclick="HandleCancel">Cancel</button>
             </div>
         </div>
     </div>

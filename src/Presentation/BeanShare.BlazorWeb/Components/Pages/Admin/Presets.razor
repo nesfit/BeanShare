@@ -153,15 +153,15 @@
                         </div>
                     </div>
                 </div>
-                <div class="bs-modal-footer">
-                    <button type="button" class="bs-btn bs-btn-secondary bs-flex-1" @onclick="CloseDialog">Cancel</button>
-                    <button type="submit" class="bs-btn bs-btn-primary bs-flex-1" disabled="@isSaving">
+                <div class="bs-hero-actions">
+                    <button type="submit" class="bs-btn bs-btn-primary bs-btn-hero" disabled="@isSaving">
                         @if (isSaving)
                         {
                             <span class="bs-spinner bs-spinner-sm"></span>
                         }
                         @(isEditing ? "Save Changes" : "Create Preset")
                     </button>
+                    <button type="button" class="bs-btn bs-btn-quiet" @onclick="CloseDialog">Cancel</button>
                 </div>
             </EditForm>
         </div>

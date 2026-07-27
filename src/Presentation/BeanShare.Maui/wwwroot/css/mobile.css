@@ -1,5 +1,18 @@
 /* BeanShare MAUI Mobile Styles */
 
+/* Chrome heights. These were hardcoded as bare `56px` in a dozen places, which is
+   exactly how the Settings save button ended up buried under the tab bar. Anything
+   that positions against the fixed chrome should derive from these. */
+:root {
+    --bs-tabbar-h: 56px;
+    --bs-header-h: 56px;
+}
+
+@media (min-width: 768px) {
+    /* Mirrors .mobile-content's larger padding-top at this breakpoint. */
+    :root { --bs-header-h: 64px; }
+}
+
 /* === MobileLayout === */
 
 .mobile-app-container {
@@ -1259,10 +1272,13 @@
 
 /* === Settings === */
 
+/* Was `height: 100vh` inside .mobile-content's 56px top + 56px bottom padding,
+   overflowing by exactly 112px. A definite height (not min-height) is required
+   because .settings-content scrolls via flex: 1 + overflow-y: auto. */
 .settings-page {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: calc(100vh - (var(--bs-header-h) + var(--bs-tabbar-h)));
     background-color: var(--bs-background);
 }
 
@@ -1596,9 +1612,15 @@ input:checked + .slider:before {
     margin: 0;
 }
 
+/* Was `bottom: 0; z-index: 10` — the same bottom edge as .bottom-tab-bar but a
+   lower stacking order, so the page's only Save button was completely covered.
+   z-index 30 is deliberate: above page content, below the tab bar's 40, and below
+   .bs-modal-backdrop's 50 so dialogs still cover it.
+   Kept as a horizontal row: this is a long scrolling list, and stacking would turn
+   ~72px of permanent chrome into ~124px. */
 .settings-footer {
     position: fixed;
-    bottom: 0;
+    bottom: var(--bs-tabbar-h);
     left: 0;
     right: 0;
     padding: 1rem;
@@ -1606,7 +1628,7 @@ input:checked + .slider:before {
     border-top: 1px solid var(--bs-border);
     display: flex;
     gap: 0.75rem;
-    z-index: 10;
+    z-index: 30;
 }
 
 .footer-btn {
@@ -1694,20 +1716,35 @@ input:checked + .slider:before {
     padding: 1.25rem;
 }
 
+/* Stacks like .bs-hero-actions (which can't be used directly here — this selector
+   is more specific and mobile.css loads later, so it would win the tie anyway)
+   while keeping the modal's own padding and divider. */
 .settings-page .modal-footer {
     padding: 1.25rem;
     border-top: 1px solid var(--bs-border);
     display: flex;
-    gap: 0.75rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--bs-hero-actions-gap);
 }
 
+.settings-page .modal-footer > .bs-btn {
+    width: 100%;
+    flex: 0 0 auto;
+}
+
+/* .bottom-tab-bar already absorbs the bottom inset by growing its own height, so
+   the footer only has to clear bar-plus-inset. The previous padding-bottom hacks
+   compensated for a footer that sat in the safe area; keeping them would now
+   double-count the inset. */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
-    .settings-content {
-        padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    .settings-page {
+        height: calc(100vh - (var(--bs-header-h) + var(--bs-tabbar-h))
+                     - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     }
 
     .settings-footer {
-        padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+        bottom: calc(var(--bs-tabbar-h) + env(safe-area-inset-bottom));
     }
 }
 
@@ -1942,6 +1979,13 @@ details[open] summary {
     color: var(--bs-text);
 }
 
+/* Destructive variant — preset delete was styled btn-secondary (grey), giving an
+   irreversible action no danger signal whatsoever. */
+.mobile-page .btn-danger {
+    background: var(--bs-error);
+    color: #fff;
+}
+
 .mobile-page .btn-sm {
     padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
@@ -1949,7 +1993,8 @@ details[open] summary {
 
 .fab {
     position: fixed;
-    bottom: 90px;
+    /* Same 90px as before, now derived from the bar it has to clear. */
+    bottom: calc(var(--bs-tabbar-h) + 34px);
     right: 1rem;
     width: 56px;
     height: 56px;
@@ -1962,6 +2007,12 @@ details[open] summary {
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    /* Had no z-index at all — it happened not to overlap, which was luck. */
+    z-index: 30;
+}
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .fab { bottom: calc(var(--bs-tabbar-h) + 34px + env(safe-area-inset-bottom)); }
 }
 
 .mobile-page .modal-overlay {
@@ -2014,12 +2065,8 @@ details[open] summary {
     background: var(--bs-surface);
 }
 
-.modal-actions {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
-    margin-top: 1.5rem;
-}
+/* .modal-actions removed — its only consumer (PresetsPage's create modal) now uses
+   the shared .bs-hero-actions, which supplies the same margin-top. */
 
 /* Global Presets Section */
 .global-presets-section {

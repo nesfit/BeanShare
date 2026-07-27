@@ -8,14 +8,18 @@
             <div>
                 <p>@Message</p>
             </div>
-            <div class="bs-modal-footer">
-                <button class="bs-btn bs-btn-secondary bs-flex-1" @onclick="OnCancel">
-                    Cancel
-                </button>
-                <button class="bs-btn @(IsDestructive ? "bs-btn-error" : "bs-btn-primary") bs-flex-1"
+            @* Confirm first in the DOM: it is the action the dialog exists to offer,
+               and the hero slot always goes to the advancing action so muscle memory
+               never has to branch between destructive and non-destructive dialogs. *@
+            <div class="bs-hero-actions">
+                <button type="button"
+                        class="bs-btn @(IsDestructive ? "bs-btn-error" : "bs-btn-primary") bs-btn-hero"
                         @onclick="OnConfirmClick"
                         disabled="@IsProcessing">
                     @(IsProcessing ? "Processing..." : ConfirmText)
+                </button>
+                <button type="button" class="bs-btn bs-btn-quiet" @onclick="OnCancel">
+                    Cancel
                 </button>
             </div>
         </div>

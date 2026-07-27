@@ -108,11 +108,11 @@ else
 
             @if (isAdmin)
             {
-                <button class="bs-btn bs-btn-primary"
-                        style="position: fixed; bottom: 2rem; right: 2rem; width: 4rem; height: 4rem; border-radius: 9999px; box-shadow: var(--bs-shadow-lg); padding: 0;"
+                <button class="bs-fab"
                         @onclick="@(() => showAddPurchaseModal = true)"
-                        title="Add Stock Purchase">
-                    <span class="material-symbols-outlined" style="font-size: 2rem;">add</span>
+                        title="Add Stock Purchase"
+                        aria-label="Add Stock Purchase">
+                    <span class="material-symbols-outlined">add</span>
                 </button>
             }
         </div>

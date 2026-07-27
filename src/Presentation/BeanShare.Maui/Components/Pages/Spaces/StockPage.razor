@@ -82,11 +82,14 @@ else
 
             @if (isAdmin)
             {
-                <button class="bs-btn bs-btn-primary"
-                        style="position: fixed; bottom: 2rem; right: 2rem; width: 4rem; height: 4rem; border-radius: 9999px; box-shadow: var(--bs-shadow-lg); padding: 0;"
+                @* .fab already handles size, shape, colour, shadow and clearing the
+                   bottom tab bar. The old inline `bottom: 2rem` put the lower third
+                   of the button underneath it. *@
+                <button class="fab"
                         @onclick="@(() => showAddPurchaseModal = true)"
-                        title="Add Stock Purchase">
-                    <span class="material-symbols-outlined" style="font-size: 2rem;">add</span>
+                        title="Add Stock Purchase"
+                        aria-label="Add Stock Purchase">
+                    <span class="material-symbols-outlined">add</span>
                 </button>
             }
         </div>

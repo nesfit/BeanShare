@@ -179,12 +179,12 @@
                                 <div class="quick-error">@errorMessage</div>
                             }
 
-                            <div class="quick-modal-actions">
-                                <button type="button" class="quick-btn quick-btn-secondary" @onclick="HandleCancel">
-                                    Cancel
-                                </button>
+                            @* Retagged off .quick-modal-actions/.quick-btn onto the shared
+                               hero footer — this modal was their only consumer, so the
+                               parallel vocabulary is gone rather than merely restyled. *@
+                            <div class="bs-hero-actions">
                                 <button type="button"
-                                        class="quick-btn quick-btn-primary"
+                                        class="bs-btn bs-btn-primary bs-btn-hero"
                                         @onclick="HandleSubmit"
                                         disabled="@isSubmitting">
                                     @if (isSubmitting)
@@ -196,6 +196,9 @@
                                         <span class="material-symbols-outlined">coffee</span>
                                         <span>Log Coffee</span>
                                     }
+                                </button>
+                                <button type="button" class="bs-btn bs-btn-quiet" @onclick="HandleCancel">
+                                    Cancel
                                 </button>
                             </div>
                         }

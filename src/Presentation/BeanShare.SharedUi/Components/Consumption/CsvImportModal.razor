@@ -49,9 +49,12 @@ jane.doe@example.com,Pike Place,Starbucks,Filter,,20,20</code>
                     </div>
                 </div>
 
+                @* No hero here: this step's real primary is the file dropzone above.
+                   The footer only holds a dismiss and a side errand, so it stays a
+                   horizontal row — just with Cancel demoted. *@
                 <div class="bs-modal-footer">
-                    <button type="button" class="bs-btn bs-btn-secondary" @onclick="Cancel">Cancel</button>
-                    <button type="button" class="bs-btn" style="background: var(--bs-gray-200); color: var(--bs-text);" @onclick="DownloadTemplate">
+                    <button type="button" class="bs-btn bs-btn-quiet" @onclick="Cancel">Cancel</button>
+                    <button type="button" class="bs-btn bs-btn-ghost" @onclick="DownloadTemplate">
                         <span class="material-symbols-outlined" style="font-size: 1rem;">download</span>
                         Download Template
                     </button>
@@ -121,19 +124,22 @@ jane.doe@example.com,Pike Place,Starbucks,Filter,,20,20</code>
                     </div>
                 </div>
 
-                <div class="bs-modal-footer">
-                    <button type="button" class="bs-btn bs-btn-secondary" @onclick="BackToUpload">Back</button>
-                    <button type="button" class="bs-btn bs-btn-primary" disabled="@(isImporting || validRows.Count == 0)" @onclick="SubmitImport">
+                @* "Back" is this step's dismiss (it returns to Upload rather than
+                   closing), so this is an ordinary primary+dismiss pair. Capped
+                   because this modal is max-width: 56rem. *@
+                <div class="bs-hero-actions bs-hero-actions--capped">
+                    <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" disabled="@(isImporting || validRows.Count == 0)" @onclick="SubmitImport">
                         @if (isImporting)
                         {
                             <span>Importing...</span>
                         }
                         else
                         {
-                            <span class="material-symbols-outlined" style="font-size: 1rem;">upload</span>
+                            <span class="material-symbols-outlined">upload</span>
                             <span>Import @validRows.Count rows</span>
                         }
                     </button>
+                    <button type="button" class="bs-btn bs-btn-quiet" @onclick="BackToUpload">Back</button>
                 </div>
             }
             else if (step == ImportStep.Result)

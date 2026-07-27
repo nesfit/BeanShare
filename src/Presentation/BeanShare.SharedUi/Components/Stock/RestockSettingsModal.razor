@@ -35,11 +35,8 @@
                 }
             </div>
 
-            <div class="bs-modal-footer">
-                <button type="button" class="bs-btn bs-btn-secondary bs-flex-1" @onclick="OnCancel" disabled="@IsProcessing">
-                    Cancel
-                </button>
-                <button type="button" class="bs-btn bs-btn-primary bs-flex-1" @onclick="Save" disabled="@IsProcessing">
+            <div class="bs-hero-actions">
+                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="Save" disabled="@IsProcessing">
                     @if (IsProcessing)
                     {
                         <span>Saving…</span>
@@ -48,6 +45,9 @@
                     {
                         <span>Save</span>
                     }
+                </button>
+                <button type="button" class="bs-btn bs-btn-quiet" @onclick="OnCancel" disabled="@IsProcessing">
+                    Cancel
                 </button>
             </div>
         </div>

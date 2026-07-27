@@ -103,19 +103,19 @@
                     }
                 </div>
 
-                <div class="bs-modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-                    <button class="bs-btn bs-btn-secondary" @onclick="Close">Cancel</button>
-                    <button class="bs-btn bs-btn-primary" @onclick="HandleGenerate" disabled="@isGenerating">
+                <div class="bs-hero-actions">
+                    <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="HandleGenerate" disabled="@isGenerating">
                         @if (isGenerating)
                         {
                             <span>Creating...</span>
                         }
                         else
                         {
-                            <span class="material-symbols-outlined" style="font-size: 1.125rem; vertical-align: middle; margin-right: 0.25rem;">qr_code_2</span>
+                            <span class="material-symbols-outlined">qr_code_2</span>
                             <span>Generate QR</span>
                         }
                     </button>
+                    <button type="button" class="bs-btn bs-btn-quiet" @onclick="Close">Cancel</button>
                 </div>
             }
         </div>

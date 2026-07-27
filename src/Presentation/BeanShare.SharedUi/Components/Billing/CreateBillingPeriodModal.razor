@@ -45,11 +45,8 @@
                     </div>
                 }
 
-                <div class="bs-modal-footer">
-                    <button type="button" class="bs-btn bs-btn-secondary bs-flex-1" @onclick="Cancel">
-                        Cancel
-                    </button>
-                    <button type="submit" class="bs-btn bs-btn-primary bs-flex-1" disabled="@isSubmitting">
+                <div class="bs-hero-actions">
+                    <button type="submit" class="bs-btn bs-btn-primary bs-btn-hero" disabled="@isSubmitting">
                         @if (isSubmitting)
                         {
                             <span>Creating...</span>
@@ -59,6 +56,9 @@
                             <span class="material-symbols-outlined">add_circle</span>
                             <span>Create Period</span>
                         }
+                    </button>
+                    <button type="button" class="bs-btn bs-btn-quiet" @onclick="Cancel">
+                        Cancel
                     </button>
                 </div>
             </EditForm>

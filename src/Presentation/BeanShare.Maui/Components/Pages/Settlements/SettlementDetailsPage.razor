@@ -289,7 +289,7 @@
                 </button>
                 @if (isAdmin)
                 {
-                    <button class="bs-btn bs-btn-primary" disabled="@isSendingEmails" @onclick="HandleSendEmails">
+                    <button class="bs-btn bs-btn-primary" disabled="@isSendingEmails" @onclick="RequestSendEmails">
                         @if (isSendingEmails)
                         {
                             <span>Sending...</span>
@@ -313,6 +313,18 @@
         </div>
     }
 </div>
+
+@* IsDestructive="false" is deliberate: nothing is deleted, so red would be
+   miscalibrated. The gate exists because the action is irreversible AND fans
+   out to other people. *@
+<ConfirmDialog IsVisible="@showEmailDialog"
+               Title="Email all members?"
+               Message="Send this settlement report, with the PDF attached, to every member of this space? Emails can't be unsent."
+               ConfirmText="Send emails"
+               IsDestructive="false"
+               IsProcessing="@isSendingEmails"
+               OnConfirm="ConfirmSendEmails"
+               OnCancel="@(() => showEmailDialog = false)" />
 
 <Toast IsVisible="@showToast"
        IsError="@isToastError"
@@ -408,6 +420,7 @@
     private bool isExporting;
     private string exportType = "";
     private bool isSendingEmails;
+    private bool showEmailDialog;
 
     protected override async Task OnInitializedAsync()
     {
@@ -565,7 +578,9 @@
         }
     }
 
-    private async Task HandleSendEmails()
+    private void RequestSendEmails() => showEmailDialog = true;
+
+    private async Task ConfirmSendEmails()
     {
         if (settlement == null) return;
 
@@ -590,6 +605,7 @@
         finally
         {
             isSendingEmails = false;
+            showEmailDialog = false;
         }
     }
 

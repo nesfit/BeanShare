@@ -191,14 +191,12 @@
     margin-bottom: 1rem;
 }
 
-.quick-modal-actions {
-    display: flex;
-    gap: 0.75rem;
-    margin-top: 1.5rem;
-}
-
+/* The modal's action footer moved to the shared .bs-hero-actions / .bs-btn-hero
+   pattern, so .quick-modal-actions, .quick-btn-primary and .quick-btn-secondary
+   are gone. Only .quick-btn-qr still uses the .quick-btn base below; the old
+   `flex: 1` went with the footer, since .quick-btn-qr is a child of the
+   non-flex .quick-modal-body and sets its own width. */
 .quick-btn {
-    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -217,15 +215,6 @@
     cursor: not-allowed;
 }
 
-.quick-btn-primary {
-    background-color: var(--bs-primary);
-    color: white;
-}
-
-.quick-btn-primary:hover:not(:disabled) {
-    background-color: var(--bs-primary-dark);
-}
-
 .quick-btn-qr {
     width: 100%;
     background: var(--bs-primary-light);
@@ -237,15 +226,6 @@
 .quick-btn-qr:hover {
     background: var(--bs-primary);
     color: white;
-}
-
-.quick-btn-secondary {
-    background-color: var(--bs-gray-100);
-    color: var(--bs-text);
-}
-
-.quick-btn-secondary:hover:not(:disabled) {
-    background-color: var(--bs-gray-200);
 }
 
 .quick-btn .material-symbols-outlined {

@@ -9,12 +9,14 @@
             {
                 <div style="padding: 1rem;">
                     <p style="margin: 0 0 1rem 0;">Discard unsaved changes?</p>
-                    <div class="bs-modal-footer">
-                        <button type="button" class="bs-btn bs-btn-secondary bs-flex-1" @onclick="@(() => showDiscardConfirm = false)">
-                            Keep Editing
-                        </button>
-                        <button type="button" class="bs-btn bs-btn-error bs-flex-1" @onclick="DiscardChanges">
+                    @* Discard holds the hero slot: it is the advancing action for this
+                       confirm, and the emphasis rule stays uniform across all dialogs. *@
+                    <div class="bs-hero-actions">
+                        <button type="button" class="bs-btn bs-btn-error bs-btn-hero" @onclick="DiscardChanges">
                             Discard
+                        </button>
+                        <button type="button" class="bs-btn bs-btn-quiet" @onclick="@(() => showDiscardConfirm = false)">
+                            Keep Editing
                         </button>
                     </div>
                 </div>
@@ -119,11 +121,8 @@
                     <ValidationMessage For="@(() => model.PurchasedAt)" class="bs-validation-message" />
                 </div>
 
-                <div class="bs-modal-footer">
-                    <button type="button" class="bs-btn bs-btn-secondary bs-flex-1" @onclick="Cancel">
-                        Cancel
-                    </button>
-                    <button type="submit" class="bs-btn bs-btn-primary bs-flex-1" disabled="@isSubmitting">
+                <div class="bs-hero-actions">
+                    <button type="submit" class="bs-btn bs-btn-primary bs-btn-hero" disabled="@isSubmitting">
                         @if (isSubmitting)
                         {
                             <span>Adding...</span>
@@ -133,6 +132,9 @@
                             <span class="material-symbols-outlined">add</span>
                             <span>Add Purchase</span>
                         }
+                    </button>
+                    <button type="button" class="bs-btn bs-btn-quiet" @onclick="Cancel">
+                        Cancel
                     </button>
                 </div>
             </EditForm>

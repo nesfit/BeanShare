@@ -109,7 +109,9 @@
                             </button>
                             @if (preset.IsOwner)
                             {
-                                <button class="btn btn-sm btn-secondary" @onclick="() => DeletePreset(preset.Id)">
+                                @* Was btn-secondary (grey) — a destructive action with no
+                                   danger signal at all, sitting 8px from the "Use" button. *@
+                                <button class="btn btn-sm btn-danger" @onclick="() => RequestDeletePreset(preset)">
                                     Delete
                                 </button>
                             }
@@ -167,15 +169,27 @@
                 <textarea @bind="presetNotes" rows="2"></textarea>
             </div>
 
-            <div class="modal-actions">
-                <button class="btn btn-secondary" @onclick="HideCreateModal">Cancel</button>
-                <button class="btn btn-primary" @onclick="CreatePreset" disabled="@isCreating">
+            @* Retagged from the mobile-only .btn family onto .bs-btn so this row
+               uses the shared emphasis tokens instead of a parallel vocabulary. *@
+            <div class="bs-hero-actions">
+                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="CreatePreset" disabled="@isCreating">
                     @(isCreating ? "Creating..." : "Create")
                 </button>
+                <button type="button" class="bs-btn bs-btn-quiet" @onclick="HideCreateModal">Cancel</button>
             </div>
         </div>
     </div>
 }
+
+@* Wording mirrors BlazorWeb's Spaces/Presets.razor, which already gated this. *@
+<ConfirmDialog IsVisible="@showDeleteDialog"
+               Title="Delete preset?"
+               Message="@($"Delete preset '{pendingDeleteName}'? This can't be undone.")"
+               ConfirmText="Delete"
+               IsDestructive="true"
+               IsProcessing="@isDeleting"
+               OnConfirm="ConfirmDeletePreset"
+               OnCancel="@(() => showDeleteDialog = false)" />
 
 @code {
     [Parameter]
@@ -189,6 +203,10 @@
     private bool isTogglingPreset = false;
     private bool showCreateModal = false;
     private bool isCreating = false;
+    private bool showDeleteDialog = false;
+    private bool isDeleting = false;
+    private Guid pendingDeleteId;
+    private string pendingDeleteName = "this preset";
 
     // Form fields for binding
     private string presetName = "";
@@ -287,11 +305,19 @@
         }
     }
 
-    private async Task DeletePreset(Guid presetId)
+    private void RequestDeletePreset(PresetDto preset)
     {
+        pendingDeleteId = preset.Id;
+        pendingDeleteName = preset.Name;
+        showDeleteDialog = true;
+    }
+
+    private async Task ConfirmDeletePreset()
+    {
+        isDeleting = true;
         try
         {
-            var response = await Http.DeleteAsync($"/api/presets/{presetId}");
+            var response = await Http.DeleteAsync($"/api/presets/{pendingDeleteId}");
             if (response.IsSuccessStatusCode)
             {
                 await LoadPresets();
@@ -300,6 +326,11 @@
         catch (Exception ex)
         {
             await AlertService.ShowAlertAsync("Error", $"Failed to delete preset: {ex.Message}");
+        }
+        finally
+        {
+            isDeleting = false;
+            showDeleteDialog = false;
         }
     }
 

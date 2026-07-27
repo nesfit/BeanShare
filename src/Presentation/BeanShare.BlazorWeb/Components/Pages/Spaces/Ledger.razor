@@ -201,9 +201,9 @@ else
                     <input id="editWhen" type="datetime-local" class="bs-input" @bind="editWhen" />
                 </div>
             </div>
-            <div class="bs-modal-footer">
-                <button class="bs-btn bs-btn-secondary bs-flex-1" @onclick="CloseEdit">Cancel</button>
-                <button class="bs-btn bs-btn-primary bs-flex-1" @onclick="SaveEdit" disabled="@isSavingEdit">@(isSavingEdit ? "Saving..." : "Save")</button>
+            <div class="bs-hero-actions">
+                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="SaveEdit" disabled="@isSavingEdit">@(isSavingEdit ? "Saving..." : "Save")</button>
+                <button type="button" class="bs-btn bs-btn-quiet" @onclick="CloseEdit">Cancel</button>
             </div>
         </div>
     </div>

@@ -83,10 +83,10 @@
                                 </div>
                                 @if (log.CanEdit)
                                 {
-                                    <button class="bs-btn-sm" style="background: transparent; border: none; cursor: pointer; padding: 0.25rem; color: var(--bs-text-subtle);" title="Edit" @onclick="() => StartEdit(log)">
+                                    <button type="button" class="bs-btn-icon" style="color: var(--bs-text-subtle);" title="Edit" aria-label="Edit" @onclick="() => StartEdit(log)">
                                         <span class="material-symbols-outlined" style="font-size: 1rem;">edit</span>
                                     </button>
-                                    <button class="bs-btn-sm" style="background: transparent; border: none; cursor: pointer; padding: 0.25rem; color: var(--bs-error, #dc3545);" title="Delete" @onclick="() => ConfirmDelete(log)">
+                                    <button type="button" class="bs-btn-icon" style="color: var(--bs-error, #dc3545);" title="Delete" aria-label="Delete" @onclick="() => ConfirmDelete(log)">
                                         <span class="material-symbols-outlined" style="font-size: 1rem;">delete</span>
                                     </button>
                                 }
@@ -98,23 +98,16 @@
         </div>
     }
 
-    @if (showDeleteConfirm)
-    {
-        <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; display: flex; align-items: center; justify-content: center;" @onclick="CancelDelete">
-            <div class="bs-card" style="max-width: 24rem; width: 90%;" @onclick:stopPropagation="true">
-                <h3 class="bs-font-bold" style="margin: 0 0 0.5rem;">Delete consumption?</h3>
-                <p style="margin: 0 0 1rem; color: var(--bs-text-subtle);">This action cannot be undone.</p>
-                <div class="bs-flex bs-gap-2 bs-justify-end">
-                    <button class="bs-btn-sm" style="background: var(--bs-gray-100); border: none; cursor: pointer;" @onclick="CancelDelete">
-                        Cancel
-                    </button>
-                    <button class="bs-btn-sm" style="background: var(--bs-error, #dc3545); color: white; border: none; cursor: pointer;" @onclick="ExecuteDelete">
-                        Delete
-                    </button>
-                </div>
-            </div>
-        </div>
-    }
+    @* Was an ad-hoc fixed overlay that bypassed every modal system in the app and
+       duplicated ConsumptionHistoryList's identical dialog. Both now use
+       ConfirmDialog. *@
+    <ConfirmDialog IsVisible="@showDeleteConfirm"
+                   Title="Delete consumption?"
+                   Message="This action cannot be undone."
+                   ConfirmText="Delete"
+                   IsDestructive="true"
+                   OnConfirm="ExecuteDelete"
+                   OnCancel="CancelDelete" />
 </div>
 
 @code {

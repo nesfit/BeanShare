@@ -181,7 +181,7 @@ else
                                 @if (qr.IsActive)
                                 {
                                     <button class="bs-btn bs-btn-secondary bs-btn-sm"
-                                            @onclick="@(() => OnDeactivate.InvokeAsync(qr.Id))"
+                                            @onclick="@(() => RequestDeactivate(qr))"
                                             title="Deactivate QR code"
                                             aria-label="Deactivate QR code"
                                             style="color: var(--bs-error);">
@@ -196,6 +196,19 @@ else
         </div>
     </div>
 }
+
+@* Deactivating breaks every printed sticker carrying this code — a consequence that
+   is completely invisible from the UI, which is the whole reason this needs a gate.
+   Lives here rather than in the pages because both heads were missing the confirm,
+   and only this component has the label and product name for a specific message. *@
+<ConfirmDialog IsVisible="@(pendingDeactivate is not null)"
+               Title="Deactivate QR code?"
+               Message="@DeactivateMessage"
+               ConfirmText="Deactivate"
+               IsDestructive="true"
+               IsProcessing="@isDeactivating"
+               OnConfirm="ConfirmDeactivate"
+               OnCancel="@(() => pendingDeactivate = null)" />
 
 @code {
     [Parameter]
@@ -232,6 +245,36 @@ else
 
     private Guid? renamingQrId;
     private string renameLabel = "";
+
+    private ActiveQrCodeDto? pendingDeactivate;
+    private bool isDeactivating;
+
+    private string DeactivateMessage => pendingDeactivate is null
+        ? ""
+        : $"Deactivate '{pendingDeactivate.Label}' ({pendingDeactivate.ProductDisplayName})? "
+          + "Any printed sticker using this code will stop working and cannot be "
+          + "reactivated — you'll need to print a new one.";
+
+    private void RequestDeactivate(ActiveQrCodeDto qr) => pendingDeactivate = qr;
+
+    private async Task ConfirmDeactivate()
+    {
+        if (pendingDeactivate is null)
+        {
+            return;
+        }
+
+        isDeactivating = true;
+        try
+        {
+            await OnDeactivate.InvokeAsync(pendingDeactivate.Id);
+        }
+        finally
+        {
+            isDeactivating = false;
+            pendingDeactivate = null;
+        }
+    }
 
     public sealed class ReassignModel
     {

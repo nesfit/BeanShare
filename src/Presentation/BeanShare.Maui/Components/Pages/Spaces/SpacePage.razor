@@ -63,7 +63,7 @@ else
                          CurrentUserId="@UserContext.CurrentUserId.Value"
                          OnPromoteMember="HandlePromoteMember"
                          OnDemoteMember="HandleDemoteMember"
-                         OnRemoveMember="HandleRemoveMember"
+                         OnRemoveMember="RequestRemoveMember"
                          OnLeaveSpace="HandleLeaveSpace" />
         }
         else if (activeTab == "stock")
@@ -81,11 +81,13 @@ else
 
                 @if (isAdmin)
                 {
-                    <button class="bs-btn bs-btn-primary"
-                            style="position: fixed; bottom: 2rem; right: 2rem; width: 4rem; height: 4rem; border-radius: 9999px; box-shadow: var(--bs-shadow-lg); padding: 0;"
+                    @* See StockPage: .fab clears the bottom tab bar; the old inline
+                       `bottom: 2rem` did not. *@
+                    <button class="fab"
                             @onclick="@(() => showAddPurchaseModal = true)"
-                            title="Add Stock Purchase">
-                        <span class="material-symbols-outlined" style="font-size: 2rem;">add</span>
+                            title="Add Stock Purchase"
+                            aria-label="Add Stock Purchase">
+                        <span class="material-symbols-outlined">add</span>
                     </button>
                 }
             </div>
@@ -150,6 +152,15 @@ else
                  CurrencyCode="@(space?.CurrencyCode ?? "USD")"
                  PrefillFrom="@purchasePrefill" />
 
+<ConfirmDialog IsVisible="@showRemoveDialog"
+               Title="Remove member?"
+               Message="@($"Remove {pendingRemoveName} from this space? They'll lose access to its data and can only rejoin with an invite code. Their past consumption stays in the records.")"
+               ConfirmText="Remove"
+               IsDestructive="true"
+               IsProcessing="@isRemoving"
+               OnConfirm="ExecuteRemoveMember"
+               OnCancel="@(() => showRemoveDialog = false)" />
+
 <Toast IsVisible="@showToast"
        IsError="@isToastError"
        Title="@toastTitle"
@@ -187,6 +198,11 @@ else
 
     private bool showAddPurchaseModal;
     private AddPurchaseModal.PurchasePrefill? purchasePrefill;
+    private bool showRemoveDialog;
+    private bool isRemoving;
+    private string pendingRemoveUserId = "";
+    private string pendingRemoveName = "this member";
+
     private bool showToast;
     private bool isToastError;
     private string toastTitle = "";
@@ -451,6 +467,30 @@ else
         catch (Exception ex)
         {
             ShowToast(true, "Error", $"Failed to demote member: {ex.Message}");
+        }
+    }
+
+    // Mirrors BlazorWeb's Members.razor, which already gated this. Removing a member
+    // is financially consequential — they drop out of the settlement.
+    private void RequestRemoveMember(string userId)
+    {
+        pendingRemoveUserId = userId;
+        pendingRemoveName = space?.Members
+            .FirstOrDefault(m => m.UserId.ToString() == userId)?.UserName ?? "this member";
+        showRemoveDialog = true;
+    }
+
+    private async Task ExecuteRemoveMember()
+    {
+        isRemoving = true;
+        try
+        {
+            await HandleRemoveMember(pendingRemoveUserId);
+        }
+        finally
+        {
+            isRemoving = false;
+            showRemoveDialog = false;
         }
     }
 
