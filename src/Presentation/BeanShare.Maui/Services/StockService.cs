@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using BeanShare.Application.Features.CoffeeStock.Dtos;
+using BeanShare.Contracts.CoffeeStock;
 
 namespace BeanShare.Maui.Services;
 
@@ -64,6 +65,22 @@ public class StockService : IStockService
         catch
         {
             return false;
+        }
+    }
+
+    public async Task<BarcodeLookupResponse?> LookupBarcodeAsync(Guid spaceId, string barcode)
+    {
+        if (string.IsNullOrWhiteSpace(barcode))
+            return null;
+
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<BarcodeLookupResponse>(
+                $"/api/spaces/{spaceId}/stock/barcode/{Uri.EscapeDataString(barcode.Trim())}");
+        }
+        catch
+        {
+            return null;
         }
     }
 

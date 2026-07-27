@@ -97,7 +97,8 @@ else
                  OnSubmit="HandleAddPurchase"
                  OnCancel="HandleAddPurchaseCancel"
                  CurrencyCode="@(space?.CurrencyCode ?? "USD")"
-                 PrefillFrom="@purchasePrefill" />
+                 PrefillFrom="@purchasePrefill"
+                 OnBarcodeScanned="HandleBarcodeScanned" />
 
 <QrCodeModal IsVisible="@showQrModal"
             StockLevel="@selectedQrStockLevel"
@@ -249,7 +250,8 @@ else
                 model.TotalCost,
                 model.Currency,
                 model.PurchasedAt,
-                model.BagCount
+                model.BagCount,
+                model.Barcode
             );
 
             if (success)
@@ -274,6 +276,44 @@ else
     {
         showAddPurchaseModal = false;
         purchasePrefill = null;
+    }
+
+    private async Task HandleBarcodeScanned(string code)
+    {
+        if (!Guid.TryParse(SpaceId, out var spaceGuid))
+        {
+            return;
+        }
+
+        try
+        {
+            var v = await StockService.LookupBarcodeAsync(spaceGuid, code);
+            if (v is { Found: true })
+            {
+                purchasePrefill = new AddPurchaseModal.PurchasePrefill
+                {
+                    ProductName = v.ProductName ?? "",
+                    ProductBrand = v.ProductBrand ?? "",
+                    QuantityGrams = v.QuantityGrams ?? 0,
+                    CostAmount = v.CostAmount ?? 0m,
+                    CoffeeType = string.IsNullOrWhiteSpace(v.ProductType) ? "Espresso" : v.ProductType,
+                    Barcode = code
+                };
+                var msg = v.Source == "history"
+                    ? "Filled in from your last purchase of this bag — check the price."
+                    : "Recognised from the product catalog — check the details.";
+                ShowToast(false, "Barcode recognised", msg);
+            }
+            else
+            {
+                purchasePrefill = new AddPurchaseModal.PurchasePrefill { Barcode = code };
+                ShowToast(false, "New barcode", "Not recognised yet — fill it in and we'll remember it next time.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Barcode lookup failed: {ex.Message}");
+        }
     }
 
     private void HandleClonePurchase(PurchaseRow.PurchaseCloneModel model)
