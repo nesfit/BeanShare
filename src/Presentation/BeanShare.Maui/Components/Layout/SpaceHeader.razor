@@ -1,0 +1,92 @@
+@using BeanShare.SharedUi.Services
+@inject NavigationManager Navigation
+@inject IAlertService AlertService
+
+@*
+   Sticky per-space header: back, space name, invite code, tab strip.
+
+   Extracted from SpacePage, StockPage and ConsumptionPage, which carried this
+   block duplicated verbatim (~28 lines each) along with three byte-identical
+   CopyInviteCode implementations.
+
+   Ergonomics changed while extracting:
+   - The back button was a bare .bs-btn-sm with its background stripped: a 16px
+     glyph in a ~32px box, in the hardest-to-reach corner of the screen. It is
+     now .bs-btn-icon (44px). Note MobileHeader already renders its own 48px back
+     button, so this is the second one on screen — see the note in the header row.
+   - "Copy invite code" was overridden to padding: .25rem .5rem around a 16px
+     glyph, roughly 24x32px. Now a 44px target.
+   - The hard-coded <div style="width: 2rem"> spacer that balanced the title is
+     replaced by a flex spacer that tracks the real button width.
+*@
+
+<div class="space-header">
+    <div class="bs-container">
+        <div class="space-header-bar">
+            <button type="button" class="bs-btn-icon" aria-label="Back to spaces"
+                    @onclick="HandleBack">
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+            </button>
+            <h1 class="space-header-title">@SpaceName</h1>
+            @* Mirrors the back button's footprint so the title stays optically centred. *@
+            <span class="space-header-spacer" aria-hidden="true"></span>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(InviteCode))
+        {
+            <div class="space-header-invite">
+                <span class="space-header-invite-label">INVITE CODE</span>
+                <div class="bs-flex bs-items-center bs-gap-2">
+                    <span class="space-header-invite-code">@InviteCode</span>
+                    <button type="button" class="bs-btn-icon space-header-invite-copy"
+                            title="Copy invite code" aria-label="Copy invite code"
+                            @onclick="CopyInviteCode">
+                        <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
+                    </button>
+                </div>
+            </div>
+        }
+
+        <SpaceTabs SpaceId="@SpaceId"
+                   ActiveTab="@ActiveTab"
+                   OnTabChange="OnTabChange"
+                   PreventNavigation="@PreventNavigation" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string SpaceId { get; set; } = "";
+
+    [Parameter]
+    public string SpaceName { get; set; } = "";
+
+    [Parameter]
+    public string? InviteCode { get; set; }
+
+    [Parameter]
+    public string ActiveTab { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> OnTabChange { get; set; }
+
+    /// <summary>
+    /// True when the hosting page swaps tab content in place; false when each tab
+    /// is its own route and SpaceTabs should navigate.
+    /// </summary>
+    [Parameter]
+    public bool PreventNavigation { get; set; }
+
+    private void HandleBack() => Navigation.NavigateTo("/spaces");
+
+    private async Task CopyInviteCode()
+    {
+        if (string.IsNullOrWhiteSpace(InviteCode))
+        {
+            return;
+        }
+
+        await Clipboard.Default.SetTextAsync(InviteCode);
+        await AlertService.ShowAlertAsync("Copied", "Invite code copied to clipboard!");
+    }
+}

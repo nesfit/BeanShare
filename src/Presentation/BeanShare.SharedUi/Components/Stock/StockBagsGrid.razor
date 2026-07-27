@@ -60,14 +60,18 @@
                                             </div>
                                         </td>
                                         <td style="padding: 0.5rem 0.5rem; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;">@FormatCurrency(bag.CostAmount, bag.CostCurrency)</td>
-                                        <td style="padding: 0.5rem 0.5rem; text-align: right; white-space: nowrap;">
+                                        @* Sticky so these controls stay on screen while the
+                                           520px-wide table scrolls horizontally. *@
+                                        <td class="bs-bags-actions" style="padding: 0.5rem 0.5rem; text-align: right; white-space: nowrap;">
                                             @if (IsAdmin)
                                             {
                                                 @if (_confirmingEmpty.Contains(bag.Id))
                                                 {
+                                                    @* Destructive action leads, matching the app-wide
+                                                       emphasis rule used by ConfirmDialog. *@
                                                     <span class="bs-text-subtle" style="font-size: 0.75rem; margin-right: 0.5rem;">Bill remainder to drinkers?</span>
                                                     <button class="bs-btn bs-btn-error bs-btn-sm" @onclick="@(() => ConfirmEmpty(bag.Id))">Empty</button>
-                                                    <button class="bs-btn bs-btn-secondary bs-btn-sm" @onclick="@(() => _confirmingEmpty.Remove(bag.Id))">Cancel</button>
+                                                    <button class="bs-btn bs-btn-quiet bs-btn-sm" @onclick="@(() => _confirmingEmpty.Remove(bag.Id))">Cancel</button>
                                                 }
                                                 else
                                                 {
@@ -76,7 +80,11 @@
                                                         <button class="bs-btn bs-btn-secondary bs-btn-sm" title="Mark this bag as the one currently in use"
                                                                 @onclick="@(() => OnOpenBag.InvokeAsync(bag.Id))">Open</button>
                                                     }
-                                                    <button class="bs-btn bs-btn-secondary bs-btn-sm" title="Empty this bag — the remainder is billed to its drinkers"
+                                                    @* Was bs-btn-secondary — visually identical to the benign
+                                                       "Open" beside it, distinguished only by the glyph. *@
+                                                    <button class="bs-btn bs-btn-ghost bs-btn-sm" style="color: var(--bs-error);"
+                                                            title="Empty this bag — the remainder is billed to its drinkers"
+                                                            aria-label="Empty this bag"
                                                             @onclick="@(() => _confirmingEmpty.Add(bag.Id))">
                                                         <span class="material-symbols-outlined" style="font-size: 1rem;">delete_sweep</span>
                                                     </button>

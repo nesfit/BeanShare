@@ -14,9 +14,12 @@
             @if (ShowActions && CanManage)
             {
                 <div style="position: relative;">
-                    <button class="bs-btn-sm"
-                            style="width: 2rem; height: 2rem; padding: 0; background: transparent; border: none; cursor: pointer;"
+                    @* Was a bare .bs-btn-sm with inline width/height:2rem — a 32px
+                       target, and the only way to reach member management. *@
+                    <button type="button" class="bs-btn-icon"
                             aria-label="Member actions"
+                            aria-haspopup="true"
+                            aria-expanded="@isMenuOpen"
                             @onclick="ToggleMenu">
                         <span class="material-symbols-outlined bs-text-subtle">more_vert</span>
                     </button>

@@ -50,10 +50,10 @@
                                 <input type="checkbox" checked="@logForMyself" @onchange="ToggleMyself" aria-label="Log for myself" />
                                 <span style="font-weight: 500;">Myself</span>
                             </label>
-                            <div style="display: flex; align-items: center; gap: 0.25rem; opacity: @(logForMyself ? "1" : "0.4"); transition: opacity 0.15s;">
-                                <button type="button" style="@StepBtn(!logForMyself || myselfCount <= 1)" disabled="@(!logForMyself || myselfCount <= 1)" @onclick="() => AdjustMyself(-1)" aria-label="One fewer cup for myself">&minus;</button>
-                                <span style="min-width: 1.25rem; text-align: center; font-weight: 600; font-size: 0.875rem;" aria-live="polite">@myselfCount</span>
-                                <button type="button" style="@StepBtn(!logForMyself || myselfCount >= MaxCupsPerPerson)" disabled="@(!logForMyself || myselfCount >= MaxCupsPerPerson)" @onclick="() => AdjustMyself(1)" aria-label="One more cup for myself">+</button>
+                            <div class="bs-stepper-group" style="opacity: @(logForMyself ? "1" : "0.4");">
+                                <button type="button" class="bs-stepper-btn" disabled="@(!logForMyself || myselfCount <= 1)" @onclick="() => AdjustMyself(-1)" aria-label="One fewer cup for myself">&minus;</button>
+                                <span class="bs-stepper-value" aria-live="polite">@myselfCount</span>
+                                <button type="button" class="bs-stepper-btn" disabled="@(!logForMyself || myselfCount >= MaxCupsPerPerson)" @onclick="() => AdjustMyself(1)" aria-label="One more cup for myself">+</button>
                             </div>
                         </div>
                         @foreach (var member in SpaceMembers.Where(m => !CurrentUserId.HasValue || m.UserId != CurrentUserId.Value))
@@ -66,10 +66,10 @@
                                     <input type="checkbox" checked="@isSelected" @onchange="() => ToggleMember(memberId)" />
                                     <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@member.UserName</span>
                                 </label>
-                                <div style="display: flex; align-items: center; gap: 0.25rem; opacity: @(isSelected ? "1" : "0.4"); transition: opacity 0.15s;">
-                                    <button type="button" style="@StepBtn(!isSelected || count <= 1)" disabled="@(!isSelected || count <= 1)" @onclick="() => AdjustMember(memberId, -1)" aria-label="One fewer cup">&minus;</button>
-                                    <span style="min-width: 1.25rem; text-align: center; font-weight: 600; font-size: 0.875rem;">@count</span>
-                                    <button type="button" style="@StepBtn(!isSelected || count >= MaxCupsPerPerson)" disabled="@(!isSelected || count >= MaxCupsPerPerson)" @onclick="() => AdjustMember(memberId, 1)" aria-label="One more cup">+</button>
+                                <div class="bs-stepper-group" style="opacity: @(isSelected ? "1" : "0.4");">
+                                    <button type="button" class="bs-stepper-btn" disabled="@(!isSelected || count <= 1)" @onclick="() => AdjustMember(memberId, -1)" aria-label="One fewer cup">&minus;</button>
+                                    <span class="bs-stepper-value">@count</span>
+                                    <button type="button" class="bs-stepper-btn" disabled="@(!isSelected || count >= MaxCupsPerPerson)" @onclick="() => AdjustMember(memberId, 1)" aria-label="One more cup">+</button>
                                 </div>
                             </div>
                         }
@@ -254,8 +254,6 @@
     private const int MaxCupsPerPerson = 20;
 
     // Compact stepper button style; dimmed + non-interactive when disabled.
-    private const string StepperBtnStyle = "width: 1.75rem; height: 1.75rem; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--bs-border); background: var(--bs-background-light, #fff); border-radius: 0.375rem; font-size: 1rem; line-height: 1; padding: 0; color: var(--bs-text);";
-    private static string StepBtn(bool disabled) => StepperBtnStyle + (disabled ? " opacity: 0.4; cursor: default;" : " cursor: pointer;");
 
     private int TotalCups
         => (logForMyself ? myselfCount : 0)

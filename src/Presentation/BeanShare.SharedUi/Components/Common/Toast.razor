@@ -1,17 +1,24 @@
 @if (IsVisible)
 {
-    <div class="bs-toast @(IsError ? "bs-toast-error" : "bs-toast-success")">
-        <div class="bs-flex bs-items-center bs-gap-2">
-            <span class="material-symbols-outlined">
+    @* role/aria-live so screen readers announce it; errors are assertive since
+       they interrupt a failed action, successes are polite. *@
+    <div class="bs-toast @(IsError ? "bs-toast-error" : "bs-toast-success")"
+         role="@(IsError ? "alert" : "status")"
+         aria-live="@(IsError ? "assertive" : "polite")">
+        <div class="bs-flex bs-gap-2" style="align-items: flex-start;">
+            <span class="material-symbols-outlined" aria-hidden="true">
                 @(IsError ? "error" : "check_circle")
             </span>
-            <div class="bs-flex-1">
+            <div class="bs-flex-1" style="min-width: 0;">
                 <p class="bs-font-bold bs-m-0">@Title</p>
                 @if (!string.IsNullOrEmpty(Message))
                 {
-                    <p class="bs-m-0" style="font-size: 0.875rem;">@Message</p>
+                    <p class="bs-m-0" style="font-size: 0.875rem; overflow-wrap: anywhere;">@Message</p>
                 }
             </div>
+            <button type="button" class="bs-toast-close" aria-label="Dismiss" @onclick="HandleClose">
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
         </div>
     </div>
 }
@@ -63,6 +70,15 @@
         {
             _autoCloseCts?.Cancel();
         }
+    }
+
+    // Cancels the pending auto-dismiss first, so the timer can't fire a second
+    // OnClose after the user has already dismissed manually.
+    private async Task HandleClose()
+    {
+        _autoCloseCts?.Cancel();
+        IsVisible = false;
+        await OnClose.InvokeAsync();
     }
 
     public void Dispose()

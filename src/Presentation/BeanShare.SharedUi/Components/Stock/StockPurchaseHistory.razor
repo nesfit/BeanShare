@@ -156,15 +156,15 @@
                                             <td style="padding: 0.5rem 0.5rem; text-align: right; white-space: nowrap;">
                                                 @if (IsAdmin)
                                                 {
-                                                    <button class="bs-btn-icon" style="padding: 0.25rem; color: var(--bs-text-subtle);" title="Clone purchase"
+                                                    <button class="bs-btn-icon" style="color: var(--bs-text-subtle);" title="Clone purchase"
                                                             @onclick="@(() => Clone(bag))">
                                                         <span class="material-symbols-outlined" style="font-size: 1rem;">content_copy</span>
                                                     </button>
-                                                    <button class="bs-btn-icon" style="padding: 0.25rem; color: var(--bs-text-subtle);" title="Edit purchase"
+                                                    <button class="bs-btn-icon" style="color: var(--bs-text-subtle);" title="Edit purchase"
                                                             @onclick="@(() => StartEdit(bag))">
                                                         <span class="material-symbols-outlined" style="font-size: 1rem;">edit</span>
                                                     </button>
-                                                    <button class="bs-btn-icon" style="padding: 0.25rem; color: var(--bs-error);" title="Delete purchase"
+                                                    <button class="bs-btn-icon" style="color: var(--bs-error);" title="Delete purchase"
                                                             @onclick="@(() => _confirmingDeleteId = bag.Id)">
                                                         <span class="material-symbols-outlined" style="font-size: 1rem;">delete</span>
                                                     </button>

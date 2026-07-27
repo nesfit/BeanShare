@@ -12,7 +12,6 @@
 @inject IPresetService PresetService
 @inject NavigationManager Navigation
 @inject IUserContext UserContext
-@inject IAlertService AlertService
 
 <PageTitle>@spaceName - BeanShare</PageTitle>
 
@@ -25,34 +24,12 @@
 }
 else
 {
-    <div style="position: sticky; top: 0; z-index: 10; background: var(--bs-background-light); border-bottom: 1px solid var(--bs-border); padding: 1rem 0;">
-        <div class="bs-container">
-            <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 1rem;">
-                <button class="bs-btn-sm" style="background: transparent; border: none; cursor: pointer;" @onclick='@(() => Navigation.NavigateTo("/spaces"))'>
-                    <span class="material-symbols-outlined">arrow_back</span>
-                </button>
-                <h1 class="bs-font-bold" style="margin: 0; font-size: 1.25rem;">@space.Name</h1>
-                <div style="width: 2rem;"></div>
-            </div>
-
-            <div style="background: var(--bs-gray-100); border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem;">
-                <div class="bs-flex bs-items-center bs-justify-between">
-                    <span class="bs-text-subtle" style="font-size: 0.75rem; font-weight: 600;">INVITE CODE</span>
-                    <div class="bs-flex bs-items-center bs-gap-2">
-                        <span style="font-family: monospace; font-size: 0.875rem; font-weight: 700;">@space.InviteCode</span>
-                        <button class="bs-btn-sm" style="background: var(--bs-primary-light); color: var(--bs-primary); border: none; padding: 0.25rem 0.5rem;" title="Copy invite code" @onclick="CopyInviteCode">
-                            <span class="material-symbols-outlined" style="font-size: 1rem;">content_copy</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <SpaceTabs SpaceId="@SpaceId"
-                      ActiveTab="@activeTab"
-                      OnTabChange="HandleTabChange"
-                      PreventNavigation="true" />
-        </div>
-    </div>
+    <SpaceHeader SpaceId="@SpaceId"
+                 SpaceName="@space.Name"
+                 InviteCode="@space.InviteCode"
+                 ActiveTab="@activeTab"
+                 OnTabChange="HandleTabChange"
+                 PreventNavigation="true" />
 
     <div class="bs-container" style="padding: 2rem 0;">
         @if (activeTab == "members")
@@ -664,15 +641,6 @@ else
         catch (Exception ex)
         {
             ShowToast(true, "Error", $"Failed to log consumption: {ex.Message}");
-        }
-    }
-
-    private async Task CopyInviteCode()
-    {
-        if (space?.InviteCode != null)
-        {
-            await Clipboard.Default.SetTextAsync(space.InviteCode);
-            await AlertService.ShowAlertAsync("Copied", "Invite code copied to clipboard!");
         }
     }
 
