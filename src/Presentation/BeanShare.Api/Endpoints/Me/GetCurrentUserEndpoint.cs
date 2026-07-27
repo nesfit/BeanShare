@@ -1,4 +1,5 @@
 using BeanShare.Application.Abstractions;
+using BeanShare.Application.Services;
 using BeanShare.Contracts.Me;
 using FastEndpoints;
 
@@ -7,10 +8,12 @@ namespace BeanShare.Api.Endpoints.Me;
 public sealed class GetCurrentUserEndpoint : EndpointWithoutRequest<CurrentUserResponse>
 {
     private readonly IUserContext _userContext;
+    private readonly IUserService _userService;
 
-    public GetCurrentUserEndpoint(IUserContext userContext)
+    public GetCurrentUserEndpoint(IUserContext userContext, IUserService userService)
     {
         _userContext = userContext;
+        _userService = userService;
     }
 
     public override void Configure()
@@ -26,11 +29,15 @@ public sealed class GetCurrentUserEndpoint : EndpointWithoutRequest<CurrentUserR
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        // RevolutTag lives on the User entity, not the auth claims, so load it for the profile view.
+        var user = await _userService.GetByIdAsync(_userContext.CurrentUserId, ct);
+
         var response = new CurrentUserResponse
         {
             UserId = _userContext.CurrentUserId.Value,
             Email = _userContext.Email,
-            Roles = _userContext.Roles.ToList()
+            Roles = _userContext.Roles.ToList(),
+            RevolutTag = user?.RevolutTag
         };
 
         await SendOkAsync(response, ct);

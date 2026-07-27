@@ -5,6 +5,11 @@ public sealed record UpdatePreferredCurrencyRequest
     public string? CurrencyCode { get; init; }
 }
 
+public sealed record SetRevolutTagRequest
+{
+    public string? RevolutTag { get; init; }
+}
+
 public sealed record GetCurrentUserResponse
 {
     public required Guid UserId { get; init; }

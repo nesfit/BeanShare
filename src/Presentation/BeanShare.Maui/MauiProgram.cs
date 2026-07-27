@@ -97,6 +97,12 @@ public static class MauiProgram
 			client.DefaultRequestHeaders.Add("Accept", "application/json");
 		}).AddHttpMessageHandler<AuthenticationHandler>();
 
+		builder.Services.AddHttpClient<IProfileService, ProfileService>(client =>
+		{
+			client.BaseAddress = new Uri(apiBaseUrl);
+			client.DefaultRequestHeaders.Add("Accept", "application/json");
+		}).AddHttpMessageHandler<AuthenticationHandler>();
+
 		builder.Services.AddHttpClient<IActiveQrService, ActiveQrService>(client =>
 		{
 			client.BaseAddress = new Uri(apiBaseUrl);

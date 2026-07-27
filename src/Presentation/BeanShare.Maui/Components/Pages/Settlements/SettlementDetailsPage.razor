@@ -6,6 +6,7 @@
 @inject IUserContext UserContext
 @inject NavigationManager Navigation
 @inject IAlertService AlertService
+@inject BeanShare.SharedUi.Services.IQrCodeService QrCodeService
 
 <PageTitle>Settlement Details - BeanShare</PageTitle>
 
@@ -123,6 +124,53 @@
                         </div>
                     }
                 </div>
+
+                @{
+                    var transfers = BuildTransfers();
+                }
+                @if (transfers.Any())
+                {
+                    <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--bs-border);">
+                        <p class="bs-text-subtle" style="margin: 0 0 0.75rem 0; font-size: 0.8125rem;">Suggested payments to settle up with the fewest transfers.</p>
+                        <div class="bs-flex bs-flex-col" style="gap: 0.5rem;">
+                            @foreach (var t in transfers)
+                            {
+                                var isMine = t.FromUserId == currentUserId;
+                                var canPay = isMine && !string.IsNullOrEmpty(t.ToRevolutTag);
+                                var link = canPay ? RevolutLink(t.ToRevolutTag!, t.Amount, settlement.Currency) : null;
+                                <div>
+                                    <div class="bs-flex bs-items-center" style="gap: 0.5rem; padding: 0.55rem 0.7rem; background: @(isMine ? "var(--bs-primary-light)" : "var(--bs-gray-50)"); border: 1px solid @(isMine ? "var(--bs-primary)" : "var(--bs-border)"); border-radius: 0.5rem; flex-wrap: wrap;">
+                                        <span style="font-weight: 600; font-size: 0.875rem;">@t.From</span>
+                                        @if (isMine)
+                                        {
+                                            <span class="bs-badge bs-badge-primary">You</span>
+                                        }
+                                        <span class="material-symbols-outlined" style="color: var(--bs-text-subtle); font-size: 1.1rem;">arrow_forward</span>
+                                        <span style="font-weight: 600; font-size: 0.875rem;">@t.To</span>
+                                        <span style="margin-left: auto; font-weight: 700; color: var(--bs-primary); font-size: 0.875rem;">@settlement.Currency @t.Amount.ToString("F2")</span>
+                                        @if (canPay)
+                                        {
+                                            <button type="button" class="bs-btn bs-btn-sm bs-btn-primary" style="gap: 0.3rem;" @onclick="@(() => OpenPayment(link!))">
+                                                <span class="material-symbols-outlined" style="font-size: 1rem;">send</span>
+                                                Pay
+                                            </button>
+                                            <button type="button" class="bs-btn bs-btn-sm bs-btn-ghost" @onclick="@(() => ToggleQr(link!))" aria-label="Show payment QR">
+                                                <span class="material-symbols-outlined" style="font-size: 1rem;">qr_code_2</span>
+                                            </button>
+                                        }
+                                    </div>
+                                    @if (canPay && openQrLink == link)
+                                    {
+                                        <div style="text-align: center; padding: 0.6rem;">
+                                            <img src="@QrCodeService.GenerateQrCodeBase64ForUrl(link!)" alt="Revolut payment QR" style="width: 160px; height: 160px;" />
+                                            <p class="bs-text-subtle" style="font-size: 0.7rem; margin: 0.4rem 0 0 0;">Scan to pay @t.To @settlement.Currency @t.Amount.ToString("F2")</p>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
             </div>
         }
 
@@ -293,6 +341,70 @@
 
     private List<BeanShare.Contracts.Settlement.SettlementLineDto> Debtors => settlement?.Lines.Where(l => l.NetBalance < -0.01m).OrderBy(l => l.NetBalance).ToList() ?? new();
     private List<BeanShare.Contracts.Settlement.SettlementLineDto> Creditors => settlement?.Lines.Where(l => l.NetBalance > 0.01m).OrderByDescending(l => l.NetBalance).ToList() ?? new();
+
+    private sealed record Transfer(string From, string To, decimal Amount, string? ToRevolutTag, Guid FromUserId);
+
+    private string? openQrLink;
+    private void ToggleQr(string link) => openQrLink = openQrLink == link ? null : link;
+
+    private static string RevolutLink(string tag, decimal amount, string currency)
+    {
+        var amt = amount.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+        var ccy = (currency ?? string.Empty).ToUpperInvariant();
+        return $"https://revolut.me/{tag}/{amt}{ccy}";
+    }
+
+    private async Task OpenPayment(string link)
+    {
+        try
+        {
+            await Launcher.Default.OpenAsync(new Uri(link));
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Couldn't open Revolut: {ex.Message}");
+        }
+    }
+
+    // Greedy min-transfer settlement: match the largest debtor to the largest creditor.
+    private List<Transfer> BuildTransfers()
+    {
+        var transfers = new List<Transfer>();
+        if (settlement == null)
+        {
+            return transfers;
+        }
+
+        var debtors = settlement.Lines
+            .Where(l => l.NetBalance < -0.01m)
+            .Select(l => new { l.UserName, l.UserId, Amount = -l.NetBalance })
+            .OrderByDescending(x => x.Amount)
+            .ToList();
+        var creditors = settlement.Lines
+            .Where(l => l.NetBalance > 0.01m)
+            .Select(l => new { l.UserName, Amount = l.NetBalance, l.RevolutTag })
+            .OrderByDescending(x => x.Amount)
+            .ToList();
+
+        int i = 0, j = 0;
+        var owe = debtors.Select(d => d.Amount).ToList();
+        var due = creditors.Select(c => c.Amount).ToList();
+        while (i < debtors.Count && j < creditors.Count)
+        {
+            var pay = Math.Min(owe[i], due[j]);
+            if (pay > 0.01m)
+            {
+                transfers.Add(new Transfer(debtors[i].UserName, creditors[j].UserName, pay, creditors[j].RevolutTag, debtors[i].UserId));
+            }
+            owe[i] -= pay;
+            due[j] -= pay;
+            if (owe[i] <= 0.01m) i++;
+            if (due[j] <= 0.01m) j++;
+        }
+
+        return transfers;
+    }
+
     private bool isExporting;
     private string exportType = "";
     private bool isSendingEmails;

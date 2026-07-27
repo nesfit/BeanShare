@@ -16,6 +16,7 @@
 @inject IAlertService AlertService
 @inject HttpClient HttpClient
 @inject IConfiguration Configuration
+@inject IProfileService ProfileService
 
 <div class="mobile-profile">
     @if (isLoading)
@@ -134,6 +135,25 @@
             </div>
         }
     </div>
+
+    <div class="mobile-spaces-section">
+        <div class="section-header">
+            <h2>Payment</h2>
+        </div>
+        <div style="padding: 0 0.25rem;">
+            <label class="bs-label" for="revtag">Revolut username</label>
+            <div class="bs-flex bs-items-center" style="gap: 0.4rem;">
+                <span class="bs-text-subtle" style="font-size: 0.875rem;">revolut.me/</span>
+                <input id="revtag" class="bs-input" style="flex: 1;" @bind="editRevolutTag" placeholder="username" />
+            </div>
+            <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0.35rem 0 0.6rem 0;">
+                Used for 'Pay me' links on settlements — just your handle (revolut.me/&lt;handle&gt;).
+            </p>
+            <button class="bs-btn bs-btn-primary bs-btn-sm" @onclick="SaveRevolutTag" disabled="@isSavingRevolut">
+                @(isSavingRevolut ? "Saving…" : "Save")
+            </button>
+        </div>
+    </div>
     }
 </div>
 
@@ -145,6 +165,8 @@
     private bool isUploadingAvatar = false;
     private string? avatarUploadError;
     private string avatarCacheBuster = "";
+    private string editRevolutTag = "";
+    private bool isSavingRevolut = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -175,6 +197,8 @@
                     JoinedDate = statistics?.FirstConsumptionDate ?? DateTime.UtcNow,
                     PictureUrl = null
                 };
+
+                editRevolutTag = await ProfileService.GetRevolutTagAsync() ?? "";
             }
         }
         catch (Exception ex)
@@ -185,6 +209,35 @@
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private async Task SaveRevolutTag()
+    {
+        isSavingRevolut = true;
+        try
+        {
+            var handle = string.IsNullOrWhiteSpace(editRevolutTag) ? null : editRevolutTag.Trim();
+            var ok = await ProfileService.SetRevolutTagAsync(handle);
+            if (ok)
+            {
+                // Re-read so the field reflects the server-normalised handle.
+                editRevolutTag = await ProfileService.GetRevolutTagAsync() ?? "";
+                await AlertService.ShowAlertAsync("Saved", "Revolut username updated.");
+            }
+            else
+            {
+                await AlertService.ShowAlertAsync("Error", "Couldn't save your Revolut username. Please try again.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving Revolut tag");
+            await AlertService.ShowAlertAsync("Error", "Couldn't save your Revolut username. Please try again.");
+        }
+        finally
+        {
+            isSavingRevolut = false;
         }
     }
 
