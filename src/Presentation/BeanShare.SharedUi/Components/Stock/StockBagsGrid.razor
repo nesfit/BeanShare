@@ -49,7 +49,10 @@
                                 {
                                     var pct = bag.QuantityGrams > 0 ? (int)Math.Round(bag.RemainingGrams / bag.QuantityGrams * 100) : 0;
                                     <tr style="border-top: 1px solid var(--bs-border);">
-                                        <td style="padding: 0.5rem 0.5rem; font-family: monospace; font-weight: 600; white-space: nowrap;">Bag @bag.Label</td>
+                                        <td style="padding: 0.5rem 0.5rem; white-space: nowrap;">
+                                            <div style="font-family: monospace; font-weight: 600;">Bag @bag.Label</div>
+                                            <div class="bs-text-subtle" style="font-size: 0.75rem;" title="@PurchasedTitle(bag)">@PurchasedLabel(bag)</div>
+                                        </td>
                                         <td style="padding: 0.5rem 0.5rem; white-space: nowrap;">@StatusPill(bag)</td>
                                         <td style="padding: 0.5rem 0.5rem; min-width: 160px;">
                                             <div class="bs-flex bs-items-center bs-gap-2">
@@ -135,6 +138,31 @@
 
     private static int LabelOrder(string label) =>
         int.TryParse(label.TrimStart('#'), out var n) ? n : int.MaxValue;
+
+    // Freshness is why a bag carries its buy date here: the date plus a coarse age, so an old bag
+    // reads as old without doing the arithmetic. Today/yesterday mirror the purchase-history labels.
+    private static string PurchasedLabel(StockPurchaseDto bag)
+    {
+        var day = bag.PurchasedAt.ToLocalTime().Date;
+        var today = DateTime.Now.Date;
+        if (day == today) return "bought today";
+        if (day == today.AddDays(-1)) return "bought yesterday";
+
+        var age = Age(day, today);
+        return age.Length == 0
+            ? $"bought {day:dd MMM yyyy}"
+            : $"bought {day:dd MMM yyyy} · {age}";
+    }
+
+    private static string Age(DateTime day, DateTime today)
+    {
+        var days = (int)(today - day).TotalDays;
+        if (days <= 0) return ""; // a future-dated purchase has no meaningful age
+        return days < 60 ? $"{days} d" : $"{days / 30} mo";
+    }
+
+    private static string PurchasedTitle(StockPurchaseDto bag) =>
+        $"Purchased {bag.PurchasedAt.ToLocalTime():dddd, dd MMMM yyyy}";
 
     private RenderFragment StatusPill(StockPurchaseDto bag) => builder =>
     {
