@@ -56,6 +56,16 @@ if (useOidc)
         builder.Configuration.GetValue<bool?>("Oidc:UseSecureCallbackCookies")
         ?? builder.Environment.IsProduction();
 
+    // form_post delivers the callback via a cross-site POST, so its correlation/nonce
+    // cookies must be SameSite=None — and browsers only accept None cookies that are
+    // also Secure. Over plain http (local dev) that combination can never work: the
+    // cookie is dropped and every login dies with "Correlation failed". Default to the
+    // query response mode there; an explicit Oidc:ResponseMode still wins.
+    if (string.IsNullOrWhiteSpace(oidcResponseMode) && !oidcUseSecureCallbackCookies)
+    {
+        oidcResponseMode = "query";
+    }
+
     builder.Services.AddAuthentication(options =>
     {
         options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
