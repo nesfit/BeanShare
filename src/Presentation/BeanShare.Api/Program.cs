@@ -38,6 +38,9 @@ var useMockAuthentication = builder.Configuration.GetValue<bool>("UseMockAuthent
 
 if (useMockAuthentication)
 {
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddScoped<BeanShare.Application.Abstractions.IUserContext, MockUserContext>();
+
     builder.Services.AddAuthentication("Mock")
         .AddScheme<AuthenticationSchemeOptions, MockAuthenticationHandler>("Mock", _ => { });
 
