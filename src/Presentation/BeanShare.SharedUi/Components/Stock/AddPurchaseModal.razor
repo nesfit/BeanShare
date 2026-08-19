@@ -174,14 +174,14 @@
     private bool showBarcodeScanner;
     private PurchasePrefill? appliedPrefill;
 
-    protected override void OnInitialized()
-    {
-        if (!string.IsNullOrEmpty(CurrencyCode))
-            model.Currency = CurrencyCode;
-    }
-
     protected override void OnParametersSet()
     {
+        // The form has no currency input — the model must always mirror the parameter.
+        // The parent may pass a fallback first and the real space currency only after
+        // its async load, so a one-shot copy in OnInitialized goes stale.
+        if (!string.IsNullOrEmpty(CurrencyCode))
+            model.Currency = CurrencyCode;
+
         // Re-apply whenever a NEW prefill instance arrives (e.g. after a barcode lookup),
         // not just the first time.
         if (PrefillFrom != null && !ReferenceEquals(PrefillFrom, appliedPrefill))
@@ -192,7 +192,6 @@
             model.TotalCost = PrefillFrom.CostAmount;
             model.CoffeeType = PrefillFrom.CoffeeType;
             model.PurchasedAt = DateTime.UtcNow;
-            model.Currency = CurrencyCode;
             if (!string.IsNullOrWhiteSpace(PrefillFrom.Barcode))
             {
                 model.Barcode = PrefillFrom.Barcode;
