@@ -1,0 +1,163 @@
+@using BeanShare.Application.Features.Settlement.Dtos
+
+@if (Summary is not null)
+{
+    <div class="@(Flat ? "" : "bs-card")" style="@(Flat ? "" : "padding: 1rem;")">
+        <div class="bs-flex bs-items-center bs-justify-between" style="gap: 0.5rem; flex-wrap: wrap;">
+            <div class="bs-flex bs-items-center" style="gap: 0.5rem; min-width: 0;">
+                <span class="material-symbols-outlined" style="color: var(--bs-primary);">receipt_long</span>
+                <div style="min-width: 0;">
+                    <div class="bs-font-bold" style="font-size: 1rem; line-height: 1.2;">
+                        @(ShowSpaceName ? Summary.SpaceName : "Since last settlement")
+                    </div>
+                    <div class="bs-text-subtle" style="font-size: 0.75rem;">@SubtitleText()</div>
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(BillingHref))
+            {
+                <a class="bs-btn bs-btn-sm bs-btn-ghost" href="@BillingHref" style="flex-shrink: 0;">Billing</a>
+            }
+        </div>
+
+        <div class="bs-flex bs-gap-3" style="margin-top: 0.875rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 6rem; background: var(--bs-gray-50); border-radius: 0.5rem; padding: 0.625rem 0.875rem;">
+                <div style="font-size: 0.7rem; color: var(--bs-text-subtle); font-weight: 600;">MY CUPS</div>
+                <div style="font-size: 1.25rem; font-weight: 700;">@Summary.MyCups</div>
+            </div>
+            <div style="flex: 1; min-width: 6rem; background: var(--bs-gray-50); border-radius: 0.5rem; padding: 0.625rem 0.875rem;">
+                <div style="font-size: 0.7rem; color: var(--bs-text-subtle); font-weight: 600;">MY SHARE</div>
+                <div style="font-size: 1.25rem; font-weight: 700;">@Format(Summary.MyCost)</div>
+            </div>
+            @if (Summary.IsAdmin)
+            {
+                <div style="flex: 1; min-width: 6rem; background: var(--bs-gray-50); border-radius: 0.5rem; padding: 0.625rem 0.875rem;">
+                    <div style="font-size: 0.7rem; color: var(--bs-text-subtle); font-weight: 600;">SPACE CUPS</div>
+                    <div style="font-size: 1.25rem; font-weight: 700;">@Summary.TotalCups</div>
+                </div>
+                <div style="flex: 1; min-width: 6rem; background: var(--bs-gray-50); border-radius: 0.5rem; padding: 0.625rem 0.875rem;">
+                    <div style="font-size: 0.7rem; color: var(--bs-text-subtle); font-weight: 600;">SPACE TOTAL</div>
+                    <div style="font-size: 1.25rem; font-weight: 700;">@Format(Summary.TotalCost)</div>
+                </div>
+            }
+        </div>
+
+        @if (Summary.IsAdmin && Summary.Members.Count > 0)
+        {
+            <div style="margin-top: 0.875rem; border-top: 1px solid var(--bs-border); padding-top: 0.625rem;">
+                <button type="button" class="bs-flex bs-items-center bs-justify-between"
+                        style="width: 100%; background: transparent; border: none; cursor: pointer; padding: 0; color: inherit;"
+                        @onclick="() => showBreakdown = !showBreakdown" aria-expanded="@showBreakdown">
+                    <span style="font-size: 0.75rem; color: var(--bs-text-subtle); font-weight: 600;">
+                        WHO OWES WHAT · @Summary.Members.Count @(Summary.Members.Count == 1 ? "member" : "members")
+                    </span>
+                    <span class="material-symbols-outlined bs-text-subtle">@(showBreakdown ? "expand_less" : "expand_more")</span>
+                </button>
+
+                @if (showBreakdown)
+                {
+                    <div style="overflow-x: auto; margin-top: 0.5rem;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.8125rem;">
+                            <thead>
+                                <tr style="color: var(--bs-text-subtle); text-align: right;">
+                                    <th style="text-align: left; padding: 0.25rem 0.5rem 0.25rem 0; font-weight: 600;">Member</th>
+                                    <th style="padding: 0.25rem 0.5rem; font-weight: 600;">Cups</th>
+                                    <th style="padding: 0.25rem 0.5rem; font-weight: 600;">Coffee</th>
+                                    <th style="padding: 0.25rem 0.5rem; font-weight: 600;">Owes</th>
+                                    <th style="padding: 0.25rem 0 0.25rem 0.5rem; font-weight: 600;">Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var member in Summary.Members)
+                                {
+                                    <tr style="border-top: 1px solid var(--bs-border); text-align: right;">
+                                        <td style="text-align: left; padding: 0.375rem 0.5rem 0.375rem 0; font-weight: @(member.IsCurrentUser ? "700" : "500");">
+                                            @member.UserName@(member.IsCurrentUser ? " (you)" : "")
+                                        </td>
+                                        <td style="padding: 0.375rem 0.5rem;">@member.Cups</td>
+                                        <td style="padding: 0.375rem 0.5rem;" class="bs-text-subtle">@member.Grams.ToString("N0") g</td>
+                                        <td style="padding: 0.375rem 0.5rem;">@Format(member.Cost)</td>
+                                        <td style="padding: 0.375rem 0 0.375rem 0.5rem; color: @BalanceColor(member.Balance);">
+                                            @FormatSigned(member.Balance)
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="bs-text-subtle" style="font-size: 0.7rem; margin-top: 0.5rem;">
+                        Balance = coffee this member paid for, minus what they drank. Close the billing period to settle up.
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public UnsettledSpaceSummaryDto? Summary { get; set; }
+
+    /// <summary>Lead with the space name instead of "Since last settlement" (dashboard lists several spaces).</summary>
+    [Parameter]
+    public bool ShowSpaceName { get; set; }
+
+    /// <summary>Render without the card chrome, for callers that already provide it.</summary>
+    [Parameter]
+    public bool Flat { get; set; }
+
+    [Parameter]
+    public string? BillingHref { get; set; }
+
+    private bool showBreakdown;
+
+    private string SubtitleText()
+    {
+        if (Summary is null)
+        {
+            return "";
+        }
+
+        var since = Summary.SettledThrough.HasValue
+            ? $"Since {Summary.SettledThrough.Value.ToLocalTime().ToString("MMM d, yyyy")}"
+            : "Nothing settled yet — all time";
+
+        if (!string.IsNullOrEmpty(Summary.CurrentPeriodName))
+        {
+            return $"{since} · open period: {Summary.CurrentPeriodName}";
+        }
+
+        return Summary.SettledThrough.HasValue && !string.IsNullOrEmpty(Summary.LastSettledPeriodName)
+            ? $"{since} ({Summary.LastSettledPeriodName})"
+            : since;
+    }
+
+    private string Format(decimal amount)
+    {
+        try
+        {
+            return BeanShare.Domain.ValueObjects.Currency.Create(Summary?.CurrencyCode ?? "USD").FormatAmount(amount);
+        }
+        catch
+        {
+            return $"{amount:N2}";
+        }
+    }
+
+    private string FormatSigned(decimal amount)
+    {
+        var formatted = Format(Math.Abs(amount));
+        if (amount > 0)
+        {
+            return $"+{formatted}";
+        }
+
+        return amount < 0 ? $"-{formatted}" : formatted;
+    }
+
+    private static string BalanceColor(decimal balance) => balance switch
+    {
+        > 0 => "var(--bs-success, #15803d)",
+        < 0 => "var(--bs-text-subtle)",
+        _ => "inherit"
+    };
+}

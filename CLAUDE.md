@@ -85,6 +85,14 @@ bag/lot with its own `RemainingGrams`, `Label` ("#N" per product), and lifecycle
   product-level dropdown when no suggestions are supplied.
 - **Ledger:** `GetSpaceLedgerQuery` is the unified, filterable/sortable/paged view of every purchase (+) and
   cup (−) with a per-product running balance and totals (web: the Ledger tab; API: `GET /stock/ledger`).
+- **Since the last settlement:** `GetUnsettledSummaryQuery(spaceId?)` previews the next settlement — cups,
+  grams and cost that no settlement has covered yet. "Unsettled" means a cup whose `BillingPeriodId` is
+  null *or* points at a period that is not `Settled`, so back-dated cups are never lost; costs use the same
+  stamped-cost-then-weighted-average rule as `GenerateSettlementHandler`. Members see only their own numbers;
+  space admins also get the per-member who-owes-what breakdown (with money each member paid in, hence a
+  balance). Passing no `spaceId` covers every space the caller is in — that is what the `/spaces` dashboard
+  renders. Web: `UnsettledSummaryCard` on the dashboard and the Consumption tab; API: `GET /spaces/{id}/unsettled`
+  and `GET /me/unsettled`.
 
 ## Docs
 

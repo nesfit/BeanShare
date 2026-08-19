@@ -12,6 +12,9 @@
 @using BeanShare.Application.Features.Consumption.Dtos
 @using BeanShare.Application.Features.ActiveQrCodes.Queries
 @using BeanShare.Application.Features.Analytics.Queries.GetUserStatistics
+@using BeanShare.Application.Features.Settlement.Dtos
+@using BeanShare.Application.Features.Settlement.Queries.GetUnsettledSummary
+@using BeanShare.SharedUi.Components.Billing
 @using BeanShare.SharedUi.Components.Consumption.Models
 @using BeanShare.SharedUi.Services
 @using Microsoft.AspNetCore.Authorization
@@ -81,6 +84,31 @@
                     </div>
                 }
             </div>
+
+            @if (unsettled.Count > 0)
+            {
+                <div class="bs-card" style="margin-bottom: 1.5rem;">
+                    <div class="bs-flex bs-items-center bs-justify-between" style="gap: 0.5rem; margin-bottom: 0.25rem;">
+                        <span class="bs-flex bs-items-center" style="gap: 0.5rem;">
+                            <span class="material-symbols-outlined" style="color: var(--bs-primary);">receipt_long</span>
+                            <span class="bs-font-bold" style="font-size: 1.05rem;">Since last settlement</span>
+                        </span>
+                    </div>
+                    <p class="bs-text-subtle" style="margin: 0 0 0.75rem 0; font-size: 0.8125rem;">
+                        What you have run up but not paid for yet. Spaces you administer also show who owes what.
+                    </p>
+                    @for (var i = 0; i < unsettled.Count; i++)
+                    {
+                        var spaceSummary = unsettled[i];
+                        <div style="@(i == 0 ? "" : "border-top: 1px solid var(--bs-border); margin-top: 1rem; padding-top: 1rem;")">
+                            <UnsettledSummaryCard Summary="@spaceSummary"
+                                                 ShowSpaceName="true"
+                                                 Flat="true"
+                                                 BillingHref="@($"/spaces/{spaceSummary.SpaceId}/billing")" />
+                        </div>
+                    }
+                </div>
+            }
 
             @if (statistics != null && (statistics.DailyConsumptionTrend.Any() || statistics.CoffeeTypeBreakdown.Any()))
             {
@@ -280,6 +308,7 @@
             : spaces.Where(s => s.Name.Contains(Query, StringComparison.OrdinalIgnoreCase)).ToList();
     private UserStatisticsDto? statistics;
     private List<ConsumptionHistoryItemDto> recentActivity = new();
+    private List<UnsettledSpaceSummaryDto> unsettled = new();
     private bool isLoading = true;
     private bool showCreateModal;
     private bool showJoinModal;
@@ -301,6 +330,7 @@
         await LoadSpaces();
         await LoadStatistics();
         await LoadRecentActivity();
+        await LoadUnsettled();
 
         if (string.Equals(Action, "create", StringComparison.OrdinalIgnoreCase))
         {
@@ -341,6 +371,23 @@
         catch
         {
             recentActivity = new();
+        }
+    }
+
+    private async Task LoadUnsettled()
+    {
+        // Per-space tally of what is not yet billed — my own numbers everywhere, plus the
+        // who-owes-what breakdown in spaces I administer. Best-effort like the KPI strip.
+        try
+        {
+            var result = await Mediator.Send(new GetUnsettledSummaryQuery());
+            unsettled = result.IsSuccess
+                ? result.Value.ActiveSpaces.OrderByDescending(s => s.MyCost).ThenBy(s => s.SpaceName).ToList()
+                : new();
+        }
+        catch
+        {
+            unsettled = new();
         }
     }
 
@@ -558,6 +605,7 @@
                 // Keep the hero KPIs + recent activity in sync with what was just logged.
                 await LoadStatistics();
                 await LoadRecentActivity();
+                await LoadUnsettled();
             }
 
             if (errors.Any())
