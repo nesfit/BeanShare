@@ -4,7 +4,7 @@ namespace BeanShare.Contracts.CoffeeStock;
 public sealed record LedgerEntryResponse
 {
     public required DateTime Timestamp { get; init; }
-    public required string Kind { get; init; }                // "Purchase" | "Cup"
+    public required string Kind { get; init; }                // "Purchase" | "Cup" | "Discard" (thrown away unbilled)
     public required string ProductDisplayName { get; init; }
     public required string ProductType { get; init; }
     public required string BagLabel { get; init; }

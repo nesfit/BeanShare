@@ -70,6 +70,28 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
             });
         }
 
+        // Coffee an admin threw away unbilled: an outflow nobody drank, so the product balance still
+        // reaches zero and the sunk cost is visible. Attributed to nobody (UserId empty → "—").
+        foreach (var p in purchases.Where(p => p.DiscardedGrams > 0))
+        {
+            movements.Add(new Movement
+            {
+                Timestamp = p.DepletedAt ?? p.CreatedAt,
+                Kind = "Discard",
+                Product = p.Product.DisplayName,
+                ProductType = p.Product.Type.ToString(),
+                Bag = string.IsNullOrEmpty(p.Label) ? "—" : p.Label,
+                Delta = -p.DiscardedGrams,
+                UserId = Guid.Empty,
+                CostAmount = Math.Round(p.UnitCostPerGram * p.DiscardedGrams, 2),
+                CostCurrency = p.Cost.Currency.Code,
+                Note = "Discarded — not billed",
+                Key = ProductKey(p.Product),
+                ProductName = p.Product.Name,
+                ProductBrand = p.Product.Brand,
+            });
+        }
+
         foreach (var c in cups)
         {
             var bag = c.StockLotId.HasValue && labelByLot.TryGetValue(c.StockLotId.Value, out var lbl) && !string.IsNullOrEmpty(lbl)
@@ -116,6 +138,8 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
             filtered = filtered.Where(m => m.Kind == "Purchase");
         else if (string.Equals(query.Kind, "cup", StringComparison.OrdinalIgnoreCase))
             filtered = filtered.Where(m => m.Kind == "Cup");
+        else if (string.Equals(query.Kind, "discard", StringComparison.OrdinalIgnoreCase))
+            filtered = filtered.Where(m => m.Kind == "Discard");
         if (!string.IsNullOrWhiteSpace(query.Product))
             filtered = filtered.Where(m => m.Product.Contains(query.Product, StringComparison.OrdinalIgnoreCase));
         if (query.MemberUserId.HasValue)
@@ -129,6 +153,7 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
 
         var purchaseRows = filteredList.Where(m => m.Kind == "Purchase").ToList();
         var cupRows = filteredList.Where(m => m.Kind == "Cup").ToList();
+        var discardRows = filteredList.Where(m => m.Kind == "Discard").ToList();
         var totals = new LedgerTotalsDto(
             PurchasedGrams: purchaseRows.Sum(m => m.Delta),
             PurchasedCost: purchaseRows.Sum(m => m.CostAmount ?? 0m),
@@ -137,7 +162,10 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
             NetGrams: filteredList.Sum(m => m.Delta),
             PurchaseCount: purchaseRows.Count,
             CupCount: cupRows.Count,
-            Currency: currency);
+            Currency: currency,
+            DiscardedGrams: discardRows.Sum(m => -m.Delta),
+            DiscardedCost: discardRows.Sum(m => m.CostAmount ?? 0m),
+            DiscardCount: discardRows.Count);
 
         var sorted = Sort(filteredList, query.SortBy, query.SortDescending);
 
@@ -148,7 +176,8 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
             .ToList();
 
         var userNames = new Dictionary<Guid, string>();
-        foreach (var uid in pageItems.Select(m => m.UserId).Distinct())
+        userNames[Guid.Empty] = "—"; // discards belong to nobody
+        foreach (var uid in pageItems.Select(m => m.UserId).Where(u => u != Guid.Empty).Distinct())
         {
             var user = await _userRepository.GetByIdAsync(new UserId(uid), cancellationToken);
             userNames[uid] = user?.Name ?? "Unknown";

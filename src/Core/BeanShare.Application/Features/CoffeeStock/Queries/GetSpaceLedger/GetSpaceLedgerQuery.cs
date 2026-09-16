@@ -11,7 +11,7 @@ namespace BeanShare.Application.Features.CoffeeStock.Queries.GetSpaceLedger;
 [RequireSpaceMember("SpaceId")]
 public sealed record GetSpaceLedgerQuery(
     Guid SpaceId,
-    string? Kind = null,            // "purchase" | "cup" | null (all)
+    string? Kind = null,            // "purchase" | "cup" | "discard" | null (all)
     string? Product = null,         // substring match on product display name
     Guid? MemberUserId = null,      // buyer (purchase) or drinker (cup)
     DateTime? StartDate = null,
@@ -24,7 +24,7 @@ public sealed record GetSpaceLedgerQuery(
 
 public sealed record LedgerEntryDto(
     DateTime Timestamp,
-    string Kind,                    // "Purchase" | "Cup"
+    string Kind,                    // "Purchase" | "Cup" | "Discard"
     string ProductDisplayName,
     string ProductType,
     string BagLabel,
@@ -48,7 +48,10 @@ public sealed record LedgerTotalsDto(
     decimal NetGrams,
     int PurchaseCount,
     int CupCount,
-    string Currency);
+    string Currency,
+    decimal DiscardedGrams = 0m,      // thrown away unbilled by an admin
+    decimal DiscardedCost = 0m,       // its sunk value at the bags' own €/g
+    int DiscardCount = 0);
 
 public sealed record LedgerPageDto(
     int TotalCount,

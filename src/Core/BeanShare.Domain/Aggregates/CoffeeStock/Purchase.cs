@@ -29,6 +29,23 @@ public sealed class Purchase : Entity
     public DateTime? OpenedAt { get; private set; }
     public DateTime? DepletedAt { get; private set; }
 
+    /// <summary>
+    /// Grams of the latest emptying that were <em>written off</em> rather than poured — the
+    /// phantom-fill remainder billed to drinkers when an admin marked the bag empty. Zero for a bag
+    /// that ran out cup by cup. Reset by <see cref="UndoWriteOff"/>.
+    /// </summary>
+    public decimal WrittenOffGrams { get; private set; }
+
+    /// <summary>
+    /// Grams of the latest emptying that were <em>discarded</em>: coffee that is gone (stale, spilled,
+    /// never really there) and billed to nobody — the space simply eats the cost. Unlike
+    /// <see cref="WrittenOffGrams"/> these never became cups. Reset by <see cref="UndoWriteOff"/>.
+    /// </summary>
+    public decimal DiscardedGrams { get; private set; }
+
+    /// <summary>How long after an admin empties a bag the write-off can still be undone.</summary>
+    public static readonly TimeSpan WriteOffUndoWindow = TimeSpan.FromHours(24);
+
     /// <summary>Optional scanned EAN/UPC barcode of the bag, so repeat purchases can be prefilled.</summary>
     public string? Barcode { get; private init; }
 
@@ -116,7 +133,7 @@ public sealed class Purchase : Entity
     }
 
     /// <summary>Grams still available in this bag.</summary>
-    public Weight RemainingGrams => Weight.FromGrams(Quantity.Grams - ConsumedGrams);
+    public Weight RemainingGrams => Weight.FromGrams(Quantity.Grams - ConsumedGrams - DiscardedGrams);
 
     /// <summary>Full-precision price per gram for this bag (round only the final cup cost).</summary>
     public decimal UnitCostPerGram => Quantity.Grams > 0 ? Cost.Amount / Quantity.Grams : 0m;
@@ -131,9 +148,9 @@ public sealed class Purchase : Entity
         if (!newQuantity.IsPositive)
             throw new ArgumentException("Quantity must be positive", nameof(newQuantity));
 
-        if (newQuantity.Grams < ConsumedGrams)
+        if (newQuantity.Grams < ConsumedGrams + DiscardedGrams)
             throw new StockDomainException(
-                $"Cannot set bag size to {newQuantity.Grams}g — {ConsumedGrams}g has already been consumed from it.");
+                $"Cannot set bag size to {newQuantity.Grams}g — {ConsumedGrams + DiscardedGrams}g has already been consumed from or discarded off it.");
 
         if (newCostAmount <= 0)
             throw new ArgumentException("Cost must be positive", nameof(newCostAmount));
@@ -212,6 +229,77 @@ public sealed class Purchase : Entity
         return cost;
     }
 
+    /// <summary>
+    /// Write off <paramref name="grams"/> of this bag: drawn like <see cref="Consume"/> (so the
+    /// remainder is billed at this bag's €/g) but remembered as a write-off, so an accidental
+    /// "mark empty" can be reversed with <see cref="UndoWriteOff"/>.
+    /// </summary>
+    public Money WriteOff(Weight grams, IClock clock)
+    {
+        var cost = Consume(grams, clock);
+        WrittenOffGrams += grams.Grams;
+        return cost;
+    }
+
+    /// <summary>
+    /// Discard whatever is left in this bag without billing anyone: the coffee is gone (stale, spilled,
+    /// or never really there) and the space eats the cost. The bag becomes Empty; undoable like a
+    /// write-off via <see cref="UndoWriteOff"/>. Returns the grams discarded.
+    /// </summary>
+    public Weight Discard(IClock clock)
+    {
+        if (Status == LotStatus.Empty || !RemainingGrams.IsPositive)
+            throw new StockDomainException($"Bag '{Label}' is already empty; nothing to discard.");
+
+        var discarded = RemainingGrams;
+        DiscardedGrams += discarded.Grams;
+        Status = LotStatus.Empty;
+        DepletedAt = clock.UtcNow;
+        return discarded;
+    }
+
+    /// <summary>Grams of the latest emptying that did not come from cups: billed write-off plus unbilled discard.</summary>
+    public decimal EmptiedByAdminGrams => WrittenOffGrams + DiscardedGrams;
+
+    /// <summary>Moment after which the latest write-off/discard can no longer be undone; null when there is nothing to undo.</summary>
+    public DateTime? WriteOffUndoDeadline =>
+        Status == LotStatus.Empty && EmptiedByAdminGrams > 0 && DepletedAt.HasValue
+            ? DepletedAt.Value + WriteOffUndoWindow
+            : null;
+
+    /// <summary>True while the latest write-off can still be undone (bag is empty, something was written off, window not passed).</summary>
+    public bool IsWriteOffUndoable(DateTime now) => WriteOffUndoDeadline is { } deadline && now <= deadline;
+
+    /// <summary>
+    /// Reverse the latest admin emptying: written-off and discarded grams go back into the bag, which
+    /// returns to <see cref="LotStatus.Sealed"/> if nothing had ever been poured from it, else to
+    /// <see cref="LotStatus.Open"/>. Returns the grams restored.
+    /// </summary>
+    public Weight UndoWriteOff(IClock clock)
+    {
+        if (Status != LotStatus.Empty || EmptiedByAdminGrams <= 0)
+            throw new StockDomainException($"Bag '{Label}' has no write-off or discard to undo.");
+
+        var restored = Math.Min(WrittenOffGrams, ConsumedGrams) + DiscardedGrams;
+        ConsumedGrams -= Math.Min(WrittenOffGrams, ConsumedGrams);
+        WrittenOffGrams = 0;
+        DiscardedGrams = 0;
+        DepletedAt = null;
+
+        if (ConsumedGrams == 0)
+        {
+            Status = LotStatus.Sealed;
+            OpenedAt = null;
+        }
+        else
+        {
+            Status = LotStatus.Open;
+            OpenedAt ??= clock.UtcNow;
+        }
+
+        return Weight.FromGrams(restored);
+    }
+
     /// <summary>Reverse a prior draw (used when a consumption is edited or deleted).</summary>
     public void Restore(Weight grams, IClock clock)
     {
@@ -222,6 +310,8 @@ public sealed class Purchase : Entity
 
         var restored = Math.Min(grams.Grams, ConsumedGrams);
         ConsumedGrams -= restored;
+        // Deleting one write-off cup by hand shrinks what is left to undo as a whole.
+        WrittenOffGrams = Math.Min(WrittenOffGrams, ConsumedGrams);
 
         if (Status == LotStatus.Empty && RemainingGrams.IsPositive)
         {

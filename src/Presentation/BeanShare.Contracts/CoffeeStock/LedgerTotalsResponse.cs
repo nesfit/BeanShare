@@ -11,4 +11,9 @@ public sealed record LedgerTotalsResponse
     public required int PurchaseCount { get; init; }
     public required int CupCount { get; init; }
     public required string Currency { get; init; }
+    /// <summary>Grams an admin threw away unbilled (stale/spilled bags).</summary>
+    public decimal DiscardedGrams { get; init; }
+    /// <summary>Sunk value of the discarded grams at the bags' own cost per gram.</summary>
+    public decimal DiscardedCost { get; init; }
+    public int DiscardCount { get; init; }
 }

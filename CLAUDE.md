@@ -74,7 +74,20 @@ bag/lot with its own `RemainingGrams`, `Label` ("#N" per product), and lifecycle
   cloned value objects; sharing one EF-owned instance across lots persists nulls). `OpenBagCommand` marks
   the in-use bag. `MarkBagEmptyCommand` empties a bag and **phantom-fills** the untracked remainder as
   consumption entries billed to that bag's drinkers at its own €/g (replaces the old `SplitRemainingStock`;
-  legacy split/currently-used/archive endpoints remain as shims).
+  legacy split/currently-used/archive endpoints remain as shims). Those entries are stamped `IsWriteOff`
+  and the bag records `WrittenOffGrams`. `DiscardBagCommand` (`POST /stock/bags/{lotId}/discard`) is the
+  no-bill counterpart for stale/spilled/never-real coffee: the remainder goes to `Purchase.DiscardedGrams`
+  (so `RemainingGrams = Quantity − Consumed − Discarded`, and `StockLevel.CurrentStock` likewise), nobody
+  is billed, and the ledger shows it as a `Kind = "Discard"` outflow attributed to nobody (`UserName "—"`,
+  cost = sunk value) so the product balance still reaches zero. Both are reversible: `UndoBagEmptyCommand`
+  (`POST /stock/bags/{lotId}/undo-empty`, admin only) deletes exactly the write-off cups (none for a
+  discard) and puts the grams back (bag returns to Sealed if nothing was ever poured from it, else Open)
+  within `Purchase.WriteOffUndoWindow` (24 h) and only while none of those cups sits in a Closed/Settled
+  period. `StockPurchaseDto.CanUndoEmpty`/`UndoEmptyUntil` drive the "Undo empty" button in
+  `StockBagsGrid`, which keeps such a bag listed for admins during the window. `DeletePurchase` stays
+  reserved for untouched bags (nothing consumed) — a record entered by mistake; the grid offers it only then.
+- **Grid order:** `StockBagsGrid` lists products with an open bag first, and within a product the open bag
+  first, then sealed bags by label, then a just-emptied (undoable) bag.
 - **QR → bag:** `ActiveQrCode`, `RecordConsumptionCommand`, and the Create/Reassign QR commands carry an
   optional `StockLotId`; a scan logs against the bound bag, falling back to the open bag if it is empty/gone.
 - **Manual log picks a bag too, not a product.** `GetBagSuggestionsQuery` ranks non-empty lots via

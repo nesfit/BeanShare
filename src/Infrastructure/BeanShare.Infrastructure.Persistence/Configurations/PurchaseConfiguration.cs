@@ -100,6 +100,19 @@ public sealed class PurchaseConfiguration : IEntityTypeConfiguration<Purchase>
         builder.Property(p => p.OpenedAt);
         builder.Property(p => p.DepletedAt);
 
+        builder.Property(p => p.WrittenOffGrams)
+            .HasColumnType("decimal(10,1)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(p => p.DiscardedGrams)
+            .HasColumnType("decimal(10,1)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Ignore(p => p.EmptiedByAdminGrams);
+        builder.Ignore(p => p.WriteOffUndoDeadline);
+
         builder.Property(p => p.Barcode)
             .HasMaxLength(64);
 

@@ -37,6 +37,9 @@ else
                            IsAdmin="@isAdmin"
                            OnOpenBag="HandleOpenBag"
                            OnMarkBagEmpty="HandleMarkBagEmpty"
+                           OnUndoBagEmpty="HandleUndoBagEmpty"
+                           OnDiscardBag="HandleDiscardBag"
+                           OnDeleteBag="HandleDeletePurchase"
                            OnShowQr="ShowQrModal" />
 
             <ActiveQrCodesSection ActiveQrCodes="@activeQrCodes"
@@ -368,6 +371,50 @@ else
         catch (Exception ex)
         {
             ShowToast(true, "Error", $"Failed to empty bag: {ex.Message}");
+        }
+    }
+
+    private async Task HandleUndoBagEmpty(Guid lotId)
+    {
+        if (!Guid.TryParse(SpaceId, out var spaceGuid)) return;
+        try
+        {
+            var success = await StockService.UndoBagEmptyAsync(spaceGuid, lotId);
+            if (success)
+            {
+                ShowToast(false, "Restored", "Emptying undone; the billed cups were removed and the bag is back in stock.");
+                await LoadStock();
+            }
+            else
+            {
+                ShowToast(true, "Error", "Failed to undo emptying the bag.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Failed to undo emptying the bag: {ex.Message}");
+        }
+    }
+
+    private async Task HandleDiscardBag(Guid lotId)
+    {
+        if (!Guid.TryParse(SpaceId, out var spaceGuid)) return;
+        try
+        {
+            var success = await StockService.DiscardBagAsync(spaceGuid, lotId);
+            if (success)
+            {
+                ShowToast(false, "Discarded", "Bag discarded; the remainder was thrown away and nobody was billed.");
+                await LoadStock();
+            }
+            else
+            {
+                ShowToast(true, "Error", "Failed to discard bag.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Failed to discard bag: {ex.Message}");
         }
     }
 

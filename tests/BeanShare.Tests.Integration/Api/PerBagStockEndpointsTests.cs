@@ -129,6 +129,141 @@ public sealed class PerBagStockEndpointsTests : IClassFixture<PostgreSqlFixture>
         response.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.BadRequest);
     }
 
+    // ---- UndoBagEmpty ----
+
+    [Fact]
+    public async Task UndoBagEmpty_RestoresWrittenOffGramsAndRemovesBilledCups()
+    {
+        var spaceId = await CreateSpaceAsync();
+        await AddBagsAsync(spaceId, "Keňa Duma", "Coffeespot", 500, 20.00m);
+        var bag = (await GetStockAsync(spaceId)).RecentPurchases.Single();
+        await RecordCupAsync(spaceId, "Keňa Duma", "Coffeespot", 100);
+
+        var empty = await _client.PostAsJsonAsync(
+            $"/api/spaces/{spaceId}/stock/bags/{bag.Id}/empty", new MarkBagEmptyRequest());
+        empty.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var emptied = (await GetStockAsync(spaceId)).RecentPurchases.Single(b => b.Id == bag.Id);
+        emptied.Status.Should().Be("Empty");
+        emptied.WrittenOffGrams.Should().Be(400);
+        emptied.CanUndoEmpty.Should().BeTrue();
+        emptied.UndoEmptyUntil.Should().NotBeNull();
+
+        var undo = await _client.PostAsync($"/api/spaces/{spaceId}/stock/bags/{bag.Id}/undo-empty", null);
+        undo.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await undo.Content.ReadFromJsonAsync<UndoBagEmptyResponse>();
+        result.Should().NotBeNull();
+        result!.RestoredGrams.Should().Be(400);
+        result.RemovedEntries.Should().BeGreaterThan(0);
+        result.NewStatus.Should().Be("Open"); // a real cup had been poured, so it is a partially-used bag again
+
+        var restored = (await GetStockAsync(spaceId)).RecentPurchases.Single(b => b.Id == bag.Id);
+        restored.Status.Should().Be("Open");
+        restored.RemainingGrams.Should().Be(400);
+        restored.ConsumedGrams.Should().Be(100); // the real cup stays
+        restored.WrittenOffGrams.Should().Be(0);
+        restored.CanUndoEmpty.Should().BeFalse();
+        restored.DepletedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UndoBagEmpty_UntouchedBag_ReturnsToSealed()
+    {
+        var spaceId = await CreateSpaceAsync();
+        await AddBagsAsync(spaceId, "House", "Local", 1000, 25.00m);
+        var bag = (await GetStockAsync(spaceId)).RecentPurchases.Single();
+
+        (await _client.PostAsJsonAsync($"/api/spaces/{spaceId}/stock/bags/{bag.Id}/empty", new MarkBagEmptyRequest()))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var undo = await _client.PostAsync($"/api/spaces/{spaceId}/stock/bags/{bag.Id}/undo-empty", null);
+        undo.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await undo.Content.ReadFromJsonAsync<UndoBagEmptyResponse>())!.NewStatus.Should().Be("Sealed");
+
+        var restored = (await GetStockAsync(spaceId)).RecentPurchases.Single(b => b.Id == bag.Id);
+        restored.Status.Should().Be("Sealed");
+        restored.IsOpen.Should().BeFalse();
+        restored.RemainingGrams.Should().Be(1000);
+        restored.OpenedAt.Should().BeNull();
+
+        // Nothing left to undo.
+        var again = await _client.PostAsync($"/api/spaces/{spaceId}/stock/bags/{bag.Id}/undo-empty", null);
+        again.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
+    }
+
+    // ---- DiscardBag (throw away, bill nobody) ----
+
+    [Fact]
+    public async Task DiscardBag_EmptiesBagWithoutBillingAndShowsInLedger()
+    {
+        var spaceId = await CreateSpaceAsync();
+        await AddBagsAsync(spaceId, "Stale Blend", "Local", 500, 20.00m);
+        var bag = (await GetStockAsync(spaceId)).RecentPurchases.Single();
+        await RecordCupAsync(spaceId, "Stale Blend", "Local", 100);
+
+        var discard = await _client.PostAsync($"/api/spaces/{spaceId}/stock/bags/{bag.Id}/discard", null);
+        discard.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = await discard.Content.ReadFromJsonAsync<DiscardBagResponse>();
+        result.Should().NotBeNull();
+        result!.DiscardedGrams.Should().Be(400);
+        result.SunkCostAmount.Should().Be(16.00m); // $20 / 500 g × 400 g
+
+        var stock = await GetStockAsync(spaceId);
+        var after = stock.RecentPurchases.Single(b => b.Id == bag.Id);
+        after.Status.Should().Be("Empty");
+        after.RemainingGrams.Should().Be(0);
+        after.ConsumedGrams.Should().Be(100);
+        after.DiscardedGrams.Should().Be(400);
+        after.WrittenOffGrams.Should().Be(0);
+        after.CanUndoEmpty.Should().BeTrue();
+        stock.TotalCurrentStockGrams.Should().Be(0);
+
+        // Only the real cup was billed; the discard is an unattributed outflow that zeroes the balance.
+        var ledgerResponse = await _client.GetAsync($"/api/spaces/{spaceId}/stock/ledger?sortBy=ts&sortDescending=false");
+        ledgerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var ledger = await ledgerResponse.Content.ReadFromJsonAsync<LedgerPageResponse>();
+        ledger.Should().NotBeNull();
+        ledger!.Entries.Should().ContainSingle(e => e.Kind == "Cup");
+        var discardRow = ledger.Entries.Single(e => e.Kind == "Discard");
+        discardRow.DeltaGrams.Should().Be(-400);
+        discardRow.RunningBalanceGrams.Should().Be(0);
+        discardRow.UserName.Should().Be("—");
+        ledger.Totals.DiscardedGrams.Should().Be(400);
+        ledger.Totals.NetGrams.Should().Be(0);
+
+        // Undo works for a discard too: the grams come back and the bag is a partially-used Open bag again.
+        var undo = await _client.PostAsync($"/api/spaces/{spaceId}/stock/bags/{bag.Id}/undo-empty", null);
+        undo.StatusCode.Should().Be(HttpStatusCode.OK);
+        var restored = (await GetStockAsync(spaceId)).RecentPurchases.Single(b => b.Id == bag.Id);
+        restored.Status.Should().Be("Open");
+        restored.RemainingGrams.Should().Be(400);
+        restored.DiscardedGrams.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task DeleteStockPurchase_BagWithConsumption_ReturnsCleanError()
+    {
+        var spaceId = await CreateSpaceAsync();
+        await AddBagsAsync(spaceId, "House", "Local", 500, 12.00m);
+        var bag = (await GetStockAsync(spaceId)).RecentPurchases.Single();
+        await RecordCupAsync(spaceId, "House", "Local", 50);
+
+        var response = await _client.DeleteAsync($"/api/spaces/{spaceId}/stock/purchases/{bag.Id}");
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound, HttpStatusCode.Conflict);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("discard");
+    }
+
+    [Fact]
+    public async Task UndoBagEmpty_BagThatWasNeverEmptiedByAdmin_ReturnsError()
+    {
+        var spaceId = await CreateSpaceAsync();
+        await AddBagsAsync(spaceId, "House", "Local", 500, 12.00m);
+        var bag = (await GetStockAsync(spaceId)).RecentPurchases.Single();
+
+        var response = await _client.PostAsync($"/api/spaces/{spaceId}/stock/bags/{bag.Id}/undo-empty", null);
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.NotFound);
+    }
+
     // ---- Lot-targeted consumption + stamped cost ----
 
     [Fact]

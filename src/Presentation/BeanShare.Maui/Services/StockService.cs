@@ -187,4 +187,34 @@ public class StockService : IStockService
             return false;
         }
     }
+
+    public async Task<bool> UndoBagEmptyAsync(Guid spaceId, Guid lotId)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync($"/api/spaces/{spaceId}/stock/bags/{lotId}/undo-empty", null);
+            if (response.IsSuccessStatusCode)
+                _cache.Invalidate("stock:");
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public async Task<bool> DiscardBagAsync(Guid spaceId, Guid lotId)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync($"/api/spaces/{spaceId}/stock/bags/{lotId}/discard", null);
+            if (response.IsSuccessStatusCode)
+                _cache.Invalidate("stock:");
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

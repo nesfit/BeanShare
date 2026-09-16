@@ -26,6 +26,12 @@ public sealed class ConsumptionEntry : AggregateRoot
     /// <summary>The bag's per-gram price at log time (for display/audit); null when unattributed.</summary>
     public decimal? UnitCostPerGram { get; private set; }
 
+    /// <summary>
+    /// True for a phantom-fill cup: this user's share of a bag's untracked remainder, billed when an
+    /// admin marked the bag empty — not a cup they logged. Lets the emptying be undone as a whole.
+    /// </summary>
+    public bool IsWriteOff { get; private set; }
+
     /// <summary>Cost of this cup, stamped at log time from the bag's price; null when it couldn't be attributed.</summary>
     public Money? Cost => CostAmount.HasValue && !string.IsNullOrEmpty(CostCurrency)
         ? Money.Create(CostAmount.Value, Currency.Create(CostCurrency))
@@ -73,7 +79,8 @@ public sealed class ConsumptionEntry : AggregateRoot
         string? presetName = null,
         Guid? stockLotId = null,
         Money? cost = null,
-        decimal? unitCostPerGram = null)
+        decimal? unitCostPerGram = null,
+        bool isWriteOff = false)
     {
         ArgumentNullException.ThrowIfNull(product);
         ArgumentNullException.ThrowIfNull(clock);
@@ -97,7 +104,8 @@ public sealed class ConsumptionEntry : AggregateRoot
             StockLotId = stockLotId,
             CostAmount = cost?.Amount,
             CostCurrency = cost?.Currency.Code,
-            UnitCostPerGram = unitCostPerGram
+            UnitCostPerGram = unitCostPerGram,
+            IsWriteOff = isWriteOff
         };
 
         entry.RaiseDomainEvent(new ConsumptionRecorded(

@@ -16,6 +16,8 @@ public sealed class StockLevel
     public CoffeeProduct Product { get; }
     public Weight TotalPurchased { get; }
     public Weight TotalConsumed { get; }
+    /// <summary>Grams thrown away unbilled (stale/spilled bags discarded by an admin) — gone, but not drunk.</summary>
+    public Weight TotalDiscarded { get; }
     public DateTime UpdatedAt { get; }
 
     // Whether any bag of this product is currently open (being poured from).
@@ -26,6 +28,7 @@ public sealed class StockLevel
         CoffeeProduct product,
         Weight totalPurchased,
         Weight totalConsumed,
+        Weight totalDiscarded,
         bool isOpen,
         DateTime updatedAt)
     {
@@ -33,6 +36,7 @@ public sealed class StockLevel
         Product = product;
         TotalPurchased = totalPurchased;
         TotalConsumed = totalConsumed;
+        TotalDiscarded = totalDiscarded;
         IsOpen = isOpen;
         UpdatedAt = updatedAt;
     }
@@ -45,16 +49,17 @@ public sealed class StockLevel
 
         var totalPurchased = Weight.FromGrams(lots.Sum(l => l.Quantity.Grams));
         var totalConsumed = Weight.FromGrams(lots.Sum(l => l.ConsumedGrams));
+        var totalDiscarded = Weight.FromGrams(lots.Sum(l => l.DiscardedGrams));
         var isOpen = lots.Any(l => l.IsOpen);
         var updatedAt = lots
             .Select(l => l.DepletedAt ?? l.OpenedAt ?? l.CreatedAt)
             .DefaultIfEmpty(default)
             .Max();
 
-        return new StockLevel(DeriveId(product), product, totalPurchased, totalConsumed, isOpen, updatedAt);
+        return new StockLevel(DeriveId(product), product, totalPurchased, totalConsumed, totalDiscarded, isOpen, updatedAt);
     }
 
-    public Weight CurrentStock => TotalPurchased.Subtract(TotalConsumed);
+    public Weight CurrentStock => TotalPurchased.Subtract(TotalConsumed).Subtract(TotalDiscarded);
 
     public bool IsLowStock(Weight threshold) => CurrentStock <= threshold;
 

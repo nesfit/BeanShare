@@ -76,8 +76,9 @@ public sealed class MarkBagEmptyCommandHandler : IRequestHandler<MarkBagEmptyCom
             if (!weight.IsPositive)
                 continue;
 
-            // Draw from THIS bag so the cup is stamped at its €/g and the bag depletes to Empty.
-            var allocation = coffeeStock.ConsumeStock(product, weight, _clock, targetLotId: command.LotId);
+            // Write off from THIS bag so the cup is stamped at its €/g and the bag depletes to Empty;
+            // the bag remembers the written-off grams so the emptying can be undone (UndoBagEmpty).
+            var allocation = coffeeStock.WriteOffStock(command.LotId, weight, _clock);
 
             var entryProduct = CoffeeProduct.Create(product.Name, product.Brand, product.Type);
             var entry = ConsumptionEntry.Create(
@@ -91,7 +92,8 @@ public sealed class MarkBagEmptyCommandHandler : IRequestHandler<MarkBagEmptyCom
                 presetName: command.Reason,
                 stockLotId: allocation.LotId,
                 cost: allocation.Cost,
-                unitCostPerGram: allocation.UnitCostPerGram);
+                unitCostPerGram: allocation.UnitCostPerGram,
+                isWriteOff: true);
 
             await _consumptionRepository.AddAsync(entry, cancellationToken);
         }

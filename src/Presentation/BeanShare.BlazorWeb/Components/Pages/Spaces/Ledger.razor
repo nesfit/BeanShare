@@ -53,6 +53,14 @@ else
                     <p class="bs-font-bold stock-stat-value" style="color: var(--bs-warning-dark);">@FormatGrams(t.ConsumedGrams)</p>
                     <p class="bs-text-subtle" style="font-size: 0.75rem;">@Money(t.ConsumedCost) · @t.CupCount cups</p>
                 </div>
+                @if (t.DiscardCount > 0)
+                {
+                    <div class="bs-card">
+                        <p class="bs-text-subtle stock-stat-label">Discarded</p>
+                        <p class="bs-font-bold stock-stat-value" style="color: var(--bs-error);">@FormatGrams(t.DiscardedGrams)</p>
+                        <p class="bs-text-subtle" style="font-size: 0.75rem;">@Money(t.DiscardedCost) sunk · @t.DiscardCount bag@(t.DiscardCount == 1 ? "" : "s") · billed to nobody</p>
+                    </div>
+                }
                 <div class="bs-card">
                     <p class="bs-text-subtle stock-stat-label">Net on hand</p>
                     <p class="bs-font-bold stock-stat-value">@FormatGrams(t.NetGrams)</p>
@@ -65,6 +73,7 @@ else
             <button class="bs-btn bs-btn-sm @(kind == null ? "bs-btn-primary" : "bs-btn-secondary")" @onclick="@(() => SetKind(null))">All</button>
             <button class="bs-btn bs-btn-sm @(kind == "purchase" ? "bs-btn-primary" : "bs-btn-secondary")" @onclick="@(() => SetKind("purchase"))">Purchases</button>
             <button class="bs-btn bs-btn-sm @(kind == "cup" ? "bs-btn-primary" : "bs-btn-secondary")" @onclick="@(() => SetKind("cup"))">Cups</button>
+            <button class="bs-btn bs-btn-sm @(kind == "discard" ? "bs-btn-primary" : "bs-btn-secondary")" @onclick="@(() => SetKind("discard"))">Discards</button>
 
             <span style="width: 1px; height: 1.5rem; background: var(--bs-border);"></span>
 
@@ -134,6 +143,10 @@ else
                                     @if (e.Kind == "Purchase")
                                     {
                                         <span class="bs-pill" style="background: var(--bs-success-light); color: var(--bs-success);">+ Purchase</span>
+                                    }
+                                    else if (e.Kind == "Discard")
+                                    {
+                                        <span class="bs-pill" style="background: var(--bs-error-light); color: var(--bs-error);" title="Thrown away by an admin; billed to nobody">− Discard</span>
                                     }
                                     else
                                     {

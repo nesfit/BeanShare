@@ -49,8 +49,10 @@ public sealed class DeleteStockPurchaseCommandHandler : IRequestHandler<DeleteSt
             await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
             return Result.Success();
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is InvalidOperationException or Domain.Exceptions.DomainException)
         {
+            // "Bag not found" and "already consumed from — mark it empty or discard it instead" both
+            // surface as a clean error rather than a 500.
             return Result.Failure(Error.DomainError(ex.Message));
         }
     }

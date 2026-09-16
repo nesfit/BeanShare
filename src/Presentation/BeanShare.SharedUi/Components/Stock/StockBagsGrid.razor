@@ -45,13 +45,19 @@
                     <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--bs-border); border-radius: 0.5rem;">
                         <table style="border-collapse: collapse; width: 100%; font-size: 0.8125rem; min-width: 520px;">
                             <tbody>
-                                @foreach (var bag in group.OrderBy(b => LabelOrder(b.Label)))
+                                @* The bag being poured from leads its product; then sealed bags by
+                                   label; a just-emptied (undoable) bag trails. *@
+                                @foreach (var bag in group.OrderBy(BagOrder).ThenBy(b => LabelOrder(b.Label)))
                                 {
                                     var pct = bag.QuantityGrams > 0 ? (int)Math.Round(bag.RemainingGrams / bag.QuantityGrams * 100) : 0;
                                     <tr style="border-top: 1px solid var(--bs-border);">
                                         <td style="padding: 0.5rem 0.5rem; white-space: nowrap;">
                                             <div style="font-family: monospace; font-weight: 600;">Bag @bag.Label</div>
                                             <div class="bs-text-subtle" style="font-size: 0.75rem;" title="@PurchasedTitle(bag)">@PurchasedLabel(bag)</div>
+                                            @if (IsUndoableEmpty(bag))
+                                            {
+                                                <div style="font-size: 0.75rem; color: var(--bs-error);">@WriteOffLabel(bag)</div>
+                                            }
                                         </td>
                                         <td style="padding: 0.5rem 0.5rem; white-space: nowrap;">@StatusPill(bag)</td>
                                         <td style="padding: 0.5rem 0.5rem; min-width: 160px;">
@@ -66,15 +72,48 @@
                                         @* Sticky so these controls stay on screen while the
                                            520px-wide table scrolls horizontally. *@
                                         <td class="bs-bags-actions" style="padding: 0.5rem 0.5rem; text-align: right; white-space: nowrap;">
-                                            @if (IsAdmin)
+                                            @if (IsAdmin && IsUndoableEmpty(bag))
+                                            {
+                                                @* An admin just emptied this bag (write-off). It stays listed for the
+                                                   undo window so a mis-click can be reverted without touching the DB. *@
+                                                @if (_confirmingUndo.Contains(bag.Id))
+                                                {
+                                                    <span class="bs-text-subtle" style="font-size: 0.75rem; margin-right: 0.5rem;">@UndoPrompt(bag)</span>
+                                                    <button class="bs-btn bs-btn-primary bs-btn-sm" @onclick="@(() => ConfirmUndo(bag.Id))">Undo</button>
+                                                    <button class="bs-btn bs-btn-quiet bs-btn-sm" @onclick="@(() => _confirmingUndo.Remove(bag.Id))">Cancel</button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="bs-btn bs-btn-secondary bs-btn-sm"
+                                                            title="@UndoTitle(bag)"
+                                                            aria-label="Undo emptying this bag"
+                                                            @onclick="@(() => _confirmingUndo.Add(bag.Id))">
+                                                        <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: -0.2em;">undo</span>
+                                                        Undo empty
+                                                    </button>
+                                                }
+                                            }
+                                            else if (IsAdmin)
                                             {
                                                 @if (_confirmingEmpty.Contains(bag.Id))
                                                 {
                                                     @* Destructive action leads, matching the app-wide
                                                        emphasis rule used by ConfirmDialog. *@
-                                                    <span class="bs-text-subtle" style="font-size: 0.75rem; margin-right: 0.5rem;">Bill remainder to drinkers?</span>
+                                                    <span class="bs-text-subtle" style="font-size: 0.75rem; margin-right: 0.5rem;">Bill @bag.RemainingGrams.ToString("0.#") g to its drinkers?</span>
                                                     <button class="bs-btn bs-btn-error bs-btn-sm" @onclick="@(() => ConfirmEmpty(bag.Id))">Empty</button>
                                                     <button class="bs-btn bs-btn-quiet bs-btn-sm" @onclick="@(() => _confirmingEmpty.Remove(bag.Id))">Cancel</button>
+                                                }
+                                                else if (_confirmingDiscard.Contains(bag.Id))
+                                                {
+                                                    <span class="bs-text-subtle" style="font-size: 0.75rem; margin-right: 0.5rem;">Throw @bag.RemainingGrams.ToString("0.#") g away, billing nobody?</span>
+                                                    <button class="bs-btn bs-btn-error bs-btn-sm" @onclick="@(() => ConfirmDiscard(bag.Id))">Discard</button>
+                                                    <button class="bs-btn bs-btn-quiet bs-btn-sm" @onclick="@(() => _confirmingDiscard.Remove(bag.Id))">Cancel</button>
+                                                }
+                                                else if (_confirmingDelete.Contains(bag.Id))
+                                                {
+                                                    <span class="bs-text-subtle" style="font-size: 0.75rem; margin-right: 0.5rem;">Delete this purchase record for good?</span>
+                                                    <button class="bs-btn bs-btn-error bs-btn-sm" @onclick="@(() => ConfirmDelete(bag.Id))">Delete</button>
+                                                    <button class="bs-btn bs-btn-quiet bs-btn-sm" @onclick="@(() => _confirmingDelete.Remove(bag.Id))">Cancel</button>
                                                 }
                                                 else
                                                 {
@@ -91,6 +130,23 @@
                                                             @onclick="@(() => _confirmingEmpty.Add(bag.Id))">
                                                         <span class="material-symbols-outlined" style="font-size: 1rem;">delete_sweep</span>
                                                     </button>
+                                                    <button class="bs-btn bs-btn-ghost bs-btn-sm" style="color: var(--bs-error);"
+                                                            title="Discard this bag — the remainder is thrown away and billed to nobody (stale, spilled, or never really there)"
+                                                            aria-label="Discard this bag without billing"
+                                                            @onclick="@(() => _confirmingDiscard.Add(bag.Id))">
+                                                        <span class="material-symbols-outlined" style="font-size: 1rem;">delete_forever</span>
+                                                    </button>
+                                                    @if (IsUntouched(bag))
+                                                    {
+                                                        @* Nothing was ever poured from or written off this bag, so the
+                                                           purchase record itself can go (its cost with it). *@
+                                                        <button class="bs-btn bs-btn-ghost bs-btn-sm" style="color: var(--bs-text-subtle);"
+                                                                title="Delete this purchase record — for a bag entered by mistake; its cost disappears too"
+                                                                aria-label="Delete this purchase record"
+                                                                @onclick="@(() => _confirmingDelete.Add(bag.Id))">
+                                                            <span class="material-symbols-outlined" style="font-size: 1rem;">delete</span>
+                                                        </button>
+                                                    }
                                                 }
                                             }
                                         </td>
@@ -111,18 +167,39 @@
     [Parameter] public bool IsAdmin { get; set; }
     [Parameter] public EventCallback<Guid> OnOpenBag { get; set; }
     [Parameter] public EventCallback<Guid> OnMarkBagEmpty { get; set; }
+    [Parameter] public EventCallback<Guid> OnUndoBagEmpty { get; set; }
+    [Parameter] public EventCallback<Guid> OnDiscardBag { get; set; }
+    [Parameter] public EventCallback<Guid> OnDeleteBag { get; set; }
     [Parameter] public EventCallback<StockLevelDto> OnShowQr { get; set; }
 
     private readonly HashSet<Guid> _confirmingEmpty = new();
+    private readonly HashSet<Guid> _confirmingDiscard = new();
+    private readonly HashSet<Guid> _confirmingDelete = new();
+    private readonly HashSet<Guid> _confirmingUndo = new();
 
-    // Current stock = bags that still hold coffee (Empty bags are history, hidden here).
+    // Current stock = bags that still hold coffee (Empty bags are history, hidden here) — plus, for
+    // admins, bags they emptied within the undo window, so a mis-click can be reverted in place.
     private IEnumerable<StockPurchaseDto> CurrentBags =>
-        Purchases.Where(p => p.RemainingGrams > 0 && !string.Equals(p.Status, "Empty", StringComparison.OrdinalIgnoreCase));
+        Purchases.Where(p =>
+            (p.RemainingGrams > 0 && !string.Equals(p.Status, "Empty", StringComparison.OrdinalIgnoreCase))
+            || (IsAdmin && IsUndoableEmpty(p)));
 
+    private static bool IsUndoableEmpty(StockPurchaseDto bag) =>
+        bag.CanUndoEmpty && string.Equals(bag.Status, "Empty", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsUntouched(StockPurchaseDto bag) =>
+        bag.ConsumedGrams == 0 && bag.WrittenOffGrams == 0 && bag.DiscardedGrams == 0;
+
+    // What is being drunk right now comes first: products with an open bag lead, then the rest by
+    // name. Within a product the open bag leads too (see BagOrder).
     private IEnumerable<IGrouping<(string, string, string), StockPurchaseDto>> Grouped =>
         CurrentBags
             .GroupBy(p => (p.ProductName.ToLowerInvariant(), p.ProductBrand.ToLowerInvariant(), p.ProductType.ToLowerInvariant()))
-            .OrderBy(g => g.First().ProductName);
+            .OrderByDescending(g => g.Any(b => b.IsOpen))
+            .ThenBy(g => g.First().ProductName);
+
+    private static int BagOrder(StockPurchaseDto bag) =>
+        bag.IsOpen ? 0 : IsUndoableEmpty(bag) ? 2 : 1;
 
     private StockLevelDto? LevelFor((string name, string brand, string type) key) =>
         StockLevels.FirstOrDefault(s =>
@@ -135,6 +212,48 @@
         _confirmingEmpty.Remove(bagId);
         await OnMarkBagEmpty.InvokeAsync(bagId);
     }
+
+    private async Task ConfirmUndo(Guid bagId)
+    {
+        _confirmingUndo.Remove(bagId);
+        await OnUndoBagEmpty.InvokeAsync(bagId);
+    }
+
+    private async Task ConfirmDiscard(Guid bagId)
+    {
+        _confirmingDiscard.Remove(bagId);
+        await OnDiscardBag.InvokeAsync(bagId);
+    }
+
+    private async Task ConfirmDelete(Guid bagId)
+    {
+        _confirmingDelete.Remove(bagId);
+        await OnDeleteBag.InvokeAsync(bagId);
+    }
+
+    private static string WriteOffLabel(StockPurchaseDto bag)
+    {
+        var until = bag.UndoEmptyUntil?.ToLocalTime();
+        var deadline = until is null ? "" : until.Value.Date == DateTime.Now.Date
+            ? $" · undo until {until:HH:mm}"
+            : $" · undo until {until:dd MMM HH:mm}";
+        var what = bag.WrittenOffGrams > 0 && bag.DiscardedGrams > 0
+            ? $"{bag.WrittenOffGrams:0.#} g billed to drinkers, {bag.DiscardedGrams:0.#} g discarded"
+            : bag.DiscardedGrams > 0
+                ? $"{bag.DiscardedGrams:0.#} g discarded, nobody billed"
+                : $"{bag.WrittenOffGrams:0.#} g billed to drinkers";
+        return $"emptied · {what}{deadline}";
+    }
+
+    private static string UndoPrompt(StockPurchaseDto bag) =>
+        bag.WrittenOffGrams > 0
+            ? $"Un-bill {bag.WrittenOffGrams:0.#} g and restore the bag?"
+            : $"Put {bag.DiscardedGrams:0.#} g back into the bag?";
+
+    private static string UndoTitle(StockPurchaseDto bag) =>
+        bag.WrittenOffGrams > 0
+            ? $"Undo emptying this bag — removes the {bag.WrittenOffGrams:0.#} g billed to its drinkers and puts them back into the bag"
+            : $"Undo discarding this bag — puts the {bag.DiscardedGrams:0.#} g back into the bag";
 
     private static int LabelOrder(string label) =>
         int.TryParse(label.TrimStart('#'), out var n) ? n : int.MaxValue;

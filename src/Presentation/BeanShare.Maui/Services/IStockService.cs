@@ -19,4 +19,10 @@ public interface IStockService
 
     /// <summary>Empties a bag; the untracked remainder is billed to its drinkers (phantom-fill).</summary>
     Task<bool> MarkBagEmptyAsync(Guid spaceId, Guid lotId, string? reason = null);
+
+    /// <summary>Undoes an admin's "mark empty"/"discard" within its 24 h window: removes any billed cups and restores the bag.</summary>
+    Task<bool> UndoBagEmptyAsync(Guid spaceId, Guid lotId);
+
+    /// <summary>Throws a bag's remainder away without billing anyone (stale/spilled coffee).</summary>
+    Task<bool> DiscardBagAsync(Guid spaceId, Guid lotId);
 }

@@ -94,6 +94,10 @@ public sealed class GetCoffeeStockEndpoint : Endpoint<GetSpaceStockRequest, Spac
                 IsOpen = rp.IsOpen,
                 OpenedAt = rp.OpenedAt,
                 DepletedAt = rp.DepletedAt,
+                WrittenOffGrams = rp.WrittenOffGrams,
+                DiscardedGrams = rp.DiscardedGrams,
+                CanUndoEmpty = rp.CanUndoEmpty,
+                UndoEmptyUntil = rp.UndoEmptyUntil,
                 PurchasedByName = rp.PurchasedByName,
                 Message = ""
             }).ToList()

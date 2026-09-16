@@ -123,6 +123,11 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("DepletedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<decimal>("DiscardedGrams")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(10,1)")
+                        .HasDefaultValue(0m);
+
                     b.Property<string>("Label")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -150,6 +155,11 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<decimal>("WrittenOffGrams")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(10,1)")
+                        .HasDefaultValue(0m);
 
                     b.HasKey("Id");
 
@@ -317,6 +327,11 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz");
+
+                    b.Property<bool>("IsWriteOff")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<Guid?>("PresetId")
                         .HasColumnType("uuid");

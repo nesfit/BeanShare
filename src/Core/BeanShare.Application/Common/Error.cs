@@ -56,6 +56,7 @@ public readonly record struct Error(string Code, string Message)
         public const string InsufficientStock = "INSUFFICIENT_STOCK";
         public const string InvalidProductType = "INVALID_PRODUCT_TYPE";
         public const string CurrencyConflict = "CURRENCY_CONFLICT";
+        public const string CannotUndoBagEmpty = "CANNOT_UNDO_BAG_EMPTY";
 
         // Currency errors
         public const string InvalidCurrency = "INVALID_CURRENCY";
@@ -189,6 +190,9 @@ public readonly record struct Error(string Code, string Message)
 
     public static Error InvalidProductType() =>
         new(Codes.InvalidProductType, "Unknown coffee type");
+
+    public static Error CannotUndoBagEmpty(string reason) =>
+        new(Codes.CannotUndoBagEmpty, $"Cannot undo emptying this bag: {reason}");
 
     public static Error CurrencyConflict(string existingCurrency, string newCurrency) =>
         new(Codes.CurrencyConflict, $"Stock uses {existingCurrency} but purchase is in {newCurrency}. All purchases in a stock must use the same currency.");

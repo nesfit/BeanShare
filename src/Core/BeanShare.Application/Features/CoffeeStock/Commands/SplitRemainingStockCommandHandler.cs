@@ -132,7 +132,8 @@ public sealed class SplitRemainingStockCommandHandler : IRequestHandler<SplitRem
                 now,
                 _clock,
                 presetId: null,
-                presetName: request.Reason);
+                presetName: request.Reason,
+                isWriteOff: true);
 
             await _consumptionRepository.AddAsync(consumptionEntry, cancellationToken);
         }

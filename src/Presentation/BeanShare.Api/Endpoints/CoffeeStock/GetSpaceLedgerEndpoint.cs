@@ -75,7 +75,10 @@ public sealed class GetSpaceLedgerEndpoint : Endpoint<GetSpaceLedgerRequest, Led
                     NetGrams = page.Totals.NetGrams,
                     PurchaseCount = page.Totals.PurchaseCount,
                     CupCount = page.Totals.CupCount,
-                    Currency = page.Totals.Currency
+                    Currency = page.Totals.Currency,
+                    DiscardedGrams = page.Totals.DiscardedGrams,
+                    DiscardedCost = page.Totals.DiscardedCost,
+                    DiscardCount = page.Totals.DiscardCount
                 }
             };
             await SendOkAsync(response, ct);

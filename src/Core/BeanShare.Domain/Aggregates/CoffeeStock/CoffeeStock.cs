@@ -127,7 +127,7 @@ public sealed class CoffeeStock : AggregateRoot
 
         if (purchase.ConsumedGrams > 0)
             throw new StockDomainException(
-                $"Cannot delete bag '{purchase.Label}' — {purchase.ConsumedGrams}g has already been consumed from it. Mark it empty instead.");
+                $"Cannot delete bag '{purchase.Label}' — {purchase.ConsumedGrams}g has already been consumed from it. Empty it (bill the drinkers) or discard it (bill nobody) instead.");
 
         _purchases.Remove(purchase);
         UpdatedAt = clock.UtcNow;
@@ -203,6 +203,52 @@ public sealed class CoffeeStock : AggregateRoot
 
         lot.Restore(quantity, clock);
         UpdatedAt = clock.UtcNow;
+    }
+
+    /// <summary>
+    /// Write off <paramref name="quantity"/> of a specific bag (the phantom-fill remainder when an
+    /// admin marks it empty). Same allocation/cost stamping as <see cref="ConsumeStock"/>, but the
+    /// bag remembers the written-off grams so the emptying can be undone.
+    /// </summary>
+    public StockAllocation WriteOffStock(Guid lotId, Weight quantity, IClock clock)
+    {
+        var lot = _purchases.FirstOrDefault(p => p.Id == lotId)
+            ?? throw new StockDomainException($"Bag {lotId} not found");
+
+        var cost = lot.WriteOff(quantity, clock);
+        UpdatedAt = clock.UtcNow;
+
+        var productRemaining = Weight.FromGrams(
+            _purchases.Where(p => SameProduct(p.Product, lot.Product)).Sum(l => l.RemainingGrams.Grams));
+
+        RaiseDomainEvent(new StockConsumed(Id, SpaceId, lot.Product, quantity, productRemaining, clock.UtcNow));
+
+        return new StockAllocation(lot.Id, lot.Label, quantity, lot.UnitCostPerGram, cost, productRemaining);
+    }
+
+    /// <summary>
+    /// Discard whatever is left in a bag without billing anyone (see <see cref="Purchase.Discard"/>).
+    /// Returns the grams discarded.
+    /// </summary>
+    public Weight DiscardBag(Guid lotId, IClock clock)
+    {
+        var lot = _purchases.FirstOrDefault(p => p.Id == lotId)
+            ?? throw new StockDomainException($"Bag {lotId} not found");
+
+        var discarded = lot.Discard(clock);
+        UpdatedAt = clock.UtcNow;
+        return discarded;
+    }
+
+    /// <summary>Reverse the latest write-off/discard of a bag (see <see cref="Purchase.UndoWriteOff"/>). Returns the grams restored.</summary>
+    public Weight UndoBagWriteOff(Guid lotId, IClock clock)
+    {
+        var lot = _purchases.FirstOrDefault(p => p.Id == lotId)
+            ?? throw new StockDomainException($"Bag {lotId} not found");
+
+        var restored = lot.UndoWriteOff(clock);
+        UpdatedAt = clock.UtcNow;
+        return restored;
     }
 
     /// <summary>Mark a bag as the one currently being poured from.</summary>

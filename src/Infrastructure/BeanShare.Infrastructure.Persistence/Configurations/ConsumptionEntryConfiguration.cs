@@ -106,6 +106,10 @@ internal sealed class ConsumptionEntryConfiguration : IEntityTypeConfiguration<C
             .HasColumnType("numeric(18,6)")
             .IsRequired(false);
 
+        builder.Property(x => x.IsWriteOff)
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.Ignore(x => x.Cost);
 
         builder.HasIndex(x => x.StockLotId)

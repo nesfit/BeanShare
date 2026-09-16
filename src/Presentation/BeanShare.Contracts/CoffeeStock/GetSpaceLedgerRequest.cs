@@ -7,7 +7,7 @@ namespace BeanShare.Contracts.CoffeeStock;
 public sealed record GetSpaceLedgerRequest
 {
     public Guid SpaceId { get; init; }
-    public string? Kind { get; init; }            // "purchase" | "cup" | null (all)
+    public string? Kind { get; init; }            // "purchase" | "cup" | "discard" | null (all)
     public string? Product { get; init; }         // substring match on product display name
     public Guid? MemberUserId { get; init; }
     public DateTime? StartDate { get; init; }

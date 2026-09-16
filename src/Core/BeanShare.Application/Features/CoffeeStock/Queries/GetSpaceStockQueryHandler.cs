@@ -138,7 +138,11 @@ public sealed class GetSpaceStockQueryHandler : IRequestHandler<GetSpaceStockQue
             Label = p.Label,
             IsOpen = p.IsOpen,
             OpenedAt = p.OpenedAt,
-            DepletedAt = p.DepletedAt
+            DepletedAt = p.DepletedAt,
+            WrittenOffGrams = p.WrittenOffGrams,
+            DiscardedGrams = p.DiscardedGrams,
+            CanUndoEmpty = p.IsWriteOffUndoable(_clock.UtcNow),
+            UndoEmptyUntil = p.IsWriteOffUndoable(_clock.UtcNow) ? p.WriteOffUndoDeadline : null
         }).ToList();
     }
 }

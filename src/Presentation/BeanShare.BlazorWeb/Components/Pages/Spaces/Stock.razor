@@ -84,6 +84,9 @@ else
                            IsAdmin="@isAdmin"
                            OnOpenBag="HandleOpenBag"
                            OnMarkBagEmpty="HandleMarkBagEmpty"
+                           OnUndoBagEmpty="HandleUndoBagEmpty"
+                           OnDiscardBag="HandleDiscardBag"
+                           OnDeleteBag="HandleDeletePurchase"
                            OnShowQr="ShowQrModal" />
 
             <ActiveQrCodesSection ActiveQrCodes="@activeQrCodes"
@@ -492,6 +495,50 @@ else
         catch (Exception ex)
         {
             ShowToast(true, "Error", $"Failed to empty bag: {ex.Message}");
+        }
+    }
+
+    private async Task HandleUndoBagEmpty(Guid bagId)
+    {
+        try
+        {
+            var result = await Mediator.Send(new UndoBagEmptyCommand(Guid.Parse(SpaceId), bagId));
+            if (result.IsSuccess)
+            {
+                var r = result.Value;
+                ShowToast(false, "Restored", $"{r.ProductDisplayName} {r.BagLabel} is {r.NewStatus.ToLowerInvariant()} again — {r.RestoredGrams:0.#} g put back, {r.RemovedEntries} billed cup(s) removed.");
+                await LoadStock();
+            }
+            else
+            {
+                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Failed to undo emptying the bag: {ex.Message}");
+        }
+    }
+
+    private async Task HandleDiscardBag(Guid bagId)
+    {
+        try
+        {
+            var result = await Mediator.Send(new DiscardBagCommand(Guid.Parse(SpaceId), bagId));
+            if (result.IsSuccess)
+            {
+                var r = result.Value;
+                ShowToast(false, "Discarded", $"{r.ProductDisplayName} {r.BagLabel}: {r.DiscardedGrams:0.#} g thrown away (worth {r.SunkCostAmount:0.##} {r.Currency}); nobody was billed.");
+                await LoadStock();
+            }
+            else
+            {
+                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Failed to discard bag: {ex.Message}");
         }
     }
 
