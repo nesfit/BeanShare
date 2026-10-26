@@ -44,11 +44,6 @@ public sealed class MarkNotificationAsReadEndpoint : Endpoint<MarkNotificationAs
                 await SendNotFoundAsync(ct);
                 return;
             }
-            if (error.Code == "FORBIDDEN")
-            {
-                await SendForbiddenAsync(ct);
-                return;
-            }
             AddError("Notification", error.Message);
             await SendErrorsAsync(400, ct);
             return;
