@@ -367,6 +367,75 @@ public sealed class BagCommandTests
         bag.DepletedAt.Should().BeNull();
     }
 
+    // T-STK-01 (C1 part): the bag's payer is credited, not necessarily the admin who recorded it.
+    [Fact]
+    public async Task AddPurchase_WithPaidBy_MakesThatMemberTheEffectivePayerOfEveryBag()
+    {
+        var space = CreateSpace();
+        var stock = CoffeeStock.Create(_spaceId, _clock);
+        var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
+        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepo, spaceRepo, userContext, _clock, Substitute.For<MapsterMapper.IMapper>());
+
+        var result = await handler.Handle(new AddStockPurchaseCommand(
+            _spaceId.Value, _product.Name, _product.Brand, "Filter", 1000, 20m, "USD", "Store",
+            _clock.UtcNow.AddDays(-1), BagCount: 2, PaidByUserId: _memberB.Value), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        stock.Purchases.Should().HaveCount(2);
+        stock.Purchases.Should().OnlyContain(p => p.PurchasedBy == _admin && p.PaidByUserId == _memberB && p.EffectivePayer == _memberB);
+    }
+
+    [Fact]
+    public async Task AddPurchase_WithoutPaidBy_CreditsTheRecorder()
+    {
+        var space = CreateSpace();
+        var stock = CoffeeStock.Create(_spaceId, _clock);
+        var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
+        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepo, spaceRepo, userContext, _clock, Substitute.For<MapsterMapper.IMapper>());
+
+        var result = await handler.Handle(new AddStockPurchaseCommand(
+            _spaceId.Value, _product.Name, _product.Brand, "Filter", 1000, 20m, "USD", "Store", _clock.UtcNow.AddDays(-1)), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        stock.Purchases.Single().EffectivePayer.Should().Be(_admin);
+    }
+
+    [Fact]
+    public async Task AddPurchase_WithAPayerOutsideTheSpace_Fails()
+    {
+        var space = CreateSpace();
+        var stock = CoffeeStock.Create(_spaceId, _clock);
+        var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
+        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepo, spaceRepo, userContext, _clock, Substitute.For<MapsterMapper.IMapper>());
+
+        var result = await handler.Handle(new AddStockPurchaseCommand(
+            _spaceId.Value, _product.Name, _product.Brand, "Filter", 1000, 20m, "USD", "Store",
+            _clock.UtcNow.AddDays(-1), PaidByUserId: Guid.NewGuid()), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Errors[0].Code.Should().Be(Error.Codes.MemberNotFound);
+        stock.Purchases.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task UpdatePurchase_WithPaidBy_ChangesThePayerAndBumpsTheBagVersion()
+    {
+        var space = CreateSpace();
+        var stock = StockWithOneBag(1000);
+        var bag = stock.Purchases.Single();
+        var versionBefore = bag.Version;
+        var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
+        var handler = new UpdateStockPurchaseCommandHandler(coffeeStockRepo, spaceRepo, userContext, _clock);
+
+        var result = await handler.Handle(new UpdateStockPurchaseCommand(
+            _spaceId.Value, bag.Id, 1000, 20m, bag.PurchasedAt, PaidByUserId: _memberB.Value), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.PaidByUserId.Should().Be(_memberB.Value);
+        bag.EffectivePayer.Should().Be(_memberB);
+        bag.Version.Should().BeGreaterThan(versionBefore);
+    }
+
     private static IBillingPeriodRepository BillingPeriods()
     {
         var repo = Substitute.For<IBillingPeriodRepository>();

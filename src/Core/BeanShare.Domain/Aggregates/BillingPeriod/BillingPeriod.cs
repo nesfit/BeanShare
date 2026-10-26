@@ -22,6 +22,9 @@ public sealed class BillingPeriod : AggregateRoot
     public UserId? ClosedBy { get; private set; }
     public UserId? SettledBy { get; private set; }
 
+    /// <summary>Concurrency token, bumped by every state transition.</summary>
+    public int Version { get; private set; }
+
     public static readonly DateTime OpenEndedSentinel = new(9999, 12, 31, 23, 59, 59, DateTimeKind.Utc);
 
     public bool IsOpenEnded => EndDate >= OpenEndedSentinel.Date;
@@ -92,6 +95,7 @@ public sealed class BillingPeriod : AggregateRoot
         }
 
         State = BillingState.Open;
+        Version++;
 
         RaiseDomainEvent(new BillingPeriodOpened(
             Id,
@@ -114,6 +118,7 @@ public sealed class BillingPeriod : AggregateRoot
         State = BillingState.Closed;
         ClosedAt = clock.UtcNow;
         ClosedBy = userId;
+        Version++;
 
         if (IsOpenEnded)
             EndDate = clock.UtcNow.Date.AddDays(1).AddTicks(-1);
@@ -140,6 +145,7 @@ public sealed class BillingPeriod : AggregateRoot
         ClosedAt = null;
         ClosedBy = null;
         EndDate = OpenEndedSentinel;
+        Version++;
 
         RaiseDomainEvent(new BillingPeriodOpened(
             Id,
@@ -162,6 +168,7 @@ public sealed class BillingPeriod : AggregateRoot
         State = BillingState.Settled;
         SettledAt = clock.UtcNow;
         SettledBy = userId;
+        Version++;
 
         RaiseDomainEvent(new BillingPeriodSettled(
             Id,

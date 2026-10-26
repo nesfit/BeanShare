@@ -19,8 +19,14 @@ public sealed class Purchase : Entity
     public Money Cost { get; private set; }
     public string Vendor { get; private init; }
     public UserId PurchasedBy { get; private init; }
+
+    /// <summary>Who actually paid for the bag when it was not the admin who recorded it.</summary>
+    public UserId? PaidByUserId { get; private set; }
     public DateTime PurchasedAt { get; private set; }
     public DateTime CreatedAt { get; private init; }
+
+    /// <summary>Concurrency token, bumped by every change to the bag's counters, price or payer.</summary>
+    public int Version { get; private set; }
 
     // --- Lot (bag) tracking ---
     public string Label { get; private set; }
@@ -48,6 +54,9 @@ public sealed class Purchase : Entity
 
     /// <summary>Optional scanned EAN/UPC barcode of the bag, so repeat purchases can be prefilled.</summary>
     public string? Barcode { get; private init; }
+
+    /// <summary>The member credited when cups are drawn from this bag.</summary>
+    public UserId EffectivePayer => PaidByUserId ?? PurchasedBy;
 
     private Purchase()
     {
@@ -95,7 +104,8 @@ public sealed class Purchase : Entity
         DateTime purchasedAt,
         IClock clock,
         string label = "",
-        string? barcode = null)
+        string? barcode = null,
+        UserId? paidBy = null)
     {
         ArgumentNullException.ThrowIfNull(product);
         ArgumentNullException.ThrowIfNull(quantity);
@@ -129,7 +139,10 @@ public sealed class Purchase : Entity
             purchasedAt,
             clock.UtcNow,
             label?.Trim() ?? string.Empty,
-            normalizedBarcode);
+            normalizedBarcode)
+        {
+            PaidByUserId = paidBy
+        };
     }
 
     /// <summary>Grams still available in this bag.</summary>
@@ -161,6 +174,7 @@ public sealed class Purchase : Entity
         Quantity = newQuantity;
         Cost = Money.Create(newCostAmount, Cost.Currency);
         PurchasedAt = newPurchasedAt;
+        Version++;
 
         // A resize may re-open a previously depleted bag.
         if (Status == LotStatus.Empty && RemainingGrams.IsPositive)
@@ -171,6 +185,16 @@ public sealed class Purchase : Entity
             OpenedAt ??= clock.UtcNow;
             DepletedAt = null;
         }
+    }
+
+    /// <summary>Sets who paid for the bag (null = the recorder). Affects only future settlements.</summary>
+    public void SetPaidBy(UserId? paidBy)
+    {
+        if (PaidByUserId == paidBy)
+            return;
+
+        PaidByUserId = paidBy;
+        Version++;
     }
 
     public void UpdateProduct(CoffeeProduct newProduct)
@@ -218,6 +242,7 @@ public sealed class Purchase : Entity
         }
 
         ConsumedGrams += grams.Grams;
+        Version++;
         var cost = Money.Create(UnitCostPerGram * grams.Grams, Cost.Currency);
 
         if (RemainingGrams.IsZero)
@@ -253,6 +278,7 @@ public sealed class Purchase : Entity
 
         var discarded = RemainingGrams;
         DiscardedGrams += discarded.Grams;
+        Version++;
         Status = LotStatus.Empty;
         DepletedAt = clock.UtcNow;
         return discarded;
@@ -285,6 +311,7 @@ public sealed class Purchase : Entity
         WrittenOffGrams = 0;
         DiscardedGrams = 0;
         DepletedAt = null;
+        Version++;
 
         if (ConsumedGrams == 0)
         {
@@ -310,6 +337,7 @@ public sealed class Purchase : Entity
 
         var restored = Math.Min(grams.Grams, ConsumedGrams);
         ConsumedGrams -= restored;
+        Version++;
         // Deleting one write-off cup by hand shrinks what is left to undo as a whole.
         WrittenOffGrams = Math.Min(WrittenOffGrams, ConsumedGrams);
 

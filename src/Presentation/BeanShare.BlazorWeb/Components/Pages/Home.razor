@@ -1,10 +1,11 @@
 @page "/"
 @using Microsoft.AspNetCore.Components.Authorization
 @using MediatR
+@using BeanShare.Application.Common
 @using BeanShare.Application.Features.Spaces.Queries
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
-@inject IMediator Mediator
+@inject IScopedSender Mediator
 
 <PageTitle>Welcome - BeanShare</PageTitle>
 

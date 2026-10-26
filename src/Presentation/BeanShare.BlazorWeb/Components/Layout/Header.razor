@@ -1,13 +1,12 @@
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.Authorization
-@using MediatR
+@using BeanShare.Application.Common
 @using BeanShare.Application.Features.Notifications.Queries.GetUnreadCount
-@using Microsoft.Extensions.DependencyInjection
 @using Microsoft.JSInterop
 @implements IDisposable
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
-@inject IServiceScopeFactory ScopeFactory
+@inject IScopedSender Sender
 @inject IJSRuntime JSRuntime
 
 <header class="app-header">
@@ -172,11 +171,8 @@
     {
         try
         {
-            // Use a separate DI scope to avoid DbContext threading issues
-            // when page components also make concurrent MediatR calls
-            using var scope = ScopeFactory.CreateScope();
-            var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
-            var result = await mediator.Send(new GetUnreadCountQuery());
+            // Runs in its own DI scope, so it never shares a DbContext with the page.
+            var result = await Sender.Send(new GetUnreadCountQuery());
             if (result.IsSuccess)
             {
                 unreadNotifications = result.Value;

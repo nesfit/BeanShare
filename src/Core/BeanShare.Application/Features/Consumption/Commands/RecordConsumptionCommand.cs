@@ -15,4 +15,4 @@ public sealed record RecordConsumptionCommand(
     string? PresetName = null,
     Guid? ForUserId = null,
     Guid? StockLotId = null
-) : IAuthorize, ICommand<Result<ConsumptionEntryDto>>;
+) : IAuthorize, IRetryOnConcurrencyConflict, ICommand<Result<ConsumptionEntryDto>>;

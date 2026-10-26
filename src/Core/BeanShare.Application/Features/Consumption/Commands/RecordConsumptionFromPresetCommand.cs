@@ -11,4 +11,4 @@ public sealed record RecordConsumptionFromPresetCommand(
     decimal? CustomQuantityGrams = null,
     DateTime? ConsumedAt = null,
     Guid? ForUserId = null
-) : IAuthorize, ICommand<Result<ConsumptionEntryDto>>;
+) : IAuthorize, IRetryOnConcurrencyConflict, ICommand<Result<ConsumptionEntryDto>>;

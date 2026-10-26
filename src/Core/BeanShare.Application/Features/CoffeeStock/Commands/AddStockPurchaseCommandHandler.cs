@@ -47,6 +47,12 @@ public sealed class AddStockPurchaseCommandHandler : IRequestHandler<AddStockPur
             return Result<StockPurchaseDto>.Failure(Error.InsufficientSpacePrivileges("manage coffee stock"));
         }
 
+        UserId? paidBy = command.PaidByUserId is { } payerId ? new UserId(payerId) : null;
+        if (paidBy is { } payer && !space.HasMember(payer))
+        {
+            return Result<StockPurchaseDto>.Failure(Error.MemberNotFound(payer.Value, command.SpaceId));
+        }
+
         if (!string.Equals(space.Currency.Code, command.CostCurrency, StringComparison.OrdinalIgnoreCase))
         {
             return Result<StockPurchaseDto>.Failure(
@@ -93,7 +99,8 @@ public sealed class AddStockPurchaseCommandHandler : IRequestHandler<AddStockPur
                 command.PurchasedAt,
                 _clock,
                 command.BagCount,
-                command.Barcode);
+                command.Barcode,
+                paidBy);
 
             if (!isNewStock)
             {

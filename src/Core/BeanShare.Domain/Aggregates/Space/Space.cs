@@ -22,6 +22,16 @@ public sealed class Space : AggregateRoot
     public int RestockLeadTimeDays { get; private set; } = 7;
     public decimal RestockMinOrderValue { get; private set; } = 2000m;
 
+    // --- Money ledger settings ---
+    /// <summary>The admin every debtor pays and who pays every creditor; required to generate a settlement.</summary>
+    public UserId? TreasurerUserId { get; private set; }
+
+    /// <summary>Cups dated before this UTC date never enter money; locked once a ledger settlement exists.</summary>
+    public DateTime? LedgerStartDate { get; private set; }
+
+    /// <summary>Concurrency token bumped by every change that affects the money ledger of the space.</summary>
+    public int LedgerVersion { get; private set; }
+
     public IReadOnlyCollection<SpaceMembership> Members => _members.AsReadOnly();
 
     private Space()
@@ -128,9 +138,13 @@ public sealed class Space : AggregateRoot
             
         if (AdminCount <= 1)
             throw new InvariantViolationException("Cannot demote the last admin");
-            
+
+        if (IsTreasurer(userId))
+            throw new SpaceDomainException("Cannot demote the treasurer; choose another treasurer first");
+
         member.ChangeRole(SpaceRole.Member);
-        
+        BumpLedgerVersion();
+
         RaiseDomainEvent(new SpaceMembershipChanged(
             Id,
             userId,
@@ -149,8 +163,12 @@ public sealed class Space : AggregateRoot
         if (member.Role == SpaceRole.Admin && AdminCount <= 1)
             throw new InvariantViolationException("Cannot remove the last admin");
 
+        if (IsTreasurer(userId))
+            throw new InvariantViolationException("Cannot remove the treasurer; choose another treasurer first");
+
         _members.Remove(member);
-        
+        BumpLedgerVersion();
+
         RaiseDomainEvent(new SpaceMembershipChanged(
             Id,
             userId,
@@ -159,6 +177,44 @@ public sealed class Space : AggregateRoot
             clock.UtcNow
         ));
     }
+
+    public bool IsTreasurer(UserId userId) => TreasurerUserId == userId;
+
+    /// <summary>Sets (or clears, with null) the treasurer, who must be an admin of the space.</summary>
+    public void SetTreasurer(UserId? userId)
+    {
+        if (userId is { } id)
+        {
+            var member = GetMember(id)
+                ?? throw new SpaceDomainException("The treasurer must be a member of the space");
+
+            if (!member.IsAdmin)
+                throw new SpaceDomainException("The treasurer must be an admin of the space");
+        }
+
+        TreasurerUserId = userId;
+        BumpLedgerVersion();
+    }
+
+    /// <summary>
+    /// Sets (or clears) the date from which cups count in money. Once a ledger settlement exists the
+    /// date can no longer change (LEDGER_START_LOCKED).
+    /// </summary>
+    public void SetLedgerStartDate(DateTime? date, bool hasLedgerSettlement)
+    {
+        var normalized = date.HasValue ? UtcDate.Of(date.Value) : (DateTime?)null;
+        if (normalized == LedgerStartDate)
+            return;
+
+        if (hasLedgerSettlement)
+            throw new LedgerDomainException(LedgerDomainException.LedgerStartLocked,
+                "The ledger start date cannot change after the first ledger settlement");
+
+        LedgerStartDate = normalized;
+        BumpLedgerVersion();
+    }
+
+    public void BumpLedgerVersion() => LedgerVersion++;
 
     public void UpdateName(string newName)
     {

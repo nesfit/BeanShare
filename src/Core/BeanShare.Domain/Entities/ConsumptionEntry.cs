@@ -32,6 +32,9 @@ public sealed class ConsumptionEntry : AggregateRoot
     /// </summary>
     public bool IsWriteOff { get; private set; }
 
+    /// <summary>Concurrency token, bumped by every change to the cup.</summary>
+    public int Version { get; private set; }
+
     /// <summary>Cost of this cup, stamped at log time from the bag's price; null when it couldn't be attributed.</summary>
     public Money? Cost => CostAmount.HasValue && !string.IsNullOrEmpty(CostCurrency)
         ? Money.Create(CostAmount.Value, Currency.Create(CostCurrency))
@@ -142,6 +145,7 @@ public sealed class ConsumptionEntry : AggregateRoot
         Product = product;
         Quantity = quantity;
         ConsumedAt = consumedAt;
+        Version++;
     }
 
     /// <summary>Stamp which bag this cup drew from and the cost taken from that bag's price.</summary>
@@ -151,6 +155,7 @@ public sealed class ConsumptionEntry : AggregateRoot
         CostAmount = cost?.Amount;
         CostCurrency = cost?.Currency.Code;
         UnitCostPerGram = unitCostPerGram;
+        Version++;
     }
 
     /// <summary>Drop the bag/cost stamp (e.g. before re-allocating on edit, or when unattributed).</summary>
@@ -160,6 +165,7 @@ public sealed class ConsumptionEntry : AggregateRoot
         CostAmount = null;
         CostCurrency = null;
         UnitCostPerGram = null;
+        Version++;
     }
 
     public void AssignToBillingPeriod(BillingPeriodId billingPeriodId)
@@ -172,5 +178,6 @@ public sealed class ConsumptionEntry : AggregateRoot
         }
 
         BillingPeriodId = billingPeriodId;
+        Version++;
     }
 }

@@ -15,36 +15,15 @@ public sealed class ExceptionHandlingBehavior<TRequest, TResponse> : IPipelineBe
         }
         catch (SpaceDomainException ex)
         {
-            return CreateFailureResult<TResponse>(Error.DomainError(ex.Message));
+            return ResultFactory.Failure<TResponse>(Error.DomainError(ex.Message));
+        }
+        catch (LedgerDomainException ex)
+        {
+            return ResultFactory.Failure<TResponse>(new Error(ex.Code, ex.Message));
         }
         catch (DomainException ex)
         {
-            return CreateFailureResult<TResponse>(Error.DomainError(ex.Message));
+            return ResultFactory.Failure<TResponse>(Error.DomainError(ex.Message));
         }
-    }
-
-    private static TResponse CreateFailureResult<T>(Error error)
-    {
-        var responseType = typeof(T);
-
-        if (responseType == typeof(Result))
-        {
-            return (TResponse)(object)Result.Failure(error);
-        }
-
-        if (responseType.IsGenericType && responseType.GetGenericTypeDefinition() == typeof(Result<>))
-        {
-            var resultType = responseType.GetGenericArguments()[0];
-            var failureMethod = typeof(Result<>).MakeGenericType(resultType)
-                .GetMethod("Failure", new[] { typeof(Error) });
-
-            if (failureMethod != null)
-            {
-                var result = failureMethod.Invoke(null, new object[] { error });
-                return (TResponse)result!;
-            }
-        }
-
-        throw new InvalidOperationException($"Cannot create failure result for type {responseType}");
     }
 }

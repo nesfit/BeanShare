@@ -8,7 +8,7 @@
 @using BeanShare.Domain.Enums
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "admin")]
-@inject IMediator Mediator
+@inject IScopedSender Mediator
 @inject NavigationManager Navigation
 
 <PageTitle>User Details - Admin - BeanShare</PageTitle>

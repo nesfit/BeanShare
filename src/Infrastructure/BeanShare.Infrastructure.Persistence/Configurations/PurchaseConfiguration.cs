@@ -4,6 +4,7 @@ using BeanShare.Domain.Enums;
 using BeanShare.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace BeanShare.Infrastructure.Persistence.Configurations;
 
@@ -74,6 +75,14 @@ public sealed class PurchaseConfiguration : IEntityTypeConfiguration<Purchase>
                 value => (UserId)value)
             .IsRequired();
 
+        builder.Property(p => p.PaidByUserId)
+            .HasConversion(new ValueConverter<UserId?, Guid?>(
+                id => id.HasValue ? id.Value.Value : (Guid?)null,
+                value => value.HasValue ? new UserId(value.Value) : (UserId?)null));
+
+        builder.Property(p => p.Version)
+            .IsConcurrencyToken();
+
         builder.Property(p => p.PurchasedAt)
             .IsRequired();
 
@@ -122,6 +131,7 @@ public sealed class PurchaseConfiguration : IEntityTypeConfiguration<Purchase>
         builder.Ignore(p => p.CostPerGram);
         builder.Ignore(p => p.IsOpen);
         builder.Ignore(p => p.IsEmpty);
+        builder.Ignore(p => p.EffectivePayer);
 
         builder.HasIndex(p => p.PurchasedAt);
         builder.HasIndex(p => p.CreatedAt);

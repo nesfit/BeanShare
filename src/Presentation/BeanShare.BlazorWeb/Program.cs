@@ -30,6 +30,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddApplication();
+builder.Services.AddScopedSender();
 builder.Services.AddInfrastructure(connectionString, useInMemoryDatabase: useInMemoryDatabase);
 builder.Services.AddMemoryCache();
 builder.Services.AddExchangeRates(builder.Configuration);

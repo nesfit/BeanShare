@@ -41,7 +41,16 @@ public sealed class UnitOfWorkBehavior<TRequest, TResponse> : IPipelineBehavior<
                     {
                         var domainEvents = _eventDispatcher.CollectDomainEvents();
 
-                        await _uow.SaveChangesAsync(ct);
+                        try
+                        {
+                            await _uow.SaveChangesAsync(ct);
+                        }
+                        catch (ConcurrencyConflictException ex) when (request is not IRetryOnConcurrencyConflict)
+                        {
+                            // Retryable requests let the exception reach ConcurrencyRetryBehavior,
+                            // which needs the conflicting entity types.
+                            return ResultFactory.Failure<TResponse>(ex.ToError());
+                        }
 
                         if (domainEvents.Count > 0)
                             await _eventDispatcher.DispatchAsync(domainEvents, ct);

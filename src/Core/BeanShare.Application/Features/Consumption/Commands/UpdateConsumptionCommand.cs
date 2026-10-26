@@ -14,4 +14,4 @@ public sealed record UpdateConsumptionCommand(
     string ProductType,
     decimal QuantityGrams,
     DateTime ConsumedAt
-) : IAuthorize, ICommand<Result<ConsumptionEntryDto>>;
+) : IAuthorize, IRetryOnConcurrencyConflict, ICommand<Result<ConsumptionEntryDto>>;

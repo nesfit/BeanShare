@@ -43,6 +43,12 @@ public sealed class TransactionBehavior<TRequest, TResponse> : IPipelineBehavior
 
             return response;
         }
+        catch (ConcurrencyConflictException ex) when (request is not IRetryOnConcurrencyConflict && ResultFactory.CanCreate<TResponse>())
+        {
+            // A conflict on the commit-path save (e.g. notification rows): already rolled back.
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            return ResultFactory.Failure<TResponse>(ex.ToError());
+        }
         catch
         {
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);

@@ -69,6 +69,10 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("SpaceId");
@@ -138,6 +142,9 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("OpenedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("PaidByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("PurchasedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -155,6 +162,10 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("WrittenOffGrams")
                         .ValueGeneratedOnAdd()
@@ -174,6 +185,75 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                     b.HasIndex("CoffeeStockId", "PurchasedAt");
 
                     b.ToTable("Purchases", (string)null);
+                });
+
+            modelBuilder.Entity("BeanShare.Domain.Aggregates.Ledger.BalanceEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid>("CounterpartyUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<DateTime>("EffectiveDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("IncludedInSettlementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("SpaceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SpaceId", "CounterpartyUserId");
+
+                    b.HasIndex("SpaceId", "IncludedInSettlementId");
+
+                    b.HasIndex("SpaceId", "UserId");
+
+                    b.ToTable("BalanceEntries", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BalanceEntries_Amount_NonZero", "\"Amount\" <> 0");
+
+                            t.HasCheckConstraint("CK_BalanceEntries_Parties_Differ", "\"UserId\" <> \"CounterpartyUserId\"");
+                        });
                 });
 
             modelBuilder.Entity("BeanShare.Domain.Aggregates.Settlement.Settlement", b =>
@@ -201,6 +281,12 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("GeneratedBy");
 
+                    b.Property<int?>("Model")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Sequence")
+                        .HasColumnType("integer");
+
                     b.Property<Guid>("SpaceId")
                         .HasColumnType("uuid")
                         .HasColumnName("SpaceId");
@@ -210,9 +296,19 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<Guid?>("SupersededBySettlementId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid?>("TreasurerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -220,6 +316,10 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("SpaceId");
+
+                    b.HasIndex("SpaceId", "Sequence")
+                        .IsUnique()
+                        .HasFilter("\"Sequence\" IS NOT NULL");
 
                     b.ToTable("Settlements", (string)null);
                 });
@@ -246,6 +346,13 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("LedgerStartDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("LedgerVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -260,6 +367,9 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("decimal(18,2)")
                         .HasDefaultValue(2000m);
+
+                    b.Property<Guid?>("TreasurerUserId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -355,6 +465,10 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -842,11 +956,48 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                                 .HasColumnType("uuid")
                                 .HasColumnName("UserId");
 
+                            b1.Property<decimal?>("AdjustmentsAmount")
+                                .HasPrecision(18, 4)
+                                .HasColumnType("numeric(18,4)");
+
+                            b1.Property<Guid?>("CarriedFromSettlementId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal?>("CarriedInAmount")
+                                .HasPrecision(18, 4)
+                                .HasColumnType("numeric(18,4)");
+
+                            b1.Property<decimal?>("CarriedOutAmount")
+                                .HasPrecision(18, 4)
+                                .HasColumnType("numeric(18,4)");
+
+                            b1.Property<Guid?>("CarriedToSettlementId")
+                                .HasColumnType("uuid");
+
                             b1.Property<DateTime>("CreatedAt")
                                 .HasColumnType("timestamp with time zone");
 
+                            b1.Property<decimal?>("CreditAmount")
+                                .HasPrecision(18, 4)
+                                .HasColumnType("numeric(18,4)");
+
                             b1.Property<Guid>("Id")
                                 .HasColumnType("uuid");
+
+                            b1.Property<decimal?>("LegacyAmountPaid")
+                                .HasPrecision(18, 4)
+                                .HasColumnType("numeric(18,4)");
+
+                            b1.Property<decimal?>("NetAmount")
+                                .HasPrecision(18, 4)
+                                .HasColumnType("numeric(18,4)");
+
+                            b1.Property<int?>("Resolution")
+                                .HasColumnType("integer");
+
+                            b1.Property<decimal?>("RoundingAmount")
+                                .HasPrecision(18, 4)
+                                .HasColumnType("numeric(18,4)");
 
                             b1.Property<decimal>("TotalCoffeeGrams")
                                 .HasPrecision(18, 2)
@@ -857,6 +1008,10 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                                 .HasColumnType("numeric(18,2)");
 
                             b1.HasKey("SettlementId", "UserId");
+
+                            b1.HasIndex("CarriedFromSettlementId", "UserId")
+                                .IsUnique()
+                                .HasFilter("\"CarriedFromSettlementId\" IS NOT NULL");
 
                             b1.ToTable("SettlementLines", (string)null);
 

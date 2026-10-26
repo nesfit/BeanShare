@@ -105,7 +105,7 @@ public sealed class GetSpaceStockQueryHandler : IRequestHandler<GetSpaceStockQue
             .ToList();
 
         var distinctUserIds = recentPurchases
-            .Select(p => p.PurchasedBy)
+            .SelectMany(p => p.PaidByUserId is { } paidBy ? new[] { p.PurchasedBy, paidBy } : new[] { p.PurchasedBy })
             .Distinct()
             .ToList();
 
@@ -129,6 +129,8 @@ public sealed class GetSpaceStockQueryHandler : IRequestHandler<GetSpaceStockQue
             Vendor = p.Vendor,
             PurchasedBy = p.PurchasedBy.Value,
             PurchasedByName = userNames.GetValueOrDefault(p.PurchasedBy, "Unknown"),
+            PaidByUserId = p.PaidByUserId?.Value,
+            PaidByName = p.PaidByUserId is { } paidBy ? userNames.GetValueOrDefault(paidBy, "Unknown") : null,
             PurchasedAt = p.PurchasedAt,
             CreatedAt = p.CreatedAt,
             CostPerGram = p.Cost.Amount / p.Quantity.Grams,

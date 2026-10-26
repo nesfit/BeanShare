@@ -21,7 +21,7 @@
 @using Microsoft.AspNetCore.WebUtilities
 @using BeanShare.Application.Abstractions
 @attribute [Authorize]
-@inject IMediator Mediator
+@inject IScopedSender Mediator
 @inject NavigationManager Navigation
 @inject IUserContext UserContext
 @inject IJSRuntime JSRuntime

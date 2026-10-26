@@ -4,11 +4,16 @@ using BeanShare.Domain.Enums;
 using BeanShare.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace BeanShare.Infrastructure.Persistence.Configurations;
 
 public sealed class SettlementConfiguration : IEntityTypeConfiguration<Settlement>
 {
+    private static readonly ValueConverter<SettlementId?, Guid?> NullableSettlementIdConverter = new(
+        id => id.HasValue ? id.Value.Value : (Guid?)null,
+        value => value.HasValue ? new SettlementId(value.Value) : (SettlementId?)null);
+
     public void Configure(EntityTypeBuilder<Settlement> builder)
     {
         builder.ToTable("Settlements");
@@ -62,9 +67,25 @@ public sealed class SettlementConfiguration : IEntityTypeConfiguration<Settlemen
 
         builder.Property(s => s.CompletedAt);
 
+        builder.Property(s => s.Model);
+
+        builder.Property(s => s.Sequence);
+
+        builder.Property(s => s.TreasurerUserId)
+            .HasConversion(new ValueConverter<UserId?, Guid?>(
+                id => id.HasValue ? id.Value.Value : (Guid?)null,
+                value => value.HasValue ? new UserId(value.Value) : (UserId?)null));
+
+        builder.Property(s => s.SupersededBySettlementId)
+            .HasConversion(NullableSettlementIdConverter);
+
+        builder.Property(s => s.Version)
+            .IsConcurrencyToken();
+
         builder.Ignore(s => s.AreAllLinesConfirmed);
         builder.Ignore(s => s.ConfirmedLinesCount);
         builder.Ignore(s => s.TotalLinesCount);
+        builder.Ignore(s => s.IsLedger);
 
         builder.OwnsMany(s => s.Lines, linesConfig =>
         {
@@ -124,7 +145,30 @@ public sealed class SettlementConfiguration : IEntityTypeConfiguration<Settlemen
                     .HasColumnName("ConfirmedAt");
             });
 
+            linesConfig.Property(l => l.CreditAmount).HasPrecision(18, 4);
+            linesConfig.Property(l => l.CarriedInAmount).HasPrecision(18, 4);
+            linesConfig.Property(l => l.AdjustmentsAmount).HasPrecision(18, 4);
+            linesConfig.Property(l => l.RoundingAmount).HasPrecision(18, 4);
+            linesConfig.Property(l => l.NetAmount).HasPrecision(18, 4);
+            linesConfig.Property(l => l.CarriedOutAmount).HasPrecision(18, 4);
+            linesConfig.Property(l => l.LegacyAmountPaid).HasPrecision(18, 4);
+            linesConfig.Property(l => l.Resolution);
+
+            linesConfig.Property(l => l.CarriedFromSettlementId)
+                .HasConversion(NullableSettlementIdConverter);
+
+            linesConfig.Property(l => l.CarriedToSettlementId)
+                .HasConversion(NullableSettlementIdConverter);
+
+            // Each open line of a settlement is carried at most once (I6).
+            linesConfig.HasIndex(nameof(SettlementLine.CarriedFromSettlementId), nameof(SettlementLine.UserId))
+                .IsUnique()
+                .HasFilter("\"CarriedFromSettlementId\" IS NOT NULL");
+
             linesConfig.Ignore(l => l.IsConfirmed);
+            linesConfig.Ignore(l => l.IsLedger);
+            linesConfig.Ignore(l => l.IsOpen);
+            linesConfig.Ignore(l => l.IsCarried);
         });
 
         builder.Navigation(s => s.Lines)
@@ -134,5 +178,10 @@ public sealed class SettlementConfiguration : IEntityTypeConfiguration<Settlemen
 
         builder.HasIndex(s => s.SpaceId);
         builder.HasIndex(s => s.BillingPeriodId).IsUnique();
+
+        // Serializes generations within a space.
+        builder.HasIndex(s => new { s.SpaceId, s.Sequence })
+            .IsUnique()
+            .HasFilter("\"Sequence\" IS NOT NULL");
     }
 }

@@ -1,6 +1,7 @@
 @page "/spaces/{SpaceId}/ledger"
 @rendermode InteractiveServer
 @using MediatR
+@using BeanShare.Application.Common
 @using BeanShare.Application.Features.Spaces.Queries
 @using BeanShare.Application.Features.CoffeeStock.Queries
 @using BeanShare.Application.Features.CoffeeStock.Queries.GetSpaceLedger
@@ -8,7 +9,7 @@
 @using BeanShare.Application.Abstractions
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
-@inject IMediator Mediator
+@inject IScopedSender Mediator
 @inject NavigationManager Navigation
 @inject IUserContext UserContext
 

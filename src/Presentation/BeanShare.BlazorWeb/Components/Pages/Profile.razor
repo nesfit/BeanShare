@@ -4,20 +4,20 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @using MediatR
+@using BeanShare.Application.Common
 @using BeanShare.Application.Abstractions
 @using BeanShare.Application.Features.Spaces.Queries
 @using BeanShare.Application.Features.Analytics.Queries.GetUserStatistics
 @using BeanShare.Application.Features.Users.Commands.UpdateProfile
 @using BeanShare.Application.Features.Users.Commands.SetRevolutTag
-@using BeanShare.Application.Services
+@using BeanShare.Application.Features.Users.Queries.GetMyProfile
 @using BeanShare.Infrastructure.Services
 @using BeanShare.Domain.Common
 @using System.Linq
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
-@inject IMediator Mediator
+@inject IScopedSender Mediator
 @inject IUserContext UserContext
-@inject IUserService UserService
 @inject AvatarStorageService AvatarStorageService
 @inject IJSRuntime JSRuntime
 @attribute [Authorize]
@@ -240,9 +240,10 @@
             {
                 try
                 {
-                    var user = await UserService.GetByIdAsync(userId);
-                    if (user is not null)
+                    var profileResult = await Mediator.Send(new GetMyProfileQuery());
+                    if (profileResult.IsSuccess)
                     {
+                        var user = profileResult.Value;
                         if (!string.IsNullOrEmpty(user.Name))
                             displayName = user.Name;
                         if (user.PictureUrl is not null)

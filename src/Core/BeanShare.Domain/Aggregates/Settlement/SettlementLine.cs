@@ -1,4 +1,5 @@
 using BeanShare.Domain.Common;
+using BeanShare.Domain.Enums;
 using BeanShare.Domain.ValueObjects;
 
 namespace BeanShare.Domain.Aggregates.Settlement;
@@ -19,7 +20,29 @@ public sealed class SettlementLine : Entity
     public DateTime CreatedAt { get; private set; }
     public PaymentConfirmation? Confirmation { get; private set; }
 
+    // --- Ledger snapshot (null on legacy lines); amounts never change after creation ---
+    public decimal? CreditAmount { get; private set; }
+    public decimal? CarriedInAmount { get; private set; }
+    public decimal? AdjustmentsAmount { get; private set; }
+    public decimal? RoundingAmount { get; private set; }
+    public decimal? NetAmount { get; private set; }
+    public LineResolution? Resolution { get; private set; }
+
+    /// <summary>The previous ledger settlement this line's carry-in came from.</summary>
+    public SettlementId? CarriedFromSettlementId { get; private set; }
+
+    /// <summary>The settlement this unresolved line was carried into.</summary>
+    public SettlementId? CarriedToSettlementId { get; private set; }
+
+    public decimal? CarriedOutAmount { get; private set; }
+
+    /// <summary>Legacy lines only: the purchase-based "Paid" frozen once by the backfill.</summary>
+    public decimal? LegacyAmountPaid { get; private set; }
+
     public bool IsConfirmed => Confirmation is not null;
+    public bool IsLedger => Resolution.HasValue;
+    public bool IsOpen => Resolution == LineResolution.Open;
+    public bool IsCarried => Resolution == LineResolution.Carried;
 
     public static SettlementLine Create(
         UserId userId,
@@ -49,6 +72,26 @@ public sealed class SettlementLine : Entity
         };
     }
 
+    internal static SettlementLine CreateLedger(
+        LedgerLineSnapshot snapshot,
+        Currency currency,
+        SettlementId? carriedFromSettlementId,
+        IClock clock)
+    {
+        if (snapshot.Cost < 0)
+            throw new ArgumentOutOfRangeException(nameof(snapshot), "Cost cannot be negative");
+
+        var line = Create(snapshot.UserId, snapshot.CoffeeGrams, snapshot.MilkMl, Money.Create(snapshot.Cost, currency), clock);
+        line.CreditAmount = snapshot.Credit;
+        line.CarriedInAmount = snapshot.CarriedIn;
+        line.AdjustmentsAmount = snapshot.Adjustments;
+        line.RoundingAmount = snapshot.Rounding;
+        line.NetAmount = snapshot.Net;
+        line.Resolution = LineResolution.Open;
+        line.CarriedFromSettlementId = carriedFromSettlementId;
+        return line;
+    }
+
     public decimal GetConsumptionPercentage(decimal totalSpaceConsumption)
     {
         if (totalSpaceConsumption <= 0)
@@ -68,6 +111,36 @@ public sealed class SettlementLine : Entity
         }
 
         Confirmation = PaymentConfirmation.Create(confirmedBy, clock.UtcNow);
+        if (Resolution.HasValue)
+            Resolution = LineResolution.Confirmed;
+    }
+
+    internal void MarkCarried(SettlementId nextSettlementId, decimal carriedOut)
+    {
+        if (Resolution != LineResolution.Open)
+            throw new InvalidOperationException("Only an open ledger line can be carried");
+
+        Resolution = LineResolution.Carried;
+        CarriedToSettlementId = nextSettlementId;
+        CarriedOutAmount = carriedOut;
+    }
+
+    /// <summary>The treasurer's line resolves itself once every other line is confirmed.</summary>
+    internal void ResolveAsTreasurer(UserId treasurerUserId, IClock clock)
+    {
+        if (Resolution != LineResolution.Open)
+            return;
+
+        Confirmation = PaymentConfirmation.Create(treasurerUserId, clock.UtcNow);
+        Resolution = LineResolution.Confirmed;
+    }
+
+    internal void SetLegacyAmountPaid(decimal amountPaid)
+    {
+        if (Resolution.HasValue)
+            throw new InvalidOperationException("Ledger lines have no legacy paid amount");
+
+        LegacyAmountPaid ??= amountPaid;
     }
 
     protected override object GetId() => Id;

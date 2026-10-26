@@ -1,6 +1,7 @@
 @page "/spaces/{SpaceId}/settlements/{SettlementId}"
 @rendermode InteractiveServer
 @using MediatR
+@using BeanShare.Application.Common
 @using BeanShare.Application.Features.Settlement.Queries.GetSettlementById
 @using BeanShare.Application.Features.Settlement.Commands.SendSettlementEmails
 @using BeanShare.Application.Features.Settlement.Commands.ConfirmPayment
@@ -10,7 +11,7 @@
 @using BeanShare.Application.Abstractions
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
-@inject IMediator Mediator
+@inject IScopedSender Mediator
 @inject NavigationManager Navigation
 @inject IUserContext UserContext
 @inject IJSRuntime JSRuntime

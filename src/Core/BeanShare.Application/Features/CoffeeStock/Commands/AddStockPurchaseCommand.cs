@@ -16,5 +16,6 @@ public sealed record AddStockPurchaseCommand(
     string Vendor,
     DateTime PurchasedAt,
     int BagCount = 1,
-    string? Barcode = null
+    string? Barcode = null,
+    Guid? PaidByUserId = null
 ) : IAuthorize, ICommand<Result<StockPurchaseDto>>;

@@ -6,9 +6,10 @@
 @using BeanShare.Application.Features.Presets.Commands
 @using System.ComponentModel.DataAnnotations
 @using MediatR
+@using BeanShare.Application.Common
 @attribute [Authorize]
 @inject NavigationManager Navigation
-@inject IMediator Mediator
+@inject IScopedSender Mediator
 @inject ILogger<Presets> Logger
 
 <PageTitle>Presets - BeanShare</PageTitle>

@@ -110,6 +110,9 @@ internal sealed class ConsumptionEntryConfiguration : IEntityTypeConfiguration<C
             .HasDefaultValue(false)
             .IsRequired();
 
+        builder.Property(x => x.Version)
+            .IsConcurrencyToken();
+
         builder.Ignore(x => x.Cost);
 
         builder.HasIndex(x => x.StockLotId)

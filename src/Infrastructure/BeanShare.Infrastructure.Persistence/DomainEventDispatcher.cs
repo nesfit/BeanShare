@@ -4,9 +4,10 @@ using MediatR;
 
 namespace BeanShare.Infrastructure.Persistence;
 
+/// <summary>Publishes domain events through MediatR's own publisher of the current operation scope.</summary>
 public sealed class DomainEventDispatcher(
     BeanShareDbContext context,
-    IMediator mediator) : IDomainEventDispatcher
+    IPublisher publisher) : IDomainEventDispatcher
 {
     public IReadOnlyList<IDomainEvent> CollectDomainEvents()
         => context.CollectDomainEvents();
@@ -14,6 +15,6 @@ public sealed class DomainEventDispatcher(
     public async Task DispatchAsync(IReadOnlyList<IDomainEvent> events, CancellationToken cancellationToken = default)
     {
         foreach (var domainEvent in events)
-            await mediator.Publish(domainEvent, cancellationToken);
+            await publisher.Publish(domainEvent, cancellationToken);
     }
 }

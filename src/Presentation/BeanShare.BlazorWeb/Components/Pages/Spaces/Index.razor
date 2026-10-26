@@ -1,6 +1,7 @@
 @page "/spaces"
 @rendermode InteractiveServer
 @using MediatR
+@using BeanShare.Application.Common
 @using BeanShare.Application.Features.Spaces.Commands
 @using BeanShare.Application.Features.Spaces.Queries
 @using BeanShare.Application.Features.CoffeeStock.Queries
@@ -20,7 +21,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using BeanShare.Application.Abstractions
 @attribute [Authorize]
-@inject IMediator Mediator
+@inject IScopedSender Mediator
 @inject NavigationManager Navigation
 @inject IQrCodeService QrCodeService
 @inject IUserContext UserContext

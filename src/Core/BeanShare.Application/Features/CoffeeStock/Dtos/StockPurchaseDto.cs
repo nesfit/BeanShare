@@ -35,4 +35,11 @@ public sealed class StockPurchaseDto
     public decimal TotalCost => CostAmount;
     public string CoffeeType => ProductType;
     public string PurchasedByName { get; init; } = "Unknown"; // Will be populated from query
+
+    /// <summary>Who paid for the bag when not the recorder; null means <see cref="PurchasedBy"/> paid.</summary>
+    public Guid? PaidByUserId { get; init; }
+    public string? PaidByName { get; init; }
+
+    /// <summary>The member credited when cups are drawn from this bag.</summary>
+    public Guid EffectivePayerId => PaidByUserId ?? PurchasedBy;
 }

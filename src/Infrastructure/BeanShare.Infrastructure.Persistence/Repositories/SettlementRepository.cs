@@ -1,5 +1,6 @@
 using BeanShare.Application.Abstractions;
 using BeanShare.Domain.Aggregates.Settlement;
+using BeanShare.Domain.Enums;
 using BeanShare.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
@@ -40,6 +41,28 @@ public sealed class SettlementRepository : ISettlementRepository
     public async Task AddAsync(Settlement settlement, CancellationToken cancellationToken = default)
     {
         await _context.Settlements.AddAsync(settlement, cancellationToken);
+    }
+
+    public async Task<Settlement?> GetLatestLedgerForUpdateAsync(SpaceId spaceId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Settlements
+            .Include(s => s.Lines)
+            .Where(s => s.SpaceId == spaceId && s.Model == SettlementModel.Ledger)
+            .OrderByDescending(s => s.Sequence)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<int> GetMaxSequenceAsync(SpaceId spaceId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Settlements
+            .Where(s => s.SpaceId == spaceId && s.Sequence != null)
+            .MaxAsync(s => s.Sequence, cancellationToken) ?? 0;
+    }
+
+    public async Task<bool> HasLedgerSettlementAsync(SpaceId spaceId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Settlements
+            .AnyAsync(s => s.SpaceId == spaceId && s.Model == SettlementModel.Ledger, cancellationToken);
     }
 
     public Task UpdateAsync(Settlement settlement, CancellationToken cancellationToken = default)

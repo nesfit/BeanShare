@@ -18,6 +18,7 @@ public sealed class CoffeeStockMappingProfile : IRegister
             .Map(dest => dest.CostCurrency, src => src.Cost.Currency)
             .Map(dest => dest.Vendor, src => src.Vendor)
             .Map(dest => dest.PurchasedBy, src => src.PurchasedBy.Value)
+            .Map(dest => dest.PaidByUserId, src => src.PaidByUserId.HasValue ? src.PaidByUserId.Value.Value : (Guid?)null)
             .Map(dest => dest.PurchasedAt, src => src.PurchasedAt)
             .Map(dest => dest.CreatedAt, src => src.CreatedAt)
             .Map(dest => dest.CostPerGram, src => src.Quantity.Grams > 0 ? src.Cost.Amount / src.Quantity.Grams : 0)

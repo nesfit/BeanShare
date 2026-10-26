@@ -44,6 +44,10 @@ public sealed class UpdateStockPurchaseCommandHandler
         if (!space.IsAdmin(currentUserId))
             return Result<StockPurchaseDto>.Failure(Error.InsufficientSpacePrivileges("edit stock purchases"));
 
+        UserId? paidBy = command.PaidByUserId is { } payerId ? new UserId(payerId) : null;
+        if (paidBy is { } payer && !space.HasMember(payer))
+            return Result<StockPurchaseDto>.Failure(Error.MemberNotFound(payer.Value, command.SpaceId));
+
         var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
         if (coffeeStock == null)
             return Result<StockPurchaseDto>.Failure(Error.StockNotFound(command.SpaceId));
@@ -64,6 +68,9 @@ public sealed class UpdateStockPurchaseCommandHandler
                 command.ProductBrand,
                 coffeeType);
 
+            if (paidBy.HasValue)
+                coffeeStock.SetPurchasePaidBy(command.PurchaseId, paidBy, _clock);
+
             await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
 
             var purchase = coffeeStock.Purchases.First(p => p.Id == command.PurchaseId);
@@ -78,6 +85,7 @@ public sealed class UpdateStockPurchaseCommandHandler
                 CostCurrency = purchase.Cost.Currency,
                 Vendor = purchase.Vendor,
                 PurchasedBy = purchase.PurchasedBy.Value,
+                PaidByUserId = purchase.PaidByUserId?.Value,
                 PurchasedAt = purchase.PurchasedAt,
                 CreatedAt = purchase.CreatedAt,
                 CostPerGram = purchase.CostPerGram.Amount

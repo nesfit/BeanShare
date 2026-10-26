@@ -1,13 +1,14 @@
 @page "/admin/presets"
 @rendermode InteractiveServer
 @using MediatR
+@using BeanShare.Application.Common
 @using System.ComponentModel.DataAnnotations
 @using BeanShare.Application.Features.Admin.Presets.Queries
 @using BeanShare.Application.Features.Admin.Presets.Commands
 @using BeanShare.Application.Features.Admin.Presets.Dtos
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "admin")]
-@inject IMediator Mediator
+@inject IScopedSender Mediator
 @inject NavigationManager Navigation
 
 <PageTitle>Global Presets - Admin - BeanShare</PageTitle>

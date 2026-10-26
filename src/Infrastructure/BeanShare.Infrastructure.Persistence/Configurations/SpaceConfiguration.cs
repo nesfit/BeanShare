@@ -3,6 +3,7 @@ using BeanShare.Domain.Common;
 using BeanShare.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace BeanShare.Infrastructure.Persistence.Configurations;
 
@@ -52,6 +53,16 @@ public sealed class SpaceConfiguration : IEntityTypeConfiguration<Space>
             .HasColumnType("decimal(18,2)")
             .IsRequired()
             .HasDefaultValue(2000m);
+
+        builder.Property(s => s.TreasurerUserId)
+            .HasConversion(new ValueConverter<UserId?, Guid?>(
+                id => id.HasValue ? id.Value.Value : (Guid?)null,
+                value => value.HasValue ? new UserId(value.Value) : (UserId?)null));
+
+        builder.Property(s => s.LedgerStartDate);
+
+        builder.Property(s => s.LedgerVersion)
+            .IsConcurrencyToken();
 
         builder.OwnsMany(s => s.Members, memberBuilder =>
         {

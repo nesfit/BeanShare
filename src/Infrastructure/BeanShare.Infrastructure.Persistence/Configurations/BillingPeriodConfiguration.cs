@@ -68,6 +68,9 @@ public sealed class BillingPeriodConfiguration : IEntityTypeConfiguration<Billin
                 value => value.HasValue ? new UserId(value.Value) : null)
             .HasColumnName("SettledBy");
 
+        builder.Property(bp => bp.Version)
+            .IsConcurrencyToken();
+
         builder.Ignore(bp => bp.DomainEvents);
 
         builder.HasIndex(bp => bp.SpaceId);

@@ -1,12 +1,13 @@
 @page "/spaces/{SpaceId}/members"
 @rendermode InteractiveServer
 @using MediatR
+@using BeanShare.Application.Common
 @using BeanShare.Application.Features.Spaces.Queries
 @using BeanShare.Application.Features.Spaces.Commands
 @using Microsoft.AspNetCore.Authorization
 @using BeanShare.Application.Abstractions
 @attribute [Authorize]
-@inject IMediator Mediator
+@inject IScopedSender Mediator
 @inject NavigationManager Navigation
 @inject IUserContext UserContext
 @inject IJSRuntime JSRuntime

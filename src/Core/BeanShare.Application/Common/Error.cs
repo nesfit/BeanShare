@@ -64,6 +64,13 @@ public readonly record struct Error(string Code, string Message)
         // CSV import errors
         public const string CsvImportFailed = "CSV_IMPORT_FAILED";
         public const string CsvImportInvalidFormat = "CSV_IMPORT_INVALID_FORMAT";
+
+        // Money ledger errors
+        public const string ConcurrencyConflict = "CONCURRENCY_CONFLICT";
+        public const string EntryLocked = "ENTRY_LOCKED";
+        public const string LineCarried = "LINE_CARRIED";
+        public const string LedgerStartLocked = "LEDGER_START_LOCKED";
+        public const string EmailInUse = "EMAIL_IN_USE";
     }
 
     public static Error SpaceNotFound(Guid spaceId) =>
@@ -205,4 +212,16 @@ public readonly record struct Error(string Code, string Message)
 
     public static Error CsvImportInvalidFormat(string message) =>
         new(Codes.CsvImportInvalidFormat, message);
+
+    public static Error ConcurrencyConflict() =>
+        new(Codes.ConcurrencyConflict, "The data changed meanwhile; reload and try again");
+
+    public static Error EntryLocked() =>
+        new(Codes.EntryLocked, "This balance entry is part of a settlement and can no longer be changed; add a correction entry instead");
+
+    public static Error LedgerStartLocked() =>
+        new(Codes.LedgerStartLocked, "The ledger start date cannot change after the first ledger settlement");
+
+    public static Error EmailInUse() =>
+        new(Codes.EmailInUse, "This email address is already in use");
 }

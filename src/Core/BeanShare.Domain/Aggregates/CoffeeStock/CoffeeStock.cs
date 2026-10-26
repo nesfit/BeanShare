@@ -66,7 +66,8 @@ public sealed class CoffeeStock : AggregateRoot
         DateTime purchasedAt,
         IClock clock,
         int bagCount = 1,
-        string? barcode = null)
+        string? barcode = null,
+        UserId? paidBy = null)
     {
         ArgumentNullException.ThrowIfNull(product);
 
@@ -86,7 +87,7 @@ public sealed class CoffeeStock : AggregateRoot
             var lotQuantity = Weight.FromGrams(quantity.Grams);
             var lotCost = Money.Create(cost.Amount, cost.Currency);
 
-            var lot = Purchase.Create(lotProduct, lotQuantity, lotCost, vendor, purchasedBy, purchasedAt, clock, label, barcode);
+            var lot = Purchase.Create(lotProduct, lotQuantity, lotCost, vendor, purchasedBy, purchasedAt, clock, label, barcode, paidBy);
             _purchases.Add(lot);
 
             RaiseDomainEvent(new StockPurchaseAdded(
@@ -116,6 +117,16 @@ public sealed class CoffeeStock : AggregateRoot
             purchase.SetLabel($"#{MaxLabelIndex(updatedProduct, purchaseId) + 1}");
         }
 
+        UpdatedAt = clock.UtcNow;
+    }
+
+    /// <summary>Sets who paid for a bag (null = the recorder); affects only future settlements.</summary>
+    public void SetPurchasePaidBy(Guid purchaseId, UserId? paidBy, IClock clock)
+    {
+        var purchase = _purchases.FirstOrDefault(p => p.Id == purchaseId)
+            ?? throw new InvalidOperationException($"Purchase {purchaseId} not found");
+
+        purchase.SetPaidBy(paidBy);
         UpdatedAt = clock.UtcNow;
     }
 

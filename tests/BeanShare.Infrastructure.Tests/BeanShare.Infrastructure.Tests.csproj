@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Infrastructure\BeanShare.Infrastructure.Persistence\BeanShare.Infrastructure.Persistence.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\BeanShare.Infrastructure.Identity\BeanShare.Infrastructure.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\BeanShare.Infrastructure\BeanShare.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Core\BeanShare.Domain\BeanShare.Domain.csproj" />
   </ItemGroup>
 

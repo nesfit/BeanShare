@@ -8,4 +8,4 @@ namespace BeanShare.Application.Features.Consumption.Commands;
 public sealed record DeleteConsumptionCommand(
     Guid Id,
     Guid SpaceId
-) : IAuthorize, ICommand<Result<bool>>;
+) : IAuthorize, IRetryOnConcurrencyConflict, ICommand<Result<bool>>;

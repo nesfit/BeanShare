@@ -1,4 +1,5 @@
 using BeanShare.Application.Behaviors;
+using BeanShare.Application.Common;
 using FluentValidation;
 using Mapster;
 using MapsterMapper;
@@ -26,10 +27,21 @@ public static class DependencyInjection
 
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(Pipeline.AuthorizationBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ConcurrencyRetryBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(UnitOfWorkBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ExceptionHandlingBehavior<,>));
 
+        return services;
+    }
+
+    /// <summary>
+    /// Registers <see cref="IScopedSender"/> for hosts whose callers outlive a request (Blazor circuits).
+    /// MediatR's own IMediator/ISender/IPublisher registrations stay untouched.
+    /// </summary>
+    public static IServiceCollection AddScopedSender(this IServiceCollection services)
+    {
+        services.AddScoped<IScopedSender, ScopedSender>();
         return services;
     }
 }

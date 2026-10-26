@@ -9,4 +9,4 @@ namespace BeanShare.Application.Features.Consumption.Commands;
 public sealed record ImportConsumptionCsvCommand(
     Guid SpaceId,
     IReadOnlyList<ImportConsumptionCsvRow> Rows
-) : IAuthorize, ICommand<Result<ImportConsumptionCsvResult>>;
+) : IAuthorize, IRetryOnConcurrencyConflict, ICommand<Result<ImportConsumptionCsvResult>>;

@@ -2,6 +2,7 @@ using BeanShare.Domain.Aggregates.Space;
 using BeanShare.Domain.Aggregates.CoffeeStock;
 using BeanShare.Domain.Aggregates.BillingPeriod;
 using BeanShare.Domain.Aggregates.Settlement;
+using BeanShare.Domain.Aggregates.Ledger;
 using BeanShare.Domain.Common;
 using BeanShare.Domain.Entities;
 using BeanShare.Infrastructure.Persistence.Configurations;
@@ -27,6 +28,7 @@ public sealed class BeanShareDbContext(
     public DbSet<ExchangeRate> ExchangeRates => Set<ExchangeRate>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ActiveQrCode> ActiveQrCodes => Set<ActiveQrCode>();
+    public DbSet<BalanceEntry> BalanceEntries => Set<BalanceEntry>();
 
     /// <summary>
     /// Collects domain events from tracked aggregates and clears them.
@@ -67,5 +69,6 @@ public sealed class BeanShareDbContext(
         modelBuilder.ApplyConfiguration(new ExchangeRateConfiguration());
         modelBuilder.ApplyConfiguration(new NotificationConfiguration());
         modelBuilder.ApplyConfiguration(new ActiveQrCodeConfiguration());
+        modelBuilder.ApplyConfiguration(new BalanceEntryConfiguration());
     }
 }
