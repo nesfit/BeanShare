@@ -66,7 +66,6 @@ public sealed class AddCoffeeStockPurchaseEndpoint : Endpoint<AddStockPurchaseRe
 
 
         if (await this.TrySendConflictAsync(result.Errors, ct))
-
             return;
 
         if (result.IsFailure)

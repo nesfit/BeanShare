@@ -34,7 +34,6 @@ public sealed class UpdateConsumptionEndpoint(IMediator mediator)
 
 
         if (await this.TrySendConflictAsync(result.Errors, ct))
-
             return;
 
         if (result.IsSuccess)

@@ -43,6 +43,9 @@ public sealed class CommitHistoryImportHandler : IRequestHandler<CommitHistoryIm
 
     public async Task<Result<HistoryImportResultDto>> Handle(CommitHistoryImportCommand command, CancellationToken cancellationToken)
     {
+        if ((PasteLimits.CheckLength(command.CupsText, nameof(command.CupsText)) ?? PasteLimits.CheckLength(command.PurchasesText, nameof(command.PurchasesText))) is { } tooLong)
+            return Result<HistoryImportResultDto>.Failure(tooLong);
+
         var spaceId = new SpaceId(command.SpaceId);
         var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(spaceId), cancellationToken);
         if (space is null)

@@ -363,6 +363,10 @@ else
                 <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
                     <label for="pasteText" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">One row per member: member;amount;note (positive = the member is owed), at most 1000 rows</label>
                     <textarea id="pasteText" class="bs-input" rows="6" style="font-family: monospace;" maxlength="@MaxPasteLength" @bind="pasteText" @bind:after="InvalidatePreview"></textarea>
+                    @if (pasteText.Length >= MaxPasteLength)
+                    {
+                        <p style="margin: 0; font-size: 0.75rem; color: var(--bs-error, #ef4444);">The text reached the limit and may be cut; paste fewer rows.</p>
+                    }
                 </div>
                 <div class="bs-flex" style="gap: 0.75rem; flex-wrap: wrap;">
                     <div class="bs-flex bs-flex-col" style="gap: 0.35rem; min-width: 12rem;">
@@ -858,8 +862,8 @@ else
     /// <summary>Today's date in local time (the app's other pages show local times too); sent as that UTC calendar date.</summary>
     private static DateTime LocalToday => DateTime.Now.Date;
 
-    /// <summary>Caps the textarea so a paste fits one circuit message (see the hub limit in Program.cs).</summary>
-    private const int MaxPasteLength = 250_000;
+    /// <summary>Caps the textarea so a paste fits one circuit message (see the hub limit in Program.cs); the server refuses a text that reaches it (I10).</summary>
+    private const int MaxPasteLength = PasteLimits.MaxLength;
 
     private string Money(decimal amount)
     {

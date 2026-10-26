@@ -50,7 +50,6 @@ public sealed class UpdateStockPurchaseEndpoint : Endpoint<UpdateStockPurchaseRe
 
 
         if (await this.TrySendConflictAsync(result.Errors, ct))
-
             return;
 
         if (result.IsSuccess)

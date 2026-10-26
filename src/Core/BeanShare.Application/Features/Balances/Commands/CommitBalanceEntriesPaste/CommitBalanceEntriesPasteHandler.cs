@@ -40,6 +40,9 @@ public sealed class CommitBalanceEntriesPasteHandler
 
     public async Task<Result<IReadOnlyList<BalanceEntryDto>>> Handle(CommitBalanceEntriesPasteCommand command, CancellationToken cancellationToken)
     {
+        if (PasteLimits.CheckLength(command.Text, nameof(command.Text)) is { } tooLong)
+            return Result<IReadOnlyList<BalanceEntryDto>>.Failure(tooLong);
+
         var spaceId = new SpaceId(command.SpaceId);
         var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(spaceId), cancellationToken);
         if (space is null)

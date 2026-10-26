@@ -160,10 +160,18 @@
                 <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
                     <label for="historyCups" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Cups: period;start;end;member;cups (dates yyyy-MM-dd)</label>
                     <textarea id="historyCups" class="bs-input" rows="6" style="font-family: monospace;" maxlength="@MaxPasteLength" @bind="historyCups" @bind:after="InvalidateImportPreview"></textarea>
+                    @if (historyCups.Length >= MaxPasteLength)
+                    {
+                        <p style="margin: 0; font-size: 0.75rem; color: var(--bs-error, #ef4444);">The text reached the limit and may be cut; paste fewer rows.</p>
+                    }
                 </div>
                 <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
                     <label for="historyPurchases" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Purchases (optional): period;date;paidBy;description;grams;cost</label>
                     <textarea id="historyPurchases" class="bs-input" rows="4" style="font-family: monospace;" maxlength="@MaxPasteLength" @bind="historyPurchases" @bind:after="InvalidateImportPreview"></textarea>
+                    @if (historyPurchases.Length >= MaxPasteLength)
+                    {
+                        <p style="margin: 0; font-size: 0.75rem; color: var(--bs-error, #ef4444);">The text reached the limit and may be cut; paste fewer rows.</p>
+                    }
                 </div>
                 <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
                     <label for="historyNote" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Note (optional)</label>
@@ -281,7 +289,7 @@
 
     // ---- history import (D23, DS-16) ----
 
-    private const int MaxPasteLength = 250_000;
+    private const int MaxPasteLength = PasteLimits.MaxLength;
     private bool showImportModal;
     private string historyCups = "";
     private string historyPurchases = "";

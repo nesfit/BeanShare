@@ -70,7 +70,6 @@ public sealed class AddStockPurchaseEndpoint : Endpoint<AddStockPurchaseRequest,
 
 
         if (await this.TrySendConflictAsync(result.Errors, ct))
-
             return;
 
         if (result.IsSuccess)

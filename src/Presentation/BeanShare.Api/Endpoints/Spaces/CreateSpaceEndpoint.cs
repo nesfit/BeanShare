@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Spaces.Commands;
 using BeanShare.Contracts.Spaces;
 using FastEndpoints;
@@ -33,6 +34,8 @@ public sealed class CreateSpaceEndpoint : Endpoint<CreateSpaceRequest, CreateSpa
 
         if (result.IsFailure)
         {
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
+                return;
             foreach (var error in result.Errors)
             {
                 AddError(error.Code, error.Message);

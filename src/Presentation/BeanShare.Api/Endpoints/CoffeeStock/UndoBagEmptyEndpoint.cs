@@ -36,7 +36,6 @@ public sealed class UndoBagEmptyEndpoint : EndpointWithoutRequest<UndoBagEmptyRe
 
 
         if (await this.TrySendConflictAsync(result.Errors, ct))
-
             return;
 
         if (result.IsSuccess)

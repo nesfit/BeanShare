@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.CoffeeStock.Commands;
 using FastEndpoints;
 using MediatR;
@@ -37,6 +38,8 @@ public sealed class OpenBagEndpoint : EndpointWithoutRequest
         }
         else
         {
+            if (await this.TrySendConflictAsync(result.Errors, ct))
+                return;
             foreach (var error in result.Errors)
             {
                 AddError(error.Code, error.Message);

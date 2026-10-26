@@ -269,4 +269,18 @@ public sealed class BalancePasteTests
         await repository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         await _entryRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
+    // T-DOM-05, rev10 (I10): a text that reaches the cap may have been cut, so it is refused.
+    [Fact]
+    public async Task APasteReachingTheCap_IsRefused_ByPreviewAndCommit()
+    {
+        var row = "Bob;1\n";
+        var text = string.Concat(Enumerable.Repeat(row, PasteLimits.MaxLength / row.Length + 1))[..PasteLimits.MaxLength];
+
+        var preview = await CreatePreviewHandler().Handle(new PreviewBalanceEntriesPasteQuery(_space.Id.Value, text, BatchNote: "x"), default);
+        var commit = await CreateCommitHandler().Handle(new CommitBalanceEntriesPasteCommand(_space.Id.Value, text, BatchNote: "x"), default);
+
+        preview.Errors.Should().ContainSingle().Which.Message.Should().Contain("may be cut");
+        commit.Errors.Should().ContainSingle().Which.Message.Should().Contain("may be cut");
+        await _entryRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+    }
 }

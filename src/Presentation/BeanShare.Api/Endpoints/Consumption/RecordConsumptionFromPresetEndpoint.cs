@@ -47,7 +47,6 @@ public sealed class RecordConsumptionFromPresetEndpoint : Endpoint<RecordConsump
 
 
         if (await this.TrySendConflictAsync(result.Errors, ct))
-
             return;
 
         if (result.IsFailure)

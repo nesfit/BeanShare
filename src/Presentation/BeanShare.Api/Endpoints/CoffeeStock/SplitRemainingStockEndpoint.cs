@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.CoffeeStock.Commands;
 using BeanShare.Contracts.CoffeeStock;
 using FastEndpoints;
@@ -64,6 +65,8 @@ public sealed class SplitRemainingStockEndpoint : Endpoint<SplitRemainingStockRe
         }
         else
         {
+            if (await this.TrySendConflictAsync(result.Errors, ct))
+                return;
             foreach (var error in result.Errors)
             {
                 AddError(error.Code, error.Message);

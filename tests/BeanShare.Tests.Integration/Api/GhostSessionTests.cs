@@ -36,7 +36,7 @@ public sealed class GhostSessionTests : IClassFixture<PostgreSqlFixture>
         client.WithTestUser(Guid.NewGuid(), "ghost@test.com");
         var create = await client.PostAsJsonAsync("/api/spaces", new CreateSpaceRequest { Name = "Ghost Space" });
         var join = await client.PostAsJsonAsync("/api/spaces/join", new JoinSpaceRequest { InviteCode = invite });
-        var confirm = await client.PutAsync($"/api/settlements/{Guid.NewGuid()}/confirm-payment/{Guid.NewGuid()}", null);
+        var confirm = await client.PutAsJsonAsync($"/api/settlements/{Guid.NewGuid()}/confirm-payment/{Guid.NewGuid()}", new { });
         client.AsDefaultUser();
 
         foreach (var response in new[] { create, join, confirm })

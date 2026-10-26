@@ -41,7 +41,6 @@ public sealed class CreateBillingPeriodEndpoint : Endpoint<CreateBillingPeriodRe
 
 
         if (await this.TrySendConflictAsync(result.Errors, ct))
-
             return;
 
         if (result.IsSuccess)

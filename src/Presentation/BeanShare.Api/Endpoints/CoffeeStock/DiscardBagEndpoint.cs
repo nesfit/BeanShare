@@ -36,7 +36,6 @@ public sealed class DiscardBagEndpoint : EndpointWithoutRequest<DiscardBagRespon
 
 
         if (await this.TrySendConflictAsync(result.Errors, ct))
-
             return;
 
         if (result.IsSuccess)

@@ -76,6 +76,8 @@ public sealed class ConsumeStockEndpoint : Endpoint<ConsumeStockRequest, Consume
         }
         else
         {
+            if (await this.TrySendConflictAsync(result.Errors, ct))
+                return;
             foreach (var error in result.Errors)
             {
                 AddError(error.Code, error.Message);

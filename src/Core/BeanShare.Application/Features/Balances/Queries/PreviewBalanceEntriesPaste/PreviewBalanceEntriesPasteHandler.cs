@@ -38,6 +38,9 @@ public sealed class PreviewBalanceEntriesPasteHandler
 
     public async Task<Result<BalancePastePreviewDto>> Handle(PreviewBalanceEntriesPasteQuery query, CancellationToken cancellationToken)
     {
+        if (PasteLimits.CheckLength(query.Text, nameof(query.Text)) is { } tooLong)
+            return Result<BalancePastePreviewDto>.Failure(tooLong);
+
         var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(new SpaceId(query.SpaceId)), cancellationToken);
         if (space is null)
             return Result<BalancePastePreviewDto>.Failure(Error.SpaceNotFound(query.SpaceId));

@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Api.Endpoints.Spaces.Validators;
 using BeanShare.Application.Features.Spaces.Commands;
 using BeanShare.Contracts.Spaces;
@@ -50,6 +51,8 @@ public sealed class DeactivateSpaceEndpoint : Endpoint<DeactivateSpaceRequest, S
 
         if (result.IsFailure)
         {
+            if (await this.TrySendConflictAsync(result.Errors, ct))
+                return;
             foreach (var error in result.Errors)
             {
                 AddError(error.Code, error.Message);

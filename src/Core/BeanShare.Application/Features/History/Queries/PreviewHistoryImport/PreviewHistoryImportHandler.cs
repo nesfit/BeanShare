@@ -25,6 +25,9 @@ public sealed class PreviewHistoryImportHandler : IRequestHandler<PreviewHistory
 
     public async Task<Result<HistoryImportPreviewDto>> Handle(PreviewHistoryImportQuery query, CancellationToken cancellationToken)
     {
+        if ((PasteLimits.CheckLength(query.CupsText, nameof(query.CupsText)) ?? PasteLimits.CheckLength(query.PurchasesText, nameof(query.PurchasesText))) is { } tooLong)
+            return Result<HistoryImportPreviewDto>.Failure(tooLong);
+
         var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(new SpaceId(query.SpaceId)), cancellationToken);
         if (space is null)
             return Result<HistoryImportPreviewDto>.Failure(Error.SpaceNotFound(query.SpaceId));

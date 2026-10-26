@@ -233,4 +233,15 @@ public sealed class HistoryImportTests
 
         (await _world.GenerateAsync(live)).IsSuccess.Should().BeTrue();
     }
+    [Fact]
+    public async Task APasteReachingTheCap_IsRefused()
+    {
+        var purchases = new string(' ', PasteLimits.MaxLength);
+
+        (await PreviewAsync("A;2025-01-01;2025-01-31;Alice;1", purchases)).Errors.Should().ContainSingle()
+            .Which.Message.Should().Contain("may be cut");
+        (await CommitAsync("A;2025-01-01;2025-01-31;Alice;1", purchases)).Errors.Should().ContainSingle()
+            .Which.Message.Should().Contain("may be cut");
+        _world.Imports.Should().BeEmpty();
+    }
 }
