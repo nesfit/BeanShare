@@ -6,10 +6,12 @@ namespace BeanShare.Maui.Services;
 public class BillingService : IBillingService
 {
     private readonly HttpClient _httpClient;
+    private readonly ApiResponseCache _cache;
 
-    public BillingService(HttpClient httpClient)
+    public BillingService(HttpClient httpClient, ApiResponseCache cache)
     {
         _httpClient = httpClient;
+        _cache = cache;
     }
 
     public async Task<List<BillingPeriodSummaryDto>> GetSpaceBillingPeriodsAsync(Guid spaceId)
@@ -53,11 +55,15 @@ public class BillingService : IBillingService
     {
         using var response = await _httpClient.PutAsJsonAsync($"/api/billing-periods/{billingPeriodId}/open", new { });
         response.EnsureSuccessStatusCode();
+        _cache.Invalidate("consumption:"); // the cups' Edit/Delete flags follow the period state
+        _cache.Invalidate("dashboard:"); // the dashboard carries the same recent list
     }
 
     public async Task CloseBillingPeriodAsync(Guid billingPeriodId)
     {
         using var response = await _httpClient.PutAsJsonAsync($"/api/billing-periods/{billingPeriodId}/close", new { });
         response.EnsureSuccessStatusCode();
+        _cache.Invalidate("consumption:"); // the cups' Edit/Delete flags follow the period state
+        _cache.Invalidate("dashboard:"); // the dashboard carries the same recent list
     }
 }

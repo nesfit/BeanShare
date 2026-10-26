@@ -6,10 +6,12 @@ namespace BeanShare.Maui.Services;
 public class SettlementService : ISettlementService
 {
     private readonly HttpClient _httpClient;
+    private readonly ApiResponseCache _cache;
 
-    public SettlementService(HttpClient httpClient)
+    public SettlementService(HttpClient httpClient, ApiResponseCache cache)
     {
         _httpClient = httpClient;
+        _cache = cache;
     }
 
     public async Task<List<SettlementSummaryDto>> GetSpaceSettlementsAsync(Guid spaceId)
@@ -43,6 +45,8 @@ public class SettlementService : ISettlementService
         {
             var response = await _httpClient.PostAsJsonAsync($"/api/billing-periods/{billingPeriodId}/settlement", new { });
             response.EnsureSuccessStatusCode();
+            _cache.Invalidate("consumption:"); // generation stamps late cups, which changes their flags
+            _cache.Invalidate("dashboard:"); // the dashboard carries the same recent list
             return await response.Content.ReadFromJsonAsync<SettlementDto>();
         }
         catch

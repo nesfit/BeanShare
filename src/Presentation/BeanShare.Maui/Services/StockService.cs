@@ -179,7 +179,11 @@ public class StockService : IStockService
             var request = new { Reason = reason ?? "Bag emptied" };
             var response = await _httpClient.PostAsJsonAsync($"/api/spaces/{spaceId}/stock/bags/{lotId}/empty", request);
             if (response.IsSuccessStatusCode)
+            {
                 _cache.Invalidate("stock:");
+                _cache.Invalidate("consumption:"); // shares and their Edit/Delete flags changed
+                _cache.Invalidate("dashboard:"); // the dashboard carries the same recent list
+            }
             return response.IsSuccessStatusCode;
         }
         catch
@@ -194,7 +198,11 @@ public class StockService : IStockService
         {
             var response = await _httpClient.PostAsync($"/api/spaces/{spaceId}/stock/bags/{lotId}/undo-empty", null);
             if (response.IsSuccessStatusCode)
+            {
                 _cache.Invalidate("stock:");
+                _cache.Invalidate("consumption:"); // shares and their Edit/Delete flags changed
+                _cache.Invalidate("dashboard:"); // the dashboard carries the same recent list
+            }
             return response.IsSuccessStatusCode;
         }
         catch
@@ -209,7 +217,11 @@ public class StockService : IStockService
         {
             var response = await _httpClient.PostAsync($"/api/spaces/{spaceId}/stock/bags/{lotId}/discard", null);
             if (response.IsSuccessStatusCode)
+            {
                 _cache.Invalidate("stock:");
+                _cache.Invalidate("consumption:"); // shares and their Edit/Delete flags changed
+                _cache.Invalidate("dashboard:"); // the dashboard carries the same recent list
+            }
             return response.IsSuccessStatusCode;
         }
         catch
