@@ -1,6 +1,7 @@
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Common;
 using BeanShare.Domain.Common;
+using BeanShare.Domain.Enums;
 using BeanShare.Domain.Specifications;
 using BeanShare.Domain.ValueObjects;
 using MediatR;
@@ -12,6 +13,7 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
     private readonly ICoffeeStockRepository _coffeeStockRepository;
     private readonly IConsumptionRepository _consumptionRepository;
     private readonly ISpaceRepository _spaceRepository;
+    private readonly IBillingPeriodRepository _billingPeriodRepository;
     private readonly IUserRepository _userRepository;
     private readonly IUserContext _userContext;
 
@@ -19,12 +21,14 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
         ICoffeeStockRepository coffeeStockRepository,
         IConsumptionRepository consumptionRepository,
         ISpaceRepository spaceRepository,
+        IBillingPeriodRepository billingPeriodRepository,
         IUserRepository userRepository,
         IUserContext userContext)
     {
         _coffeeStockRepository = coffeeStockRepository;
         _consumptionRepository = consumptionRepository;
         _spaceRepository = spaceRepository;
+        _billingPeriodRepository = billingPeriodRepository;
         _userRepository = userRepository;
         _userContext = userContext;
     }
@@ -46,6 +50,13 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
         var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
         var purchases = coffeeStock?.Purchases.ToList() ?? [];
         var cups = (await _consumptionRepository.GetBySpaceIdAsync(spaceId, cancellationToken)).ToList();
+
+        // A cup is editable only while its period is still Draft or Open (the edit and delete commands refuse
+        // the rest) and it lies on or after the ledger start: the same rule as the recent-cups list.
+        var editablePeriodIds = (await _billingPeriodRepository.GetBySpaceIdAsync(spaceId, cancellationToken))
+            .Where(bp => bp.State == BillingState.Draft || bp.State == BillingState.Open)
+            .Select(bp => bp.Id)
+            .ToHashSet();
 
         var labelByLot = purchases.ToDictionary(p => p.Id, p => p.Label);
 
@@ -132,7 +143,9 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
                 Note = c.PresetName,
                 Key = ProductKey(c.Product),
                 EntryId = c.Id.Value,
-                CanEdit = c.UserId == currentUser || isAdmin,
+                CanEdit = (c.UserId == currentUser || isAdmin)
+                    && !(space.LedgerStartDate is { } ledgerStart && c.ConsumedAt < ledgerStart)
+                    && (c.BillingPeriodId == null || editablePeriodIds.Contains(c.BillingPeriodId.Value)),
                 ProductName = c.Product.Name,
                 ProductBrand = c.Product.Brand,
             });

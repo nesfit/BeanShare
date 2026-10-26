@@ -1,5 +1,6 @@
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Features.CoffeeStock.Queries.GetSpaceLedger;
+using BeanShare.Domain.Aggregates.BillingPeriod;
 using BeanShare.Domain.Aggregates.CoffeeStock;
 using BeanShare.Domain.Common;
 using BeanShare.Domain.Entities;
@@ -69,13 +70,71 @@ public sealed class LedgerQueryTests
         result.Value.Totals.CupCount.Should().Be(1);
     }
 
-    private ConsumptionEntry Cup(int grams, DateTime at, Guid lotId, decimal cost) =>
-        ConsumptionEntry.Create(
+    [Fact]
+    public async Task Ledger_CupsOfAClosedOrSettledPeriod_AreNotEditable()
+    {
+        var stock = CoffeeStock.Create(_spaceId, _clock);
+        stock.AddPurchase(_product, Weight.FromGrams(1000), Money.Create(20m, "USD"), "Store", _admin, _clock.UtcNow.AddDays(-90), _clock);
+        var bag = stock.Purchases.First().Id;
+
+        var settled = BillingPeriod.Create(_spaceId, "Settled", _clock.UtcNow.AddDays(-80), _clock.UtcNow.AddDays(-61), _admin, _clock);
+        settled.Open(_admin, _clock);
+        settled.Close(_admin, _clock);
+        settled.MarkAsSettled(_admin, _clock);
+        var closed = BillingPeriod.Create(_spaceId, "Closed", _clock.UtcNow.AddDays(-60), _clock.UtcNow.AddDays(-31), _admin, _clock);
+        closed.Open(_admin, _clock);
+        closed.Close(_admin, _clock);
+        var open = BillingPeriod.Create(_spaceId, "Open", _clock.UtcNow.AddDays(-30), null, _admin, _clock);
+        open.Open(_admin, _clock);
+
+        var inSettled = Cup(10, _clock.UtcNow.AddDays(-70), bag, 0.2m, settled.Id);
+        var inClosed = Cup(11, _clock.UtcNow.AddDays(-50), bag, 0.22m, closed.Id);
+        var inOpen = Cup(12, _clock.UtcNow.AddDays(-20), bag, 0.24m, open.Id);
+        var unstamped = Cup(13, _clock.UtcNow.AddDays(-1), bag, 0.26m);
+
+        var handler = CreateHandler(stock, [inSettled, inClosed, inOpen, unstamped], [settled, closed, open]);
+        var result = await handler.Handle(new GetSpaceLedgerQuery(_spaceId.Value, Kind: "cup"), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Entries.ToDictionary(e => e.ConsumptionEntryId!.Value, e => e.CanEdit).Should().Equal(
+            new Dictionary<Guid, bool>
+            {
+                [inSettled.Id.Value] = false,
+                [inClosed.Id.Value] = false,
+                [inOpen.Id.Value] = true,
+                [unstamped.Id.Value] = true,
+            });
+    }
+
+    [Fact]
+    public async Task Ledger_CupsBeforeTheLedgerStart_AreNotEditable()
+    {
+        var stock = CoffeeStock.Create(_spaceId, _clock);
+        stock.AddPurchase(_product, Weight.FromGrams(1000), Money.Create(20m, "USD"), "Store", _admin, _clock.UtcNow.AddDays(-30), _clock);
+        var bag = stock.Purchases.First().Id;
+        var before = Cup(10, _clock.UtcNow.AddDays(-20), bag, 0.2m);
+        var after = Cup(11, _clock.UtcNow.AddDays(-5), bag, 0.22m);
+
+        var handler = CreateHandler(stock, [before, after], [], ledgerStart: _clock.UtcNow.AddDays(-10));
+        var result = await handler.Handle(new GetSpaceLedgerQuery(_spaceId.Value, Kind: "cup"), CancellationToken.None);
+
+        result.Value.Entries.Single(e => e.ConsumptionEntryId == before.Id.Value).CanEdit.Should().BeFalse();
+        result.Value.Entries.Single(e => e.ConsumptionEntryId == after.Id.Value).CanEdit.Should().BeTrue();
+    }
+
+    private ConsumptionEntry Cup(int grams, DateTime at, Guid lotId, decimal cost, BillingPeriodId? period = null)
+    {
+        var cup = ConsumptionEntry.Create(
             _spaceId, _admin, CoffeeProduct.Create(_product.Name, _product.Brand, _product.Type),
             Weight.FromGrams(grams), at, _clock,
             stockLotId: lotId, cost: Money.Create(cost, "USD"), unitCostPerGram: 0.02m);
+        if (period is { } stamped)
+            cup.AssignToBillingPeriod(stamped);
+        return cup;
+    }
 
-    private GetSpaceLedgerQueryHandler CreateHandler(CoffeeStock stock, List<ConsumptionEntry> cups)
+    private GetSpaceLedgerQueryHandler CreateHandler(
+        CoffeeStock stock, List<ConsumptionEntry> cups, List<BillingPeriod>? periods = null, DateTime? ledgerStart = null)
     {
         var coffeeStockRepo = Substitute.For<ICoffeeStockRepository>();
         coffeeStockRepo.GetBySpaceIdAsync(Arg.Any<SpaceId>(), Arg.Any<CancellationToken>()).Returns(stock);
@@ -84,8 +143,13 @@ public sealed class LedgerQueryTests
         consumptionRepo.GetBySpaceIdAsync(Arg.Any<SpaceId>(), Arg.Any<CancellationToken>()).Returns(cups);
 
         var space = Domain.Aggregates.Space.Space.Create(_spaceId, "Lab", Currency.USD, _admin, new InviteCode("CAFE23"), _clock);
+        if (ledgerStart.HasValue)
+            space.SetLedgerStartDate(ledgerStart, hasLedgerSettlement: false);
         var spaceRepo = Substitute.For<ISpaceRepository>();
         spaceRepo.GetSingleBySpecAsync(Arg.Any<Domain.Specifications.SpaceByIdSpecification>(), Arg.Any<CancellationToken>()).Returns(space);
+
+        var periodRepo = Substitute.For<IBillingPeriodRepository>();
+        periodRepo.GetBySpaceIdAsync(Arg.Any<SpaceId>(), Arg.Any<CancellationToken>()).Returns(periods ?? []);
 
         var userRepo = Substitute.For<IUserRepository>();
         userRepo.GetByIdAsync(Arg.Any<UserId>(), Arg.Any<CancellationToken>()).Returns((User?)null);
@@ -93,6 +157,6 @@ public sealed class LedgerQueryTests
         var userContext = Substitute.For<IUserContext>();
         userContext.CurrentUserId.Returns(_admin);
 
-        return new GetSpaceLedgerQueryHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userRepo, userContext);
+        return new GetSpaceLedgerQueryHandler(coffeeStockRepo, consumptionRepo, spaceRepo, periodRepo, userRepo, userContext);
     }
 }
