@@ -149,14 +149,18 @@ public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, I
         stored.Lines.Single(l => l.UserId == s.Admin).Resolution.Should().Be(LineResolution.Confirmed);
     }
 
-    // T-INT-06: a cup edit racing the generation that stamps it.
+    // T-INT-06: a cup edit racing the generation that stamps it. Closing a period stamps its cups (B1), and a cup
+    // stamped to a Closed period cannot be edited at all, so the cup is logged, back-dated, after the close: the
+    // generation is what stamps it.
     [Fact]
     public async Task CupEditHeld_RacingGeneration_Fails()
     {
         var s = await LedgerScenario.CreateAsync(_container);
+        var period = await s.ClosedPeriodAsync(Today.AddDays(-20), Today.AddDays(-1));
         var consumedAt = Today.AddDays(-5).AddHours(9);
         var cupId = await s.LogCupAsync(s.Alice, consumedAt);
-        var period = await s.ClosedPeriodAsync(Today.AddDays(-20), Today.AddDays(-1));
+        (await _container.ReadAsync(db => db.Consumptions.AsNoTracking().SingleAsync(c => c.Id == new ConsumptionEntryId(cupId))))
+            .BillingPeriodId.Should().BeNull("the generation, not the close, stamps this cup");
 
         var (held, winner) = await RaceAsync(
             () => _container.SendAsync(s.Alice, new UpdateConsumptionCommand(cupId, s.SpaceId, "Alfa", "Roaster", "Filter", 12m, consumedAt)),
@@ -165,6 +169,8 @@ public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, I
         winner.IsSuccess.Should().BeTrue();
         held.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.ConcurrencyConflict);
         winner.Value.Lines.Single(l => l.UserId == s.Alice.Value).TotalCoffeeGrams.Should().Be(10m);
+        (await _container.ReadAsync(db => db.Consumptions.AsNoTracking().SingleAsync(c => c.Id == new ConsumptionEntryId(cupId))))
+            .Quantity.Grams.Should().Be(10m, "the held edit saved nothing");
     }
 
     // T-INT-07: two generations of the same period, and generation against a settings change.
