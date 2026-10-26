@@ -59,7 +59,22 @@
             </div>
             <p class="bs-text-subtle" style="margin: 0 0 1.5rem 0;">
                 Period: @settlement.PeriodStart.ToString("MMM dd") - @settlement.PeriodEnd.ToString("MMM dd, yyyy")
+                @if (settlement.IsLedger)
+                {
+                    <span> · Treasurer: <strong>@(settlement.TreasurerName ?? "—")</strong></span>
+                }
             </p>
+
+            @if (settlement.SupersededBySettlementId is { } nextSettlementId)
+            {
+                <div class="bs-flex bs-items-center" style="gap: 0.5rem; padding: 0.75rem 1rem; margin-bottom: 1.5rem; border-radius: 0.5rem; background: var(--bs-warning-light); color: var(--bs-warning-dark);">
+                    <span class="material-symbols-outlined">forward</span>
+                    <span>
+                        Carried forward: the lines not confirmed here moved into the
+                        <a href="@($"/spaces/{SpaceId}/settlements/{nextSettlementId}")">next settlement</a>. Confirm them there.
+                    </span>
+                </div>
+            }
 
             <!-- Payment Confirmation Progress -->
             <div style="background: var(--bs-gray-100); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem;">
@@ -98,8 +113,12 @@
         @if (Debtors.Any() || Creditors.Any())
         {
             <div class="bs-card" style="padding: 2rem; margin-bottom: 1.5rem;">
-                <h3 style="margin: 0 0 0.25rem 0; font-size: 1.25rem; font-weight: 600;">Who owes whom</h3>
-                <p class="bs-text-subtle" style="margin: 0 0 1.25rem 0; font-size: 0.875rem;">Suggested payments to settle everyone up with the fewest transfers.</p>
+                <h3 style="margin: 0 0 0.25rem 0; font-size: 1.25rem; font-weight: 600;">@(settlement.IsLedger ? "Who pays whom" : "Who owes whom")</h3>
+                <p class="bs-text-subtle" style="margin: 0 0 1.25rem 0; font-size: 0.875rem;">
+                    @(settlement.IsLedger
+                        ? $"Every payment goes through the treasurer, {settlement.TreasurerName ?? "—"}."
+                        : "Suggested payments to settle everyone up with the fewest transfers.")
+                </p>
                 @{
                     var transfers = BuildTransfers();
                 }
@@ -143,17 +162,136 @@
                         }
                     </div>
                 }
-                else
+                else if (settlement.IsLedger)
+                {
+                    <div class="bs-flex bs-items-center" style="gap: 0.5rem; color: var(--bs-success);">
+                        <span class="material-symbols-outlined">check_circle</span>
+                        <span style="font-weight: 600;">
+                            @(settlement.IsCarriedForward
+                                ? "Nothing to pay here: open payments were carried into the next settlement."
+                                : "All payments are confirmed.")
+                        </span>
+                    </div>
+                }
+                else if (!Debtors.Any())
                 {
                     <div class="bs-flex bs-items-center" style="gap: 0.5rem; color: var(--bs-success);">
                         <span class="material-symbols-outlined">check_circle</span>
                         <span style="font-weight: 600;">Everyone's square — no payments needed.</span>
                     </div>
                 }
+                else
+                {
+                    <div class="bs-flex bs-items-center" style="gap: 0.5rem; color: var(--bs-warning-dark);">
+                        <span class="material-symbols-outlined">info</span>
+                        <span>Nobody in this settlement is owed money, so the debts below can't be matched to a payee. Settle them with a space admin.</span>
+                    </div>
+                }
             </div>
         }
 
         <!-- Settlement Lines -->
+        @if (settlement.IsLedger)
+        {
+        <div class="bs-card" style="padding: 2rem;">
+            <h3 style="margin: 0 0 0.25rem 0; font-size: 1.25rem; font-weight: 600;">Balances</h3>
+            <p class="bs-text-subtle" style="margin: 0 0 1.5rem 0; font-size: 0.875rem;">
+                @NetFormula() Negative means the member pays the treasurer.
+            </p>
+
+            <div class="bs-flex bs-flex-col bs-gap-3">
+                @foreach (var line in settlement.Lines.OrderBy(l => l.NetBalance).ThenBy(l => l.UserName))
+                {
+                    var settled = line.IsConfirmed || line.Resolution == "Confirmed";
+                    var carried = line.Resolution == "Carried";
+                    <div class="bs-card" style="padding: 1.5rem; background: @(settled ? "var(--bs-success-light, rgba(34, 197, 94, 0.1))" : "var(--bs-gray-50)"); border: 1px solid @(settled ? "var(--bs-success)" : "var(--bs-border)");">
+                        <div class="bs-flex bs-items-start bs-justify-between" style="margin-bottom: 1rem; gap: 1rem;">
+                            <div>
+                                <div class="bs-flex bs-items-center bs-gap-2" style="margin-bottom: 0.25rem; flex-wrap: wrap;">
+                                    <h4 style="margin: 0; font-size: 1.125rem; font-weight: 600;">@line.UserName</h4>
+                                    @if (line.IsTreasurer)
+                                    {
+                                        <span class="bs-badge bs-badge-primary">Treasurer</span>
+                                    }
+                                    @if (carried)
+                                    {
+                                        <span class="bs-badge bs-badge-secondary">Carried</span>
+                                    }
+                                    @if (settled)
+                                    {
+                                        <span class="material-symbols-outlined" style="color: var(--bs-success); font-size: 1.25rem;" title="Settled">check_circle</span>
+                                    }
+                                </div>
+                                <p class="bs-text-subtle" style="font-size: 0.875rem; margin: 0;">@line.UserEmail</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <p style="font-size: 1.5rem; font-weight: 700; margin: 0; color: @(line.NetBalance < 0 ? "var(--bs-error, #ef4444)" : line.NetBalance > 0 ? "var(--bs-success)" : "inherit");">
+                                    @(line.NetBalance > 0 ? "+" : "")@line.Currency @line.NetBalance.ToString("F2")
+                                </p>
+                                <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0;">@NetCaption(line)</p>
+                            </div>
+                        </div>
+
+                        <div class="bs-flex bs-gap-4" style="margin-bottom: 1rem; flex-wrap: wrap;">
+                            @LedgerFigure("Coffee", $"{line.TotalCoffeeGrams:F0}g")
+                            @LedgerFigure("Cost", $"−{line.AmountDue:F2}")
+                            @LedgerFigure("Credit", $"+{line.Credit ?? 0:F2}")
+                            @LedgerFigure("Carried", Signed(line.CarriedIn ?? 0))
+                            @LedgerFigure("Adjustments", Signed(line.Adjustments ?? 0))
+                            @if (line.MergeTransfer != 0)
+                            {
+                                @LedgerFigure(line.MergedIntoName is { } target ? $"Moved to {target}" : "Moved from merged member", Signed(line.MergeTransfer))
+                            }
+                            @if ((line.Rounding ?? 0) != 0)
+                            {
+                                @LedgerFigure("Rounding", Signed(line.Rounding ?? 0))
+                            }
+                        </div>
+
+                        <div style="text-align: right;">
+                            @if (carried && line.CarriedToSettlementId is { } carriedTo)
+                            {
+                                <a class="bs-text-subtle" style="font-size: 0.75rem;" href="@($"/spaces/{SpaceId}/settlements/{carriedTo}")">Carried into the next settlement →</a>
+                            }
+                            else if (settled)
+                            {
+                                <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0;">
+                                    @(line.NetBalance == 0 ? "Nothing to pay" : "Confirmed") @(line.ConfirmedAt.HasValue ? line.ConfirmedAt.Value.ToString("MMM dd, yyyy") : "")
+                                </p>
+                            }
+                            else if (line.IsTreasurer)
+                            {
+                                <span class="bs-text-subtle" style="font-size: 0.75rem;">Settles itself once every other line is confirmed</span>
+                            }
+                            else if (CanConfirmLedgerLine(line))
+                            {
+                                <button class="bs-btn bs-btn-sm bs-btn-primary"
+                                        style="font-size: 0.875rem;"
+                                        disabled="@isConfirming"
+                                        @onclick="@(() => RequestConfirmPayment(line.UserId, line.UserName))">
+                                    @if (isConfirming && confirmingUserId == line.UserId)
+                                    {
+                                        <span>Confirming...</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="material-symbols-outlined" style="font-size: 1rem; vertical-align: middle;">check</span>
+                                        <span>@ConfirmLabel(line)</span>
+                                    }
+                                </button>
+                            }
+                            else
+                            {
+                                <span class="bs-text-subtle" style="font-size: 0.75rem;">Awaiting confirmation</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+        }
+        else
+        {
         <div class="bs-card" style="padding: 2rem;">
             <h3 style="margin: 0 0 1.5rem 0; font-size: 1.25rem; font-weight: 600;">Cost Breakdown</h3>
 
@@ -239,6 +377,7 @@
                 }
             </div>
         </div>
+        }
 
         <!-- Export Actions -->
         <div class="bs-card" style="padding: 1.5rem; margin-top: 1.5rem;">
@@ -252,7 +391,7 @@
                     <span class="material-symbols-outlined">table_chart</span>
                     Export Excel
                 </button>
-                @if (isAdmin)
+                @if (isAdmin && !settlement.IsCarriedForward)
                 {
                     <button class="bs-btn bs-btn-primary" disabled="@isSendingEmails" @onclick="HandleSendEmails">
                         @if (isSendingEmails)
@@ -262,7 +401,7 @@
                         else
                         {
                             <span class="material-symbols-outlined">mail</span>
-                            <span>Email All Members</span>
+                            <span>@(settlement.IsLedger ? "Email Members" : "Email All Members")</span>
                         }
                     </button>
                 }
@@ -309,6 +448,7 @@
 
     private Guid currentUserId;
     private bool isAdmin;
+    private bool isMember;
     private bool isConfirming;
     private Guid confirmingUserId;
     private bool isSendingEmails;
@@ -347,13 +487,35 @@
         await LoadSettlement();
     }
 
-    // Greedy min-transfer settlement: match the largest debtor to the largest creditor.
+    // Ledger: the stored star plan through the treasurer. Legacy: greedy min-transfer settlement,
+    // matching the largest debtor to the largest creditor.
     private List<Transfer> BuildTransfers()
     {
         var transfers = new List<Transfer>();
         if (settlement == null)
         {
             return transfers;
+        }
+
+        // Only payments still to be made: a confirmed line is paid, and a carried-forward settlement's
+        // open debts now sit in the next settlement.
+        if (settlement.IsLedger)
+        {
+            if (settlement.IsCarriedForward)
+            {
+                return transfers;
+            }
+
+            return (settlement.Transfers ?? [])
+                .Where(t => MemberLineOf(t)?.Resolution == "Open")
+                .Select(t => new Transfer(
+                    t.FromName,
+                    t.ToName,
+                    t.Amount,
+                    settlement.Currency,
+                    settlement.Lines.FirstOrDefault(l => l.UserId == t.ToUserId)?.RevolutTag,
+                    t.FromUserId))
+                .ToList();
         }
 
         var debtors = settlement.Lines
@@ -386,6 +548,13 @@
         return transfers;
     }
 
+    /// <summary>The non-treasurer party's line of a star transfer.</summary>
+    private SettlementLineDto? MemberLineOf(SettlementTransferDto transfer)
+    {
+        var memberId = transfer.FromUserId == settlement?.TreasurerUserId ? transfer.ToUserId : transfer.FromUserId;
+        return settlement?.Lines.FirstOrDefault(l => l.UserId == memberId);
+    }
+
     private async Task LoadSpace()
     {
         try
@@ -394,6 +563,7 @@
             if (result.IsSuccess)
             {
                 isAdmin = result.Value.Members.Any(m => m.UserId == currentUserId && m.Role == "Admin");
+                isMember = result.Value.Members.Any(m => m.UserId == currentUserId);
             }
         }
         catch (Exception ex)
@@ -416,11 +586,13 @@
             }
             else
             {
+                settlement = null;
                 ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
             }
         }
         catch (Exception ex)
         {
+            settlement = null;
             ShowToast(true, "Error", $"Failed to load settlement: {ex.Message}");
         }
         finally
@@ -434,12 +606,64 @@
         return isAdmin || lineUserId == currentUserId;
     }
 
+    /// <summary>Ledger lines: the member, the settlement's treasurer (while a member) or an admin.</summary>
+    private bool CanConfirmLedgerLine(SettlementLineDto line) =>
+        isAdmin
+        || line.UserId == currentUserId
+        || (isMember && settlement?.TreasurerUserId == currentUserId);
+
+    private string TreasurerName => settlement?.TreasurerName ?? "the treasurer";
+
+    private string ConfirmLabel(SettlementLineDto line) =>
+        line.NetBalance < 0 ? $"Mark paid to {TreasurerName}" : $"Mark received from {TreasurerName}";
+
+    private string NetCaption(SettlementLineDto line)
+    {
+        if (line.IsTreasurer)
+            return "treasurer's own balance";
+        var amount = $"{line.Currency} {Math.Abs(line.NetBalance):F2}";
+        if (line.NetBalance == 0)
+            return "square";
+        return line.NetBalance < 0 ? $"pays {TreasurerName} {amount}" : $"{TreasurerName} pays {amount}";
+    }
+
+    private static string Signed(decimal amount) => $"{(amount > 0 ? "+" : "")}{amount:F2}";
+
+    private string NetFormula()
+    {
+        var formula = "Net = credit − cost + carried + adjustments";
+        if (settlement?.Lines.Any(l => l.MergeTransfer != 0) == true)
+            formula += " + moved";
+        if (settlement?.Lines.Any(l => (l.Rounding ?? 0) != 0) == true)
+            formula += " + rounding";
+        return formula + ".";
+    }
+
+    private static RenderFragment LedgerFigure(string label, string value) => __builder =>
+    {
+        <div>
+            <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0 0 0.25rem 0;">@label</p>
+            <p style="font-size: 1.125rem; font-weight: 600; margin: 0; font-variant-numeric: tabular-nums;">@value</p>
+        </div>
+    };
+
     private void RequestConfirmPayment(Guid memberUserId, string memberName)
     {
         pendingPaymentUserId = memberUserId;
-        confirmPaymentMessage = memberUserId == currentUserId
-            ? "This marks your share of this settlement as paid. Only do this once you've actually settled up."
-            : $"This marks {memberName}'s share as paid.";
+        var line = settlement?.Lines.FirstOrDefault(l => l.UserId == memberUserId);
+        if (settlement?.IsLedger == true && line != null)
+        {
+            var amount = $"{line.Currency} {Math.Abs(line.NetBalance):F2}";
+            confirmPaymentMessage = line.NetBalance < 0
+                ? $"This records that {memberName} paid {TreasurerName} {amount}."
+                : $"This records that {TreasurerName} paid {memberName} {amount}.";
+        }
+        else
+        {
+            confirmPaymentMessage = memberUserId == currentUserId
+                ? "This marks your share of this settlement as paid. Only do this once you've actually settled up."
+                : $"This marks {memberName}'s share as paid.";
+        }
         showConfirmPayment = true;
     }
 
@@ -464,6 +688,11 @@
             if (result.IsSuccess)
             {
                 ShowToast(false, "Success", "Payment confirmed successfully");
+                await LoadSettlement();
+            }
+            else if (result.Errors.Any(e => e.Code is Error.Codes.ConcurrencyConflict or Error.Codes.LineCarried))
+            {
+                ShowToast(true, "Changed meanwhile", "This settlement changed in the meantime and was reloaded. Please check and try again.");
                 await LoadSettlement();
             }
             else

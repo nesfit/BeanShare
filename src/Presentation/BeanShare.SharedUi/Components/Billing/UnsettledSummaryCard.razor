@@ -28,6 +28,11 @@
                 <div style="font-size: 0.7rem; color: var(--bs-text-subtle); font-weight: 600;">MY SHARE</div>
                 <div style="font-size: 1.25rem; font-weight: 700;">@Format(Summary.MyCost)</div>
             </div>
+            <div style="flex: 1; min-width: 6rem; background: var(--bs-gray-50); border-radius: 0.5rem; padding: 0.625rem 0.875rem;"
+                 title="@MyBalanceTitle()">
+                <div style="font-size: 0.7rem; color: var(--bs-text-subtle); font-weight: 600;">MY BALANCE</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: @BalanceColor(Summary.MyBalance);">@FormatSigned(Summary.MyBalance)</div>
+            </div>
             @if (Summary.IsAdmin)
             {
                 <div style="flex: 1; min-width: 6rem; background: var(--bs-gray-50); border-radius: 0.5rem; padding: 0.625rem 0.875rem;">
@@ -62,7 +67,15 @@
                                     <th style="text-align: left; padding: 0.25rem 0.5rem 0.25rem 0; font-weight: 600;">Member</th>
                                     <th style="padding: 0.25rem 0.5rem; font-weight: 600;">Cups</th>
                                     <th style="padding: 0.25rem 0.5rem; font-weight: 600;">Coffee</th>
-                                    <th style="padding: 0.25rem 0.5rem; font-weight: 600;">Owes</th>
+                                    <th style="padding: 0.25rem 0.5rem; font-weight: 600;">Cost</th>
+                                    <th style="padding: 0.25rem 0.5rem; font-weight: 600;">Credit</th>
+                                    <th style="padding: 0.25rem 0.5rem; font-weight: 600;">Carried</th>
+                                    <th style="padding: 0.25rem 0.5rem; font-weight: 600;">Adj.</th>
+                                    <th style="padding: 0.25rem 0.5rem; font-weight: 600;">Moved (merge)</th>
+                                    @if (ShowRounding)
+                                    {
+                                        <th style="padding: 0.25rem 0.5rem; font-weight: 600;">Rounding</th>
+                                    }
                                     <th style="padding: 0.25rem 0 0.25rem 0.5rem; font-weight: 600;">Balance</th>
                                 </tr>
                             </thead>
@@ -76,6 +89,14 @@
                                         <td style="padding: 0.375rem 0.5rem;">@member.Cups</td>
                                         <td style="padding: 0.375rem 0.5rem;" class="bs-text-subtle">@member.Grams.ToString("N0") g</td>
                                         <td style="padding: 0.375rem 0.5rem;">@Format(member.Cost)</td>
+                                        <td style="padding: 0.375rem 0.5rem;">@Format(member.Credit)</td>
+                                        <td style="padding: 0.375rem 0.5rem;">@FormatSigned(member.Carried)</td>
+                                        <td style="padding: 0.375rem 0.5rem;">@FormatSigned(member.Adjustments)</td>
+                                        <td style="padding: 0.375rem 0.5rem;">@FormatSigned(member.MergeTransfer)</td>
+                                        @if (ShowRounding)
+                                        {
+                                            <td style="padding: 0.375rem 0.5rem;">@(member.Rounding != 0 ? FormatSigned(member.Rounding) : "")</td>
+                                        }
                                         <td style="padding: 0.375rem 0 0.375rem 0.5rem; color: @BalanceColor(member.Balance);">
                                             @FormatSigned(member.Balance)
                                         </td>
@@ -85,7 +106,13 @@
                         </table>
                     </div>
                     <div class="bs-text-subtle" style="font-size: 0.7rem; margin-top: 0.5rem;">
-                        Balance = coffee this member paid for, minus what they drank. Close the billing period to settle up.
+                        Balance = bags paid for (credit) − coffee drunk (cost) + carried from earlier settlements + balance entries
+                        + moved (merge) + rounding (the treasurer only). Positive means the space owes the member.
+                        @if (Summary.UnassignedRounding != 0)
+                        {
+                            <span>Rounding residual @FormatSigned(Summary.UnassignedRounding) is unassigned until a treasurer is set.</span>
+                        }
+                        Close the billing period to settle up.
                     </div>
                 }
             </div>
@@ -109,6 +136,15 @@
     public string? BillingHref { get; set; }
 
     private bool showBreakdown;
+
+    private bool ShowRounding => Summary?.Members.Any(m => m.Rounding != 0) == true;
+
+    private string MyBalanceTitle() => Summary is null
+        ? ""
+        : $"Credit {Format(Summary.MyCredit)} − cost {Format(Summary.MyCost)} + carried {FormatSigned(Summary.MyCarried)} + entries {FormatSigned(Summary.MyAdjustments)}"
+          + (Summary.MyMergeTransfer != 0 ? $" + moved {FormatSigned(Summary.MyMergeTransfer)}" : "")
+          + (Summary.MyRounding != 0 ? $" + rounding {FormatSigned(Summary.MyRounding)}" : "")
+          + ". Positive means the space owes you.";
 
     private string SubtitleText()
     {

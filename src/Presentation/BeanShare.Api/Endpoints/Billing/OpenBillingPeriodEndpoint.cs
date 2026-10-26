@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Billing.Commands.OpenBillingPeriod;
 using FastEndpoints;
 using MediatR;
@@ -28,6 +29,9 @@ public sealed class OpenBillingPeriodEndpoint : Endpoint<OpenBillingPeriodReques
     {
         var command = new OpenBillingPeriodCommand(req.BillingPeriodId);
         var result = await _mediator.Send(command, ct);
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+            return;
 
         if (result.IsSuccess)
         {

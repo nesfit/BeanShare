@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Consumption.Commands;
 using BeanShare.Application.Features.Consumption.Dtos;
 using BeanShare.Contracts.Consumption;
@@ -33,6 +34,9 @@ public sealed class ImportConsumptionCsvEndpoint(IMediator mediator)
 
         var command = new ImportConsumptionCsvCommand(req.SpaceId, rows);
         var result = await mediator.Send(command, ct);
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+            return;
 
         if (result.IsSuccess)
         {

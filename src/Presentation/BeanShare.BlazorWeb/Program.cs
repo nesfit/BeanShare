@@ -27,7 +27,10 @@ var useOidc = builder.Configuration.GetValue<bool>("UseOidc", false);
 var useInMemoryDatabase = builder.Configuration.GetValue<bool>("UseInMemoryDatabase", false);
 
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    // A bound textarea arrives as one circuit message: the default 32 KB would drop the circuit on a
+    // long balance paste (up to 1000 rows; the textarea is capped at 250,000 characters).
+    .AddHubOptions(options => options.MaximumReceiveMessageSize = 1024 * 1024);
 
 builder.Services.AddApplication();
 builder.Services.AddScopedSender();

@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.CoffeeStock.Commands;
 using BeanShare.Contracts.CoffeeStock;
 using FastEndpoints;
@@ -32,6 +33,9 @@ public sealed class MarkBagEmptyEndpoint : Endpoint<MarkBagEmptyRequest, MarkBag
 
         var command = new MarkBagEmptyCommand(spaceId, lotId, req.Reason);
         var result = await _mediator.Send(command, ct);
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+            return;
 
         if (result.IsSuccess)
         {

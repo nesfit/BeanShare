@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Settlement.Commands.SendSettlementEmails;
 using BeanShare.Domain.ValueObjects;
 using FastEndpoints;
@@ -32,7 +33,7 @@ public sealed class SendSettlementEmailsEndpoint : Endpoint<SendSettlementEmails
         Summary(s =>
         {
             s.Summary = "Send settlement emails";
-            s.Description = "Sends settlement notification emails to all space members";
+            s.Description = "Sends settlement notification emails to the members with something to read or do (consumption, a non-zero net, or the treasurer when payments exist). Space admins only.";
         });
     }
 
@@ -48,6 +49,10 @@ public sealed class SendSettlementEmailsEndpoint : Endpoint<SendSettlementEmails
                 EmailsSent = result.Value,
                 Message = $"Successfully sent {result.Value} email(s)"
             }, ct);
+        }
+        else if (result.Errors.Any(e => ResultExtensions.GetStatusCode(e) == StatusCodes.Status403Forbidden))
+        {
+            await this.SendResultErrorsAsync(result, ct);
         }
         else
         {

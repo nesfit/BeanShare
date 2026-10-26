@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.CoffeeStock.Commands;
 using BeanShare.Application.Features.CoffeeStock.Dtos;
 using FastEndpoints;
@@ -15,6 +16,7 @@ public sealed class UpdateStockPurchaseRequest
     public string? ProductName { get; set; }
     public string? ProductBrand { get; set; }
     public string? CoffeeType { get; set; }
+    public Guid? PaidByUserId { get; set; }
 }
 
 public sealed class UpdateStockPurchaseEndpoint : Endpoint<UpdateStockPurchaseRequest, StockPurchaseDto>
@@ -41,9 +43,15 @@ public sealed class UpdateStockPurchaseEndpoint : Endpoint<UpdateStockPurchaseRe
             req.PurchasedAt,
             req.ProductName,
             req.ProductBrand,
-            req.CoffeeType);
+            req.CoffeeType,
+            req.PaidByUserId);
 
         var result = await _mediator.Send(command, ct);
+
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+
+            return;
 
         if (result.IsSuccess)
         {

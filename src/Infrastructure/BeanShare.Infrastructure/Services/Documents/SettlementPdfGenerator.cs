@@ -27,7 +27,7 @@ public sealed class SettlementPdfGenerator
         {
             container.Page(page =>
             {
-                page.Size(PageSizes.A4);
+                page.Size(data.IsLedger ? PageSizes.A4.Landscape() : PageSizes.A4);
                 page.Margin(PdfLayoutConstants.PageMargin);
                 page.DefaultTextStyle(x => x.FontSize(PdfLayoutConstants.BodyFontSize));
 
@@ -100,6 +100,18 @@ public sealed class SettlementPdfGenerator
             {
                 row.RelativeItem().Text($"Period: {data.PeriodStart:dd MMM yyyy} - {data.PeriodEnd:dd MMM yyyy}");
             });
+
+            if (data.IsLedger)
+            {
+                column.Item().Text($"Treasurer: {data.TreasurerName ?? "-"}");
+            }
+
+            if (data.IsCarriedForward)
+            {
+                column.Item().PaddingTop(PdfLayoutConstants.SmallSpacing)
+                    .Text("Carried forward: the open lines of this settlement were carried into the next one.")
+                    .FontColor(Colors.Orange.Darken2).SemiBold();
+            }
         });
     }
 
@@ -142,6 +154,12 @@ public sealed class SettlementPdfGenerator
 
     private void ComposeTable(IContainer container, SettlementReportData data)
     {
+        if (data.IsLedger)
+        {
+            ComposeLedgerTable(container, data);
+            return;
+        }
+
         container.Column(outerColumn =>
         {
             outerColumn.Item().Table(table =>
@@ -198,6 +216,109 @@ public sealed class SettlementPdfGenerator
             ComposePaymentConfirmations(outerColumn, data);
         });
     }
+
+    /// <summary>Ledger lines: the Net breakdown per member, sorted by Net, then the treasurer's payment plan.</summary>
+    private void ComposeLedgerTable(IContainer container, SettlementReportData data)
+    {
+        var showRounding = data.Lines.Any(l => (l.Rounding ?? 0) != 0);
+
+        container.Column(outerColumn =>
+        {
+            outerColumn.Item().Table(table =>
+            {
+                var headerLabels = new List<string> { "Member", "Coffee (g)", "Cost", "Credit", "Carried", "Adj.", "Moved (merge)" };
+                if (showRounding)
+                    headerLabels.Add("Rounding");
+                headerLabels.AddRange(["Net", "Status"]);
+
+                table.ColumnsDefinition(columns =>
+                {
+                    columns.RelativeColumn(3);
+                    for (var i = 1; i < headerLabels.Count; i++)
+                        columns.RelativeColumn(2);
+                });
+
+                table.Header(header =>
+                {
+                    foreach (var label in headerLabels)
+                    {
+                        header.Cell().Background(Colors.Brown.Darken2)
+                            .Padding(PdfLayoutConstants.TableCellPadding)
+                            .Text(label).FontColor(Colors.White).SemiBold();
+                    }
+                });
+
+                foreach (var line in data.Lines.OrderBy(l => l.Net ?? 0).ThenBy(l => l.UserName))
+                {
+                    var bgColor = line.IsPaid ? Colors.Green.Lighten5 : Colors.White;
+
+                    table.Cell().Background(bgColor).BorderBottom(PdfLayoutConstants.BorderWidth)
+                        .BorderColor(Colors.Grey.Lighten2)
+                        .Padding(PdfLayoutConstants.TableCellPadding).Column(col =>
+                        {
+                            col.Item().Text(line.IsTreasurer ? $"{line.UserName} (treasurer)" : line.UserName).SemiBold();
+                            col.Item().Text(line.UserEmail)
+                                .FontSize(PdfLayoutConstants.SmallFontSize)
+                                .FontColor(Colors.Grey.Darken1);
+                        });
+
+                    ComposeTableCell(table, bgColor, $"{line.CoffeeGrams:N1}");
+                    ComposeTableCell(table, bgColor, $"{line.AmountDue:N2}");
+                    ComposeTableCell(table, bgColor, $"{line.Credit ?? 0:N2}");
+                    ComposeTableCell(table, bgColor, $"{line.CarriedIn ?? 0:N2}");
+                    ComposeTableCell(table, bgColor, $"{line.Adjustments ?? 0:N2}");
+                    ComposeTableCell(table, bgColor, $"{line.MergeTransfer:N2}");
+                    if (showRounding)
+                        ComposeTableCell(table, bgColor, $"{line.Rounding ?? 0:N2}");
+                    ComposeTableCell(table, bgColor, $"{line.Net ?? 0:N2} {data.Currency}", semiBold: true);
+
+                    var status = LedgerStatus(line);
+                    var statusColor = status switch
+                    {
+                        "Paid" or "Square" => Colors.Green.Darken1,
+                        "Carried" => Colors.Grey.Darken1,
+                        _ => Colors.Orange.Darken1
+                    };
+                    table.Cell().Background(bgColor).BorderBottom(PdfLayoutConstants.BorderWidth)
+                        .BorderColor(Colors.Grey.Lighten2)
+                        .Padding(PdfLayoutConstants.TableCellPadding)
+                        .AlignCenter().Text(status).FontColor(statusColor).SemiBold();
+                }
+            });
+
+            outerColumn.Item().PaddingTop(PdfLayoutConstants.SmallSpacing)
+                .Text("Net = Credit − Cost + Carried + Adj. + Moved + Rounding; negative means the member pays.")
+                .FontSize(PdfLayoutConstants.SmallFontSize)
+                .FontColor(Colors.Grey.Darken1);
+
+            if (data.Transfers is { Count: > 0 } transfers)
+            {
+                outerColumn.Item().PaddingTop(PdfLayoutConstants.SectionPadding).Column(column =>
+                {
+                    column.Item().Text($"Payments through the treasurer ({data.TreasurerName ?? "-"})")
+                        .FontSize(PdfLayoutConstants.SectionTitleFontSize)
+                        .SemiBold();
+
+                    foreach (var transfer in transfers)
+                    {
+                        column.Item().PaddingTop(PdfLayoutConstants.SmallSpacing)
+                            .Text($"  {transfer.FromName} pays {transfer.ToName}: {transfer.Amount:N2} {data.Currency}");
+                    }
+                });
+            }
+
+            ComposePaymentConfirmations(outerColumn, data);
+        });
+    }
+
+    private static string LedgerStatus(SettlementLineReportData line) => line switch
+    {
+        { IsTreasurer: true } => "Treasurer",
+        { Resolution: "Carried" } => "Carried",
+        _ when (line.Net ?? 0) == 0 => "Square",
+        { Resolution: "Confirmed" } => "Paid",
+        _ => "Open"
+    };
 
     private static void ComposeTableCell(TableDescriptor table, string bgColor, string text, bool semiBold = false)
     {

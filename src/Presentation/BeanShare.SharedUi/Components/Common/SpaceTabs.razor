@@ -35,6 +35,15 @@
        @onclick:preventDefault="@PreventNavigation">
         Settlements
     </a>
+    @if (ShowBalances)
+    {
+        <a class="bs-tab @(ActiveTab == "balances" ? "bs-tab-active" : "")"
+           href="@GetTabUrl("balances")"
+           @onclick="@(() => HandleTabClick("balances"))"
+           @onclick:preventDefault="@PreventNavigation">
+            Balances
+        </a>
+    }
     <a class="bs-tab @(ActiveTab == "presets" ? "bs-tab-active" : "")"
        href="@GetTabUrl("presets")"
        @onclick="@(() => HandleTabClick("presets"))"
@@ -61,6 +70,10 @@
 
     [Parameter]
     public bool PreventNavigation { get; set; } = true;
+
+    /// <summary>Shows the Balances tab (money ledger); hosts without that page leave it off.</summary>
+    [Parameter]
+    public bool ShowBalances { get; set; }
 
     private string GetTabUrl(string tab)
     {

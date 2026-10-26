@@ -4,6 +4,7 @@
 @using BeanShare.Application.Common
 @using BeanShare.Application.Features.Billing.Queries.GetSpaceBillingPeriods
 @using BeanShare.Application.Features.Billing.Commands.CreateBillingPeriod
+@using BeanShare.Application.Features.Billing.Commands.DeleteBillingPeriod
 @using BeanShare.Application.Features.Billing.Dtos
 @using BeanShare.SharedUi.Components.Billing
 @using Microsoft.AspNetCore.Authorization
@@ -22,7 +23,7 @@
             <h1 class="bs-font-bold" style="margin: 0; font-size: 1.25rem;">Billing Periods</h1>
             <div style="width: 2rem;"></div>
         </div>
-        <SpaceTabs SpaceId="@SpaceId" ActiveTab="billing" PreventNavigation="false" />
+        <SpaceTabs SpaceId="@SpaceId" ActiveTab="billing" PreventNavigation="false" ShowBalances="true" />
     </div>
 </div>
 
@@ -75,9 +76,18 @@
                                 @period.FormattedDateRange
                             </p>
                         </div>
-                        <span class="bs-badge @GetStateBadgeClass(period.State)">
-                            @period.State
-                        </span>
+                        <div class="bs-flex bs-items-center" style="gap: 0.5rem;">
+                            @if (period.State == "Draft")
+                            {
+                                <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Delete draft period" title="Delete draft"
+                                        @onclick="@(() => RequestDelete(period))" @onclick:stopPropagation="true">
+                                    <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--bs-error);">delete</span>
+                                </button>
+                            }
+                            <span class="bs-badge @GetStateBadgeClass(period.State)">
+                                @period.State
+                            </span>
+                        </div>
                     </div>
 
                     <div class="bs-flex bs-gap-4" style="margin-top: 1rem;">
@@ -109,6 +119,15 @@
         </div>
     }
 </div>
+
+<ConfirmDialog IsVisible="@showDeleteConfirm"
+               Title="Delete this draft period?"
+               Message="@DeleteMessage"
+               ConfirmText="Delete"
+               IsDestructive="true"
+               IsProcessing="@isDeleting"
+               OnConfirm="ConfirmDelete"
+               OnCancel="@(() => showDeleteConfirm = false)" />
 
 <CreateBillingPeriodModal IsVisible="@showCreateModal"
                           OnSubmit="HandleCreateBillingPeriod"
@@ -161,6 +180,57 @@
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private bool showDeleteConfirm;
+    private bool isDeleting;
+    private BillingPeriodSummaryDto? deletePeriod;
+
+    private string DeleteMessage =>
+        $"{deletePeriod?.Name} has not been opened yet, so nothing is lost but the period itself.";
+
+    private void RequestDelete(BillingPeriodSummaryDto period)
+    {
+        deletePeriod = period;
+        showDeleteConfirm = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (deletePeriod == null)
+        {
+            showDeleteConfirm = false;
+            return;
+        }
+
+        isDeleting = true;
+        try
+        {
+            var result = await Mediator.Send(new DeleteBillingPeriodCommand(deletePeriod.Id));
+            if (result.IsSuccess)
+            {
+                ShowToast(false, "Deleted", $"Billing period '{deletePeriod.Name}' deleted.");
+            }
+            else if (result.Errors.Any(e => e.Code == Error.Codes.ConcurrencyConflict))
+            {
+                ShowToast(true, "Changed meanwhile", "The billing periods changed in the meantime and were reloaded.");
+            }
+            else
+            {
+                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
+            }
+            await LoadBillingPeriods();
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Failed to delete billing period: {ex.Message}");
+        }
+        finally
+        {
+            isDeleting = false;
+            showDeleteConfirm = false;
+            deletePeriod = null;
         }
     }
 

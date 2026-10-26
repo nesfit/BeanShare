@@ -36,7 +36,8 @@ public sealed record LedgerTransfer(UserId From, UserId To, decimal Amount);
 /// <summary>
 /// The single money calculation behind generation, the settlement preview and the running balance
 /// (design §4.1, DS-19). Pure: debit and credit come from the same cups, entries are two-party, the
-/// carry sums to zero and the rounding residual lands on the treasurer, so ΣNet = 0 exactly.
+/// carry sums to zero and the rounding residual lands on the treasurer, so ΣNet = 0 exactly when a
+/// treasurer is set; without one the residual is reported as UnassignedRounding (ΣNet + it = 0).
 /// </summary>
 public static class SettlementLedgerCalculator
 {

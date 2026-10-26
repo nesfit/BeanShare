@@ -17,4 +17,7 @@ public sealed record AddStockPurchaseRequest
 
     // Optional product barcode (e.g. scanned EAN/UPC) associated with this purchase.
     public string? Barcode { get; init; }
+
+    // Optional member who paid for the bags; null means the recorder.
+    public Guid? PaidByUserId { get; init; }
 }

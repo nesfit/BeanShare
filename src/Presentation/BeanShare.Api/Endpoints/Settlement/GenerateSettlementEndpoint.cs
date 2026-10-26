@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Settlement.Commands.GenerateSettlement;
 using BeanShare.Application.Features.Settlement.Dtos;
 using FastEndpoints;
@@ -28,6 +29,9 @@ public sealed class GenerateSettlementEndpoint : Endpoint<GenerateSettlementRequ
     {
         var command = new GenerateSettlementCommand(req.BillingPeriodId);
         var result = await _mediator.Send(command, ct);
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+            return;
 
         if (result.IsSuccess)
         {

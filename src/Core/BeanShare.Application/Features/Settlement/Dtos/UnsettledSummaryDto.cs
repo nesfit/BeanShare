@@ -51,7 +51,8 @@ public sealed record UnsettledSpaceSummaryDto(
     decimal MyAdjustments = 0m,
     decimal MyRounding = 0m,
     decimal MyBalance = 0m,
-    decimal UnassignedRounding = 0m)
+    decimal UnassignedRounding = 0m,
+    decimal MyMergeTransfer = 0m)
 {
     public bool HasEverBeenSettled => SettledThrough.HasValue;
 }
@@ -70,4 +71,5 @@ public sealed record UnsettledMemberSummaryDto(
     decimal Carried = 0m,
     decimal Adjustments = 0m,
     decimal Rounding = 0m,
-    decimal Balance = 0m);
+    decimal Balance = 0m,
+    decimal MergeTransfer = 0m);

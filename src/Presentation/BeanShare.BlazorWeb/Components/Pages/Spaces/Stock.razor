@@ -58,7 +58,8 @@ else
 
             <SpaceTabs SpaceId="@SpaceId"
                       ActiveTab="stock"
-                      PreventNavigation="false" />
+                      PreventNavigation="false"
+                      ShowBalances="true" />
         </div>
     </div>
 
@@ -128,6 +129,7 @@ else
                  OnCancel="HandleAddPurchaseCancel"
                  CurrencyCode="@(space?.CurrencyCode ?? "USD")"
                  PrefillFrom="@purchasePrefill"
+                 PayerOptions="@payerOptions"
                  OnBarcodeScanned="HandleBarcodeScanned" />
 
 <QrCodeModal IsVisible="@showQrModal"
@@ -176,6 +178,7 @@ else
 
     private bool showAddPurchaseModal;
     private AddPurchaseModal.PurchasePrefill? purchasePrefill;
+    private IReadOnlyList<AddPurchaseModal.PayerOption>? payerOptions;
     private bool showQrModal;
     private StockLevelDto? selectedQrStockLevel;
     private List<ActiveQrCodeDto> activeQrCodes = new();
@@ -219,6 +222,11 @@ else
                 space = result.Value;
                 var currentUserId = UserContext.CurrentUserId.Value;
                 isAdmin = space.Members.Any(m => m.UserId == currentUserId && m.Role == "Admin");
+                payerOptions = space.Members
+                    .Where(m => m.UserId != currentUserId)
+                    .Select(m => new AddPurchaseModal.PayerOption(m.UserId, m.UserName))
+                    .OrderBy(p => p.Name)
+                    .ToList();
             }
         }
         catch (Exception ex)
@@ -345,7 +353,8 @@ else
                 "Store",
                 model.PurchasedAt.ToUniversalTime(),
                 model.BagCount,
-                model.Barcode
+                model.Barcode,
+                model.PaidByUserId
             ));
 
             if (result.IsSuccess)

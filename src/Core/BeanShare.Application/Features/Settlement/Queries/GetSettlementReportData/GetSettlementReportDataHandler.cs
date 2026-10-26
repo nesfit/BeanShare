@@ -117,7 +117,8 @@ public sealed class GetSettlementReportDataHandler : IRequestHandler<GetSettleme
                 line.RoundingAmount,
                 line.NetAmount,
                 line.Resolution?.ToString(),
-                TransferText(settlement, line, treasurerName)
+                TransferText(settlement, line, treasurerName),
+                settlement.IsTreasurerLine(line)
             ));
         }
 
@@ -136,10 +137,27 @@ public sealed class GetSettlementReportDataHandler : IRequestHandler<GetSettleme
             lines,
             settlement.IsLedger,
             treasurerName,
-            settlement.SupersededBySettlementId.HasValue
+            settlement.SupersededBySettlementId.HasValue,
+            Transfers(settlement, userLookup)
         );
 
         return Result<SettlementReportData>.Success(reportData);
+    }
+
+    /// <summary>The star plan of a ledger settlement (every payment goes through the treasurer); null for legacy.</summary>
+    private static IReadOnlyList<SettlementTransferDto>? Transfers(
+        Domain.Aggregates.Settlement.Settlement settlement,
+        IReadOnlyDictionary<UserId, Domain.Entities.User> users)
+    {
+        if (!settlement.IsLedger || settlement.TreasurerUserId is not { } treasurerId)
+            return null;
+
+        string NameOf(UserId id) => users.TryGetValue(id, out var u) ? u.Name : $"User {id.Value}";
+
+        return Domain.Services.SettlementLedgerCalculator
+            .StarTransfers(settlement.Lines.Select(l => (l.UserId, l.NetAmount ?? 0m)), treasurerId)
+            .Select(t => new SettlementTransferDto(t.From.Value, NameOf(t.From), t.To.Value, NameOf(t.To), t.Amount))
+            .ToList();
     }
 
     /// <summary>"Pay {T} X" / "{T} pays X" for a ledger line; empty for the treasurer, a zero net or a legacy line.</summary>

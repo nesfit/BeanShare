@@ -11,4 +11,5 @@ public sealed record MemberBalanceDto(
     decimal Carried,
     decimal Adjustments,
     decimal Rounding,
-    decimal Balance);
+    decimal Balance,
+    decimal MergeTransfer = 0m);

@@ -1,0 +1,868 @@
+@page "/spaces/{SpaceId}/balances"
+@rendermode InteractiveServer
+@using BeanShare.Application.Common
+@using BeanShare.Application.Abstractions
+@using BeanShare.Application.Features.Spaces.Queries
+@using BeanShare.Application.Features.Balances.Dtos
+@using BeanShare.Application.Features.Balances.Queries.GetSpaceBalances
+@using BeanShare.Application.Features.Balances.Queries.GetLedgerStartImpact
+@using BeanShare.Application.Features.Balances.Queries.PreviewBalanceEntriesPaste
+@using BeanShare.Application.Features.Balances.Commands.CreateBalanceEntry
+@using BeanShare.Application.Features.Balances.Commands.UpdateBalanceEntry
+@using BeanShare.Application.Features.Balances.Commands.DeleteBalanceEntry
+@using BeanShare.Application.Features.Balances.Commands.CommitBalanceEntriesPaste
+@using BeanShare.Application.Features.Balances.Commands.UpdateLedgerSettings
+@using BeanShare.Domain.Enums
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject IScopedSender Mediator
+@inject NavigationManager Navigation
+@inject IUserContext UserContext
+
+<PageTitle>Balances - @(space?.Name ?? "Loading...") - BeanShare</PageTitle>
+
+@if (space == null)
+{
+    <div class="bs-container" style="padding-top: 4rem; text-align: center;">
+        <div class="bs-skeleton" style="width: 12rem; height: 2rem; margin: 0 auto 1rem;"></div>
+        <div class="bs-skeleton" style="width: 20rem; height: 1rem; margin: 0 auto;"></div>
+    </div>
+}
+else
+{
+    <div style="position: sticky; top: 0; z-index: 10; background: var(--bs-background-light); border-bottom: 1px solid var(--bs-border); padding: 1rem 0;">
+        <div class="bs-container">
+            <div class="bs-flex bs-items-center" style="margin-bottom: 1rem; gap: 0.5rem;">
+                <button class="bs-btn-sm" style="background: transparent; border: none; cursor: pointer; flex-shrink: 0;" aria-label="Back to spaces" @onclick='@(() => Navigation.NavigateTo("/spaces"))'>
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </button>
+                <h1 class="bs-font-bold" style="margin: 0; font-size: 1.25rem; flex: 1; min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@space.Name</h1>
+                <div style="width: 2rem; flex-shrink: 0;"></div>
+            </div>
+            <SpaceTabs SpaceId="@SpaceId" ActiveTab="balances" PreventNavigation="false" ShowBalances="true" />
+        </div>
+    </div>
+
+    <div class="bs-container" style="padding: 2rem 0;">
+        <h2 class="bs-font-bold" style="margin: 0 0 1rem 0; font-size: 1.25rem;">Balances</h2>
+
+        @if (balances == null)
+        {
+            <div class="bs-skeleton" style="width: 100%; height: 10rem;"></div>
+        }
+        else
+        {
+            @if (balances.OpenLegacyLineCount > 0)
+            {
+                <div class="bs-card bs-flex bs-items-center" style="padding: 1rem; margin-bottom: 1rem; gap: 0.5rem; background: var(--bs-warning-light); color: var(--bs-warning-dark);">
+                    <span class="material-symbols-outlined">info</span>
+                    <span>
+                        @balances.OpenLegacyLineCount unconfirmed line(s) from settlements made before the ledger are not part of these balances.
+                        Confirm them on their <a href="@($"/spaces/{SpaceId}/settlements")">settlements</a>.
+                    </span>
+                </div>
+            }
+
+            @if (balances.IsAdmin)
+            {
+                <!-- Ledger settings -->
+                <div class="bs-card" style="padding: 1.5rem; margin-bottom: 1rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-size: 1.05rem; font-weight: 600;">Ledger settings</h3>
+                    <div class="bs-flex bs-gap-4" style="flex-wrap: wrap; align-items: flex-end;">
+                        <div class="bs-flex bs-flex-col" style="gap: 0.35rem; min-width: 14rem;">
+                            <label for="treasurer" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Treasurer (an admin)</label>
+                            <select id="treasurer" class="bs-input" value="@(settingsTreasurer?.ToString() ?? "")" @onchange="OnTreasurerChanged">
+                                <option value="">— none —</option>
+                                @foreach (var admin in Admins)
+                                {
+                                    <option value="@admin.UserId">@admin.UserName</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="bs-flex bs-flex-col" style="gap: 0.35rem; min-width: 12rem;">
+                            <label for="ledgerStart" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Ledger start (UTC date)</label>
+                            <div class="bs-flex" style="gap: 0.35rem;">
+                                <input id="ledgerStart" type="date" class="bs-input" @bind="settingsStart" disabled="@balances.Settings.IsLedgerStartLocked" />
+                                @if (settingsStart.HasValue && !balances.Settings.IsLedgerStartLocked)
+                                {
+                                    <button type="button" class="bs-btn bs-btn-sm bs-btn-ghost" title="Clear the start date" @onclick="@(() => settingsStart = null)">Clear</button>
+                                }
+                            </div>
+                        </div>
+                        <button class="bs-btn bs-btn-primary" @onclick="RequestSaveSettings" disabled="@(isSaving || !SettingsChanged)">
+                            @(isSaving ? "Saving..." : "Save settings")
+                        </button>
+                    </div>
+                    <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0.75rem 0 0 0;">
+                        Every payment of a settlement goes through the treasurer.
+                        @if (balances.Settings.IsLedgerStartLocked)
+                        {
+                            <span>The start date is locked because a ledger settlement exists.</span>
+                        }
+                        else
+                        {
+                            <span>Cups before the start date are not billed by the ledger.</span>
+                        }
+                    </p>
+                </div>
+            }
+
+            <!-- Balances -->
+            @if (balances.IsAdmin)
+            {
+                <div class="bs-card" style="padding: 1.5rem; margin-bottom: 1rem;">
+                    <h3 style="margin: 0 0 0.75rem 0; font-size: 1.05rem; font-weight: 600;">Running balances</h3>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                            <thead>
+                                <tr style="color: var(--bs-text-subtle); text-align: right; font-size: 0.75rem;">
+                                    <th style="text-align: left; padding: 0.375rem 0.5rem 0.375rem 0;">Member</th>
+                                    <th style="padding: 0.375rem 0.5rem;">Cost</th>
+                                    <th style="padding: 0.375rem 0.5rem;">Credit</th>
+                                    <th style="padding: 0.375rem 0.5rem;">Carried</th>
+                                    <th style="padding: 0.375rem 0.5rem;">Adj.</th>
+                                    <th style="padding: 0.375rem 0.5rem;">Moved (merge)</th>
+                                    @if (ShowRounding)
+                                    {
+                                        <th style="padding: 0.375rem 0.5rem;">Rounding</th>
+                                    }
+                                    <th style="padding: 0.375rem 0 0.375rem 0.5rem;">Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var m in balances.Members)
+                                {
+                                    <tr style="border-top: 1px solid var(--bs-border); text-align: right; font-variant-numeric: tabular-nums;">
+                                        <td style="text-align: left; padding: 0.375rem 0.5rem 0.375rem 0;">
+                                            @m.UserName
+                                            @if (m.IsTreasurer)
+                                            {
+                                                <span class="bs-badge bs-badge-primary" style="margin-left: 0.25rem;">Treasurer</span>
+                                            }
+                                            @if (!m.IsCurrentMember)
+                                            {
+                                                <span class="bs-badge bs-badge-secondary" style="margin-left: 0.25rem;">Former member</span>
+                                            }
+                                        </td>
+                                        <td style="padding: 0.375rem 0.5rem;">@Money(m.Cost)</td>
+                                        <td style="padding: 0.375rem 0.5rem;">@Money(m.Credit)</td>
+                                        <td style="padding: 0.375rem 0.5rem;">@Signed(m.Carried)</td>
+                                        <td style="padding: 0.375rem 0.5rem;">@Signed(m.Adjustments)</td>
+                                        <td style="padding: 0.375rem 0.5rem;">@Signed(m.MergeTransfer)</td>
+                                        @if (ShowRounding)
+                                        {
+                                            <td style="padding: 0.375rem 0.5rem;">@(m.Rounding != 0 ? Signed(m.Rounding) : "")</td>
+                                        }
+                                        <td style="padding: 0.375rem 0 0.375rem 0.5rem; font-weight: 700; color: @BalanceColor(m.Balance);">@Signed(m.Balance)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0.75rem 0 0 0;">
+                        Balance = credit − cost + carried + adjustments + moved + rounding (the treasurer only), as if the next settlement ran now.
+                        Positive means the space owes the member.
+                        @if (balances.UnassignedRounding != 0)
+                        {
+                            <span>A rounding residual of @Signed(balances.UnassignedRounding) is unassigned until a treasurer is set.</span>
+                        }
+                    </p>
+                </div>
+            }
+            else if (balances.Members.FirstOrDefault() is { } me)
+            {
+                <div class="bs-card" style="padding: 1.5rem; margin-bottom: 1rem;">
+                    <p class="bs-text-subtle" style="font-size: 0.8125rem; margin: 0 0 0.25rem 0;">My balance</p>
+                    <p style="font-size: 2rem; font-weight: 700; margin: 0; color: @BalanceColor(me.Balance);">@Signed(me.Balance)</p>
+                    <p class="bs-text-subtle" style="font-size: 0.8125rem; margin: 0.25rem 0 1rem 0;">
+                        @(me.Balance < 0 ? "You owe the space this much." : me.Balance > 0 ? "The space owes you this much." : "You are square.")
+                    </p>
+                    <div class="bs-flex bs-gap-4" style="flex-wrap: wrap; font-variant-numeric: tabular-nums;">
+                        <div><div class="bs-text-subtle" style="font-size: 0.75rem;">Cost</div><div style="font-weight: 600;">@Money(me.Cost)</div></div>
+                        <div><div class="bs-text-subtle" style="font-size: 0.75rem;">Credit</div><div style="font-weight: 600;">@Money(me.Credit)</div></div>
+                        <div><div class="bs-text-subtle" style="font-size: 0.75rem;">Carried</div><div style="font-weight: 600;">@Signed(me.Carried)</div></div>
+                        <div><div class="bs-text-subtle" style="font-size: 0.75rem;">Adjustments</div><div style="font-weight: 600;">@Signed(me.Adjustments)</div></div>
+                        @if (me.MergeTransfer != 0)
+                        {
+                            <div><div class="bs-text-subtle" style="font-size: 0.75rem;">Moved (merge)</div><div style="font-weight: 600;">@Signed(me.MergeTransfer)</div></div>
+                        }
+                        @if (me.Rounding != 0)
+                        {
+                            <div><div class="bs-text-subtle" style="font-size: 0.75rem;">Rounding</div><div style="font-weight: 600;">@Signed(me.Rounding)</div></div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Entries -->
+            <div class="bs-card" style="padding: 1.5rem;">
+                <div class="bs-flex bs-items-center bs-justify-between" style="margin-bottom: 0.75rem; gap: 0.5rem; flex-wrap: wrap;">
+                    <h3 style="margin: 0; font-size: 1.05rem; font-weight: 600;">Balance entries</h3>
+                    @if (balances.IsAdmin)
+                    {
+                        <div class="bs-flex" style="gap: 0.5rem;">
+                            <button class="bs-btn bs-btn-sm bs-btn-secondary" @onclick="OpenPaste">
+                                <span class="material-symbols-outlined" style="font-size: 1rem;">content_paste</span>
+                                Paste
+                            </button>
+                            <button class="bs-btn bs-btn-sm bs-btn-primary" @onclick="OpenCreate">
+                                <span class="material-symbols-outlined" style="font-size: 1rem;">add</span>
+                                Add entry
+                            </button>
+                        </div>
+                    }
+                </div>
+
+                @if (balances.Entries.Count == 0)
+                {
+                    <p class="bs-text-subtle" style="margin: 0;">No balance entries yet.</p>
+                }
+                else
+                {
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                            <thead>
+                                <tr style="color: var(--bs-text-subtle); font-size: 0.75rem; text-align: left;">
+                                    <th style="padding: 0.375rem 0.5rem 0.375rem 0;">Date (UTC)</th>
+                                    <th style="padding: 0.375rem 0.5rem;">@(balances.IsAdmin ? "Member" : "With")</th>
+                                    @if (balances.IsAdmin)
+                                    {
+                                        <th style="padding: 0.375rem 0.5rem;">Counterparty</th>
+                                    }
+                                    <th style="padding: 0.375rem 0.5rem; text-align: right;">Amount</th>
+                                    <th style="padding: 0.375rem 0.5rem;">Kind</th>
+                                    <th style="padding: 0.375rem 0.5rem;">Note</th>
+                                    <th style="padding: 0.375rem 0;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var e in balances.Entries)
+                                {
+                                    <tr style="border-top: 1px solid var(--bs-border);">
+                                        <td style="padding: 0.375rem 0.5rem 0.375rem 0; white-space: nowrap;">@e.EffectiveDate.ToString("yyyy-MM-dd")</td>
+                                        @if (balances.IsAdmin)
+                                        {
+                                            <td style="padding: 0.375rem 0.5rem;">@e.UserName</td>
+                                            <td style="padding: 0.375rem 0.5rem;">@e.CounterpartyName</td>
+                                            <td style="padding: 0.375rem 0.5rem; text-align: right; font-variant-numeric: tabular-nums; color: @BalanceColor(e.Amount);">@Signed(e.Amount)</td>
+                                        }
+                                        else
+                                        {
+                                            <td style="padding: 0.375rem 0.5rem;">@(e.UserId == currentUserId ? e.CounterpartyName : e.UserName)</td>
+                                            <td style="padding: 0.375rem 0.5rem; text-align: right; font-variant-numeric: tabular-nums; color: @BalanceColor(e.ViewerAmount ?? 0);">@Signed(e.ViewerAmount ?? 0)</td>
+                                        }
+                                        <td style="padding: 0.375rem 0.5rem;">@e.Kind</td>
+                                        <td style="padding: 0.375rem 0.5rem; color: var(--bs-text-subtle);">@e.Note</td>
+                                        <td style="padding: 0.375rem 0; text-align: right; white-space: nowrap;">
+                                            @if (e.IsLocked)
+                                            {
+                                                <span class="bs-badge bs-badge-secondary" title="Included in a settlement; correct it with a new entry">Locked</span>
+                                            }
+                                            else if (balances.IsAdmin)
+                                            {
+                                                <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Edit entry" title="Edit" @onclick="@(() => OpenEdit(e))">
+                                                    <span class="material-symbols-outlined" style="font-size: 1rem;">edit</span>
+                                                </button>
+                                                <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Delete entry" title="Delete" @onclick="@(() => RequestDelete(e))">
+                                                    <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--bs-error);">delete</span>
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0.75rem 0 0 0;">
+                        @(balances.IsAdmin
+                            ? "Amount is from the member's side: positive means the member is owed by the counterparty."
+                            : "Amount is from your side: positive means you are owed.")
+                    </p>
+                }
+            </div>
+        }
+    </div>
+}
+
+@if (showEntryModal)
+{
+    <div class="bs-modal-backdrop" @onclick="CloseEntryModal">
+        <div class="bs-modal" @onclick:stopPropagation="true" @ontouchend:stopPropagation="true">
+            <div class="bs-modal-header">
+                <h3 class="bs-modal-title">@(editingEntryId.HasValue ? "Edit entry" : "Add balance entry")</h3>
+            </div>
+            <div class="bs-flex bs-flex-col" style="gap: 1rem;">
+                <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                    <label for="entryMember" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Member</label>
+                    <select id="entryMember" class="bs-input" value="@(entryUserId?.ToString() ?? "")" @onchange="@(e => entryUserId = ParseGuid(e))">
+                        <option value="">Choose a member</option>
+                        @foreach (var m in MemberOptions)
+                        {
+                            <option value="@m.UserId">@m.UserName</option>
+                        }
+                    </select>
+                </div>
+                <div class="bs-flex" style="gap: 0.5rem;">
+                    <button type="button" class="bs-btn bs-btn-sm @(entryMemberOwes ? "bs-btn-primary" : "bs-btn-secondary")" @onclick="@(() => entryMemberOwes = true)">Member owes</button>
+                    <button type="button" class="bs-btn bs-btn-sm @(!entryMemberOwes ? "bs-btn-primary" : "bs-btn-secondary")" @onclick="@(() => entryMemberOwes = false)">Member is owed (credit)</button>
+                </div>
+                <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                    <label for="entryAmount" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Amount (@(balances?.Currency))</label>
+                    <input id="entryAmount" type="number" class="bs-input" step="0.01" min="0.01" @bind="entryAmount" />
+                </div>
+                <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                    <label for="entryCounterparty" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">@(entryMemberOwes ? "Owes" : "Is owed by")</label>
+                    <select id="entryCounterparty" class="bs-input" value="@(entryCounterpartyId?.ToString() ?? "")" @onchange="@(e => entryCounterpartyId = ParseGuid(e))">
+                        @foreach (var m in MemberOptions)
+                        {
+                            <option value="@m.UserId">@(m.UserId == currentUserId ? $"{m.UserName} (me)" : m.UserName)</option>
+                        }
+                    </select>
+                </div>
+                <div class="bs-flex" style="gap: 0.75rem; flex-wrap: wrap;">
+                    <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                        <label for="entryDate" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Date (UTC)</label>
+                        <input id="entryDate" type="date" class="bs-input" @bind="entryDate" />
+                    </div>
+                    <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                        <label for="entryKind" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Kind</label>
+                        <select id="entryKind" class="bs-input" @bind="entryKind">
+                            <option value="@BalanceEntryKind.Opening">Opening</option>
+                            <option value="@BalanceEntryKind.Correction">Correction</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                    <label for="entryNote" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Note</label>
+                    <input id="entryNote" type="text" class="bs-input" maxlength="500" @bind="entryNote" />
+                </div>
+            </div>
+            <div class="bs-hero-actions">
+                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="SaveEntry" disabled="@isSaving">@(isSaving ? "Saving..." : "Save")</button>
+                <button type="button" class="bs-btn bs-btn-quiet" @onclick="CloseEntryModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showPasteModal)
+{
+    <div class="bs-modal-backdrop" @onclick="ClosePaste">
+        <div class="bs-modal" style="max-width: 44rem;" @onclick:stopPropagation="true" @ontouchend:stopPropagation="true">
+            <div class="bs-modal-header">
+                <h3 class="bs-modal-title">Paste balance entries</h3>
+            </div>
+            <div class="bs-flex bs-flex-col" style="gap: 1rem;">
+                <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                    <label for="pasteText" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">One row per member: member;amount;note (positive = the member is owed), at most 1000 rows</label>
+                    <textarea id="pasteText" class="bs-input" rows="6" style="font-family: monospace;" maxlength="@MaxPasteLength" @bind="pasteText" @bind:after="InvalidatePreview"></textarea>
+                </div>
+                <div class="bs-flex" style="gap: 0.75rem; flex-wrap: wrap;">
+                    <div class="bs-flex bs-flex-col" style="gap: 0.35rem; min-width: 12rem;">
+                        <label for="pasteCounterparty" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Counterparty</label>
+                        <select id="pasteCounterparty" class="bs-input" value="@(pasteCounterpartyId?.ToString() ?? "")" @onchange="@(e => { pasteCounterpartyId = ParseGuid(e); InvalidatePreview(); })">
+                            @foreach (var m in MemberOptions)
+                            {
+                                <option value="@m.UserId">@(m.UserId == currentUserId ? $"{m.UserName} (me)" : m.UserName)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                        <label for="pasteDate" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Date (UTC)</label>
+                        <input id="pasteDate" type="date" class="bs-input" @bind="pasteDate" @bind:after="InvalidatePreview" />
+                    </div>
+                    <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                        <label for="pasteKind" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Kind</label>
+                        <select id="pasteKind" class="bs-input" @bind="pasteKind" @bind:after="InvalidatePreview">
+                            <option value="@BalanceEntryKind.Opening">Opening</option>
+                            <option value="@BalanceEntryKind.Correction">Correction</option>
+                        </select>
+                    </div>
+                    <div class="bs-flex bs-flex-col" style="gap: 0.35rem; flex: 1; min-width: 10rem;">
+                        <label for="pasteNote" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Batch note (optional)</label>
+                        <input id="pasteNote" type="text" class="bs-input" @bind="pasteBatchNote" @bind:after="InvalidatePreview" />
+                    </div>
+                </div>
+
+                @if (pastePreview != null)
+                {
+                    @foreach (var error in pastePreview.Errors)
+                    {
+                        <div style="color: var(--bs-error);">@error</div>
+                    }
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.8125rem;">
+                            <thead>
+                                <tr style="color: var(--bs-text-subtle); text-align: left;">
+                                    <th style="padding: 0.25rem 0.5rem 0.25rem 0;">#</th>
+                                    <th style="padding: 0.25rem 0.5rem;">Member</th>
+                                    <th style="padding: 0.25rem 0.5rem; text-align: right;">Amount</th>
+                                    <th style="padding: 0.25rem 0.5rem;">Note</th>
+                                    <th style="padding: 0.25rem 0;">Problems</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in pastePreview.Rows)
+                                {
+                                    <tr style="border-top: 1px solid var(--bs-border); background: @(row.IsValid ? "transparent" : "var(--bs-error-light)");">
+                                        <td style="padding: 0.25rem 0.5rem 0.25rem 0;">@row.LineNumber</td>
+                                        <td style="padding: 0.25rem 0.5rem;">@(row.UserName ?? row.MemberText)</td>
+                                        <td style="padding: 0.25rem 0.5rem; text-align: right; font-variant-numeric: tabular-nums;">@(row.Amount.HasValue ? Signed(row.Amount.Value) : "")</td>
+                                        <td style="padding: 0.25rem 0.5rem;">@row.Note</td>
+                                        <td style="padding: 0.25rem 0;">
+                                            @foreach (var problem in row.Errors)
+                                            {
+                                                <div style="color: var(--bs-error);">@problem</div>
+                                            }
+                                            @foreach (var warning in row.Warnings)
+                                            {
+                                                <div style="color: var(--bs-warning-dark);">@warning</div>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p style="margin: 0; font-size: 0.875rem;">
+                        @pastePreview.ValidRowCount valid, @pastePreview.ErrorRowCount with errors. Σ @Signed(pastePreview.Total).
+                        @pastePreview.CounterpartyName's balance: @Signed(pastePreview.CounterpartyBalance) → @Signed(pastePreview.CounterpartyResultingBalance).
+                    </p>
+                }
+            </div>
+            <div class="bs-hero-actions">
+                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="CommitPaste" disabled="@(isSaving || pastePreview?.CanCommit != true)">@(isSaving ? "Saving..." : "Save all")</button>
+                <button type="button" class="bs-btn bs-btn-secondary" @onclick="PreviewPaste" disabled="@(isSaving || string.IsNullOrWhiteSpace(pasteText))">Preview</button>
+                <button type="button" class="bs-btn bs-btn-quiet" @onclick="ClosePaste">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+<ConfirmDialog IsVisible="@showDeleteConfirm"
+               Title="Delete this entry?"
+               Message="@deleteMessage"
+               ConfirmText="Delete"
+               IsDestructive="true"
+               IsProcessing="@isSaving"
+               OnConfirm="ConfirmDelete"
+               OnCancel="@(() => showDeleteConfirm = false)" />
+
+<ConfirmDialog IsVisible="@showStartConfirm"
+               Title="Change the ledger start?"
+               Message="@startConfirmMessage"
+               ConfirmText="Save settings"
+               IsProcessing="@isSaving"
+               OnConfirm="SaveSettings"
+               OnCancel="@(() => showStartConfirm = false)" />
+
+<Toast IsVisible="@showToast"
+       IsError="@isToastError"
+       Title="@toastTitle"
+       Message="@toastMessage"
+       OnClose="@(() => showToast = false)" />
+
+@code {
+    [Parameter] public string SpaceId { get; set; } = "";
+
+    private SpaceDto? space;
+    private SpaceBalancesDto? balances;
+    private Guid currentUserId;
+    private bool isSaving;
+    private bool _loaded;
+
+    private Guid? settingsTreasurer;
+    private DateTime? settingsStart;
+    private bool showStartConfirm;
+    private string startConfirmMessage = "";
+
+    private bool showEntryModal;
+    private Guid? editingEntryId;
+    private Guid? entryUserId;
+    private Guid? entryCounterpartyId;
+    private bool entryMemberOwes = true;
+    private decimal entryAmount;
+    private DateTime entryDate = LocalToday;
+    private BalanceEntryKind entryKind = BalanceEntryKind.Opening;
+    private string entryNote = "";
+
+    private bool showPasteModal;
+    private string pasteText = "";
+    private string? pasteBatchNote;
+    private Guid? pasteCounterpartyId;
+    private DateTime pasteDate = LocalToday;
+    private BalanceEntryKind pasteKind = BalanceEntryKind.Opening;
+    private BalancePastePreviewDto? pastePreview;
+
+    private bool showDeleteConfirm;
+    private BalanceEntryDto? deleteEntry;
+    private string deleteMessage = "";
+
+    private bool showToast;
+    private bool isToastError;
+    private string toastTitle = "";
+    private string toastMessage = "";
+
+    private IEnumerable<MembershipDto> Admins => (space?.Members ?? []).Where(m => m.Role == "Admin").OrderBy(m => m.UserName);
+    private IEnumerable<MembershipDto> MemberOptions => (space?.Members ?? []).OrderBy(m => m.UserName);
+    private bool ShowRounding => balances?.Members.Any(m => m.Rounding != 0) == true;
+
+    private bool TreasurerChanged => balances != null && settingsTreasurer != balances.Settings.TreasurerUserId;
+    private bool StartChanged => balances != null && settingsStart?.Date != balances.Settings.LedgerStartDate?.Date;
+    private bool SettingsChanged => TreasurerChanged || StartChanged;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded || string.IsNullOrEmpty(SpaceId)) return;
+        _loaded = true;
+        try
+        {
+            currentUserId = UserContext.CurrentUserId.Value;
+        }
+        catch
+        {
+            currentUserId = Guid.Empty;
+        }
+        await LoadSpace();
+        await LoadBalances();
+    }
+
+    private async Task LoadSpace()
+    {
+        var result = await Mediator.Send(new GetSpaceByIdQuery(Guid.Parse(SpaceId)));
+        if (result.IsSuccess) space = result.Value;
+    }
+
+    private async Task LoadBalances()
+    {
+        try
+        {
+            var result = await Mediator.Send(new GetSpaceBalancesQuery(Guid.Parse(SpaceId)));
+            if (result.IsSuccess)
+            {
+                balances = result.Value;
+                settingsTreasurer = balances.Settings.TreasurerUserId;
+                settingsStart = balances.Settings.LedgerStartDate?.Date;
+            }
+            else
+            {
+                balances = null;
+                ShowToast(true, "Error", Message(result.Errors));
+            }
+        }
+        catch (Exception ex)
+        {
+            balances = null;
+            ShowToast(true, "Error", $"Failed to load balances: {ex.Message}");
+        }
+    }
+
+    // ---- settings ----
+
+    private void OnTreasurerChanged(ChangeEventArgs e) => settingsTreasurer = ParseGuid(e);
+
+    private async Task RequestSaveSettings()
+    {
+        if (!SettingsChanged) return;
+
+        if (StartChanged && settingsStart is { } start)
+        {
+            var impact = await Mediator.Send(new GetLedgerStartImpactQuery(Guid.Parse(SpaceId), Utc(start)));
+            if (impact.IsFailure)
+            {
+                ShowToast(true, "Error", Message(impact.Errors));
+                return;
+            }
+            startConfirmMessage = impact.Value.CupsBeforeStart > 0
+                ? $"{impact.Value.CupsBeforeStart} unbilled cup(s) before {start:yyyy-MM-dd} will not be billed by the ledger."
+                : $"No unbilled cups lie before {start:yyyy-MM-dd}.";
+            showStartConfirm = true;
+            return;
+        }
+
+        await SaveSettings();
+    }
+
+    /// <summary>Sends only what changed: null leaves a setting as it is, the Clear flags remove it.</summary>
+    private async Task SaveSettings()
+    {
+        showStartConfirm = false;
+        if (balances == null) return;
+
+        var command = new UpdateLedgerSettingsCommand(
+            Guid.Parse(SpaceId),
+            TreasurerChanged ? settingsTreasurer : null,
+            StartChanged && settingsStart is { } start ? Utc(start) : null,
+            ClearTreasurer: TreasurerChanged && settingsTreasurer is null,
+            ClearLedgerStartDate: StartChanged && settingsStart is null);
+
+        isSaving = true;
+        try
+        {
+            var result = await Mediator.Send(command);
+            if (result.IsSuccess)
+            {
+                ShowToast(false, "Saved", "Ledger settings updated.");
+                await LoadBalances();
+            }
+            else
+            {
+                await HandleFailure(result.Errors);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    // ---- single entries ----
+
+    private void OpenCreate()
+    {
+        editingEntryId = null;
+        entryUserId = null;
+        entryCounterpartyId = currentUserId;
+        entryMemberOwes = true;
+        entryAmount = 0;
+        entryDate = LocalToday;
+        entryKind = BalanceEntryKind.Opening;
+        entryNote = "";
+        showEntryModal = true;
+    }
+
+    private void OpenEdit(BalanceEntryDto e)
+    {
+        editingEntryId = e.Id;
+        entryUserId = e.UserId;
+        entryCounterpartyId = e.CounterpartyUserId;
+        entryMemberOwes = e.Amount < 0;
+        entryAmount = Math.Abs(e.Amount);
+        entryDate = e.EffectiveDate.Date;
+        entryKind = Enum.TryParse<BalanceEntryKind>(e.Kind, out var kind) ? kind : BalanceEntryKind.Opening;
+        entryNote = e.Note;
+        showEntryModal = true;
+    }
+
+    private void CloseEntryModal() => showEntryModal = false;
+
+    private async Task SaveEntry()
+    {
+        if (entryUserId is not { } userId || entryCounterpartyId is not { } counterpartyId)
+        {
+            ShowToast(true, "Missing member", "Choose the member and the counterparty.");
+            return;
+        }
+
+        var amount = entryMemberOwes ? -Math.Abs(entryAmount) : Math.Abs(entryAmount);
+        isSaving = true;
+        try
+        {
+            Result<BalanceEntryDto> result = editingEntryId is { } entryId
+                ? await Mediator.Send(new UpdateBalanceEntryCommand(
+                    Guid.Parse(SpaceId), entryId, userId, counterpartyId, amount, Utc(entryDate), entryNote, entryKind))
+                : await Mediator.Send(new CreateBalanceEntryCommand(
+                    Guid.Parse(SpaceId), userId, amount, Utc(entryDate), entryNote, entryKind, counterpartyId));
+
+            if (result.IsSuccess)
+            {
+                showEntryModal = false;
+                ShowToast(false, "Saved", "Balance entry saved.");
+                await LoadBalances();
+            }
+            else
+            {
+                await HandleFailure(result.Errors, closeEntryModal: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void RequestDelete(BalanceEntryDto e)
+    {
+        deleteEntry = e;
+        deleteMessage = $"{e.UserName} {Signed(e.Amount)} against {e.CounterpartyName} ({e.Note}).";
+        showDeleteConfirm = true;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (deleteEntry == null)
+        {
+            showDeleteConfirm = false;
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            var result = await Mediator.Send(new DeleteBalanceEntryCommand(Guid.Parse(SpaceId), deleteEntry.Id));
+            if (result.IsSuccess)
+            {
+                ShowToast(false, "Deleted", "Balance entry deleted.");
+                await LoadBalances();
+            }
+            else
+            {
+                await HandleFailure(result.Errors);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+            showDeleteConfirm = false;
+            deleteEntry = null;
+        }
+    }
+
+    // ---- paste ----
+
+    private void OpenPaste()
+    {
+        pasteText = "";
+        pasteBatchNote = null;
+        pasteCounterpartyId = currentUserId;
+        pasteDate = LocalToday;
+        pasteKind = BalanceEntryKind.Opening;
+        pastePreview = null;
+        showPasteModal = true;
+    }
+
+    private void ClosePaste() => showPasteModal = false;
+
+    /// <summary>Any change after Preview voids it, so only what was previewed can be saved.</summary>
+    private void InvalidatePreview() => pastePreview = null;
+
+    private async Task PreviewPaste()
+    {
+        isSaving = true;
+        try
+        {
+            var result = await Mediator.Send(new PreviewBalanceEntriesPasteQuery(
+                Guid.Parse(SpaceId), pasteText, pasteBatchNote, pasteCounterpartyId, Utc(pasteDate), pasteKind));
+            if (result.IsSuccess)
+            {
+                pastePreview = result.Value;
+            }
+            else
+            {
+                pastePreview = null;
+                ShowToast(true, "Error", Message(result.Errors));
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task CommitPaste()
+    {
+        if (pastePreview?.CanCommit != true)
+        {
+            ShowToast(true, "Preview first", "The paste changed since the preview. Preview it again before saving.");
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            var result = await Mediator.Send(new CommitBalanceEntriesPasteCommand(
+                Guid.Parse(SpaceId), pasteText, pasteBatchNote, pasteCounterpartyId, Utc(pasteDate), pasteKind));
+            if (result.IsSuccess)
+            {
+                showPasteModal = false;
+                ShowToast(false, "Saved", $"{result.Value.Count} balance entries saved.");
+                await LoadBalances();
+            }
+            else
+            {
+                pastePreview = null;
+                await HandleFailure(result.Errors);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", ex.Message);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    // ---- helpers ----
+
+    /// <summary>A stale view never stays on screen: conflicts and locked entries reload the page data.</summary>
+    private async Task HandleFailure(IReadOnlyList<Error> errors, bool closeEntryModal = false)
+    {
+        if (errors.Any(e => e.Code is Error.Codes.ConcurrencyConflict or Error.Codes.EntryLocked))
+        {
+            if (closeEntryModal)
+                showEntryModal = false;
+            ShowToast(true, "Changed meanwhile", "The balances changed in the meantime and were reloaded. Please check and try again.");
+            await LoadBalances();
+            return;
+        }
+
+        ShowToast(true, "Error", Message(errors));
+    }
+
+    private static string Message(IReadOnlyList<Error> errors) =>
+        errors.Count > 0 ? string.Join(", ", errors.Select(e => e.Message)) : "Something went wrong.";
+
+    private static Guid? ParseGuid(ChangeEventArgs e) => Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+
+    /// <summary>The picked calendar date as a UTC date, independent of the server's time zone.</summary>
+    private static DateTime Utc(DateTime date) => DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+
+    /// <summary>Today's date in local time (the app's other pages show local times too); sent as that UTC calendar date.</summary>
+    private static DateTime LocalToday => DateTime.Now.Date;
+
+    /// <summary>Caps the textarea so a paste fits one circuit message (see the hub limit in Program.cs).</summary>
+    private const int MaxPasteLength = 250_000;
+
+    private string Money(decimal amount)
+    {
+        try
+        {
+            return BeanShare.Domain.ValueObjects.Currency.Create(balances?.Currency ?? space?.CurrencyCode ?? "USD").FormatAmount(amount);
+        }
+        catch
+        {
+            return amount.ToString("0.00");
+        }
+    }
+
+    private string Signed(decimal amount) => amount > 0 ? $"+{Money(amount)}" : amount < 0 ? $"-{Money(-amount)}" : Money(0);
+
+    private static string BalanceColor(decimal amount) =>
+        amount > 0 ? "var(--bs-success)" : amount < 0 ? "var(--bs-error, #ef4444)" : "inherit";
+
+    private void ShowToast(bool isError, string title, string message)
+    {
+        isToastError = isError;
+        toastTitle = title;
+        toastMessage = message;
+        showToast = true;
+    }
+}

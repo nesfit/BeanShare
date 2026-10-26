@@ -15,5 +15,10 @@ public record SettlementDto(
     DateTime? CompletedAt,
     int ConfirmedLinesCount,
     int TotalLinesCount,
-    List<SettlementLineDto> Lines
+    List<SettlementLineDto> Lines,
+    string? Model = null,
+    Guid? TreasurerUserId = null,
+    string? TreasurerName = null,
+    Guid? SupersededBySettlementId = null,
+    List<SettlementTransferDto>? Transfers = null
 );

@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Billing.Commands.CreateBillingPeriod;
 using BeanShare.Application.Features.Billing.Dtos;
 using FastEndpoints;
@@ -37,6 +38,11 @@ public sealed class CreateBillingPeriodEndpoint : Endpoint<CreateBillingPeriodRe
         );
 
         var result = await _mediator.Send(command, ct);
+
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+
+            return;
 
         if (result.IsSuccess)
         {

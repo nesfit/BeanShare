@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Api.Endpoints.Spaces.Validators;
 using BeanShare.Application.Features.Spaces.Commands;
 using BeanShare.Contracts.Spaces;
@@ -54,6 +55,9 @@ public sealed class RemoveMemberEndpoint : Endpoint<RemoveMemberRequest, MemberA
 
         var command = new RemoveMemberCommand(req.SpaceId, req.UserId);
         var result = await _mediator.Send(command, ct);
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+            return;
 
         if (result.IsFailure)
         {

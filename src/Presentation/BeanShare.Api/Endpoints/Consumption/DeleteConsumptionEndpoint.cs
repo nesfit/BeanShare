@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Consumption.Commands;
 using FastEndpoints;
 using MediatR;
@@ -27,6 +28,9 @@ public sealed class DeleteConsumptionEndpoint(IMediator mediator)
     {
         var command = new DeleteConsumptionCommand(req.Id, req.SpaceId);
         var result = await mediator.Send(command, ct);
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+            return;
 
         if (result.IsSuccess)
         {

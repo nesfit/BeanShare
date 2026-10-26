@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Consumption.Commands;
 using BeanShare.Application.Features.Consumption.Dtos;
 using BeanShare.Contracts.Consumption;
@@ -43,6 +44,11 @@ public sealed class RecordConsumptionFromPresetEndpoint : Endpoint<RecordConsump
             req.ForUserId);
 
         var result = await _mediator.Send(command, ct);
+
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+
+            return;
 
         if (result.IsFailure)
         {

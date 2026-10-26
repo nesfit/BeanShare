@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Consumption.Commands;
 using BeanShare.Contracts.Consumption;
 using FastEndpoints;
@@ -30,6 +31,11 @@ public sealed class UpdateConsumptionEndpoint(IMediator mediator)
             req.ConsumedAt);
 
         var result = await mediator.Send(command, ct);
+
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+
+            return;
 
         if (result.IsSuccess)
         {

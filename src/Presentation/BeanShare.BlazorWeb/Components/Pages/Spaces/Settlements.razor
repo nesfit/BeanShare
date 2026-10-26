@@ -21,7 +21,7 @@
             <h1 class="bs-font-bold" style="margin: 0; font-size: 1.25rem;">Settlements</h1>
             <div style="width: 2rem;"></div>
         </div>
-        <SpaceTabs SpaceId="@SpaceId" ActiveTab="settlements" PreventNavigation="false" />
+        <SpaceTabs SpaceId="@SpaceId" ActiveTab="settlements" PreventNavigation="false" ShowBalances="true" />
     </div>
 </div>
 
@@ -59,6 +59,10 @@
                                 <span class="bs-badge @(settlement.Status == "Completed" ? "bs-badge-success" : "bs-badge-warning")">
                                     @(settlement.Status == "Completed" ? "Completed" : "Awaiting confirmation")
                                 </span>
+                                @if (settlement.IsCarriedForward)
+                                {
+                                    <span class="bs-badge bs-badge-secondary" title="Unconfirmed lines were carried into the next settlement">Carried forward</span>
+                                }
                             </div>
                             <p class="bs-text-subtle" style="font-size: 0.875rem; margin: 0;">
                                 Generated @settlement.GeneratedAt.ToString("MMM dd, yyyy")
@@ -84,12 +88,24 @@
                             <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0 0 0.25rem 0;">Users</p>
                             <p style="font-size: 1.25rem; font-weight: 700; margin: 0;">@settlement.UserCount</p>
                         </div>
-                        <div>
-                            <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0 0 0.25rem 0;" title="Your coffee cost for this period">You owe</p>
-                            <p style="font-size: 1.25rem; font-weight: 700; margin: 0; color: var(--bs-warning);">
-                                @settlement.Currency @settlement.YourShare.ToString("F2")
-                            </p>
-                        </div>
+                        @if (settlement.YourNet is { } net)
+                        {
+                            <div>
+                                <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0 0 0.25rem 0;" title="Credit − cost + carried + entries; negative means you pay the treasurer">Your net</p>
+                                <p style="font-size: 1.25rem; font-weight: 700; margin: 0; color: @(net < 0 ? "var(--bs-warning)" : "var(--bs-success)");">
+                                    @(net > 0 ? "+" : "")@settlement.Currency @net.ToString("F2")
+                                </p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div>
+                                <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0 0 0.25rem 0;" title="Your coffee cost for this period">Your share</p>
+                                <p style="font-size: 1.25rem; font-weight: 700; margin: 0; color: var(--bs-warning);">
+                                    @settlement.Currency @settlement.YourShare.ToString("F2")
+                                </p>
+                            </div>
+                        }
                     </div>
                 </div>
             }

@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.CoffeeStock.Commands;
 using BeanShare.Contracts.CoffeeStock;
 using FastEndpoints;
@@ -32,6 +33,11 @@ public sealed class UndoBagEmptyEndpoint : EndpointWithoutRequest<UndoBagEmptyRe
         var lotId = Route<Guid>("lotId");
 
         var result = await _mediator.Send(new UndoBagEmptyCommand(spaceId, lotId), ct);
+
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+
+            return;
 
         if (result.IsSuccess)
         {

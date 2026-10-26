@@ -9,37 +9,10 @@ namespace BeanShare.Infrastructure.Communication.Services;
 public sealed class SettlementEmailTemplateService : ISettlementEmailTemplateService
 {
     /// <inheritdoc />
-    public (string HtmlBody, string PlainTextBody) GenerateSettlementEmail(
-        string userName,
-        string spaceName,
-        string billingPeriodName,
-        DateTime periodStart,
-        DateTime periodEnd,
-        decimal amountDue,
-        string currency,
-        decimal consumptionPercentage,
-        string? appUrl = null)
+    public (string HtmlBody, string PlainTextBody) GenerateSettlementEmail(SettlementEmailModel model, string? appUrl = null)
     {
-        var htmlBody = SettlementEmailTemplate.GenerateHtml(
-            userName,
-            spaceName,
-            billingPeriodName,
-            periodStart,
-            periodEnd,
-            amountDue,
-            currency,
-            consumptionPercentage,
-            appUrl);
-
-        var plainTextBody = SettlementEmailTemplate.GeneratePlainText(
-            userName,
-            spaceName,
-            billingPeriodName,
-            periodStart,
-            periodEnd,
-            amountDue,
-            currency,
-            consumptionPercentage);
+        var htmlBody = SettlementEmailTemplate.GenerateHtml(model, appUrl);
+        var plainTextBody = SettlementEmailTemplate.GeneratePlainText(model);
 
         return (htmlBody, plainTextBody);
     }

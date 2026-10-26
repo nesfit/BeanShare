@@ -63,9 +63,15 @@ public sealed class AddStockPurchaseEndpoint : Endpoint<AddStockPurchaseRequest,
             req.Vendor,
             req.PurchasedAt,
             req.BagCount,
-            req.Barcode);
+            req.Barcode,
+            req.PaidByUserId);
 
         var result = await _mediator.Send(command, ct);
+
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+
+            return;
 
         if (result.IsSuccess)
         {

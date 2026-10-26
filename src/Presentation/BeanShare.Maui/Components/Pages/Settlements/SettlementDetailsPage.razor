@@ -378,13 +378,34 @@
         }
     }
 
-    // Greedy min-transfer settlement: match the largest debtor to the largest creditor.
+    // The server's payment plan (through the treasurer) when it sends one; otherwise the greedy
+    // min-transfer settlement: match the largest debtor to the largest creditor.
     private List<Transfer> BuildTransfers()
     {
         var transfers = new List<Transfer>();
         if (settlement == null)
         {
             return transfers;
+        }
+
+        // Only payments still to be made: confirmed lines are paid, a carried-forward settlement owes nothing.
+        if (settlement.Transfers is { Count: > 0 } planned)
+        {
+            if (settlement.SupersededBySettlementId.HasValue)
+            {
+                return transfers;
+            }
+
+            return planned
+                .Where(t => settlement.Lines.FirstOrDefault(l =>
+                    l.UserId == (t.FromUserId == settlement.TreasurerUserId ? t.ToUserId : t.FromUserId))?.Resolution == "Open")
+                .Select(t => new Transfer(
+                    t.FromName,
+                    t.ToName,
+                    t.Amount,
+                    settlement.Lines.FirstOrDefault(l => l.UserId == t.ToUserId)?.RevolutTag,
+                    t.FromUserId))
+                .ToList();
         }
 
         var debtors = settlement.Lines

@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Api.Endpoints.CoffeeStock.Validators;
 using BeanShare.Application.Features.CoffeeStock.Commands;
 using BeanShare.Contracts.CoffeeStock;
@@ -58,9 +59,15 @@ public sealed class AddCoffeeStockPurchaseEndpoint : Endpoint<AddStockPurchaseRe
             req.Vendor,
             req.PurchasedAt,
             req.BagCount,
-            req.Barcode);
+            req.Barcode,
+            req.PaidByUserId);
 
         var result = await _mediator.Send(command, ct);
+
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+
+            return;
 
         if (result.IsFailure)
         {

@@ -1,3 +1,4 @@
+using BeanShare.Application.Common;
 using BeanShare.Application.Features.Settlement.Commands.ConfirmPayment;
 using FastEndpoints;
 using MediatR;
@@ -42,7 +43,7 @@ public sealed class ConfirmPaymentEndpoint : Endpoint<ConfirmPaymentRequest, Emp
         {
             await SendResultAsync(TypedResults.Problem(
                 detail: result.Errors.Any() ? result.Errors.First().Message : "Failed to confirm payment",
-                statusCode: 400
+                statusCode: result.Errors.Any(e => e.Code == Error.Codes.ConcurrencyConflict) ? 409 : 400
             ));
         }
     }

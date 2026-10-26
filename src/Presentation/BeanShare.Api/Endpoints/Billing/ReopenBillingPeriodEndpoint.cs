@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Billing.Commands.ReopenBillingPeriod;
 using FastEndpoints;
 using MediatR;
@@ -28,6 +29,9 @@ public sealed class ReopenBillingPeriodEndpoint : Endpoint<ReopenBillingPeriodRe
     {
         var command = new ReopenBillingPeriodCommand(req.BillingPeriodId);
         var result = await _mediator.Send(command, ct);
+
+        if (await this.TrySendConflictAsync(result.Errors, ct))
+            return;
 
         if (result.IsSuccess)
         {

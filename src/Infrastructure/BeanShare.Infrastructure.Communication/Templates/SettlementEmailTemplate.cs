@@ -1,3 +1,8 @@
+using System.Globalization;
+using System.Net;
+using System.Text;
+using BeanShare.Application.Abstractions;
+
 namespace BeanShare.Infrastructure.Communication.Templates;
 
 /// <summary>
@@ -8,19 +13,34 @@ public static class SettlementEmailTemplate
     /// <summary>
     /// Generates the HTML email body for a settlement notification.
     /// </summary>
-    public static string GenerateHtml(
-        string userName,
-        string spaceName,
-        string billingPeriodName,
-        DateTime periodStart,
-        DateTime periodEnd,
-        decimal amountDue,
-        string currency,
-        decimal consumptionPercentage,
-        string? appUrl = null)
+    public static string GenerateHtml(SettlementEmailModel model, string? appUrl = null)
     {
         var viewDetailsLink = !string.IsNullOrEmpty(appUrl)
-            ? $"<p style=\"text-align: center;\"><a href=\"{appUrl}\" style=\"display: inline-block; padding: 12px 24px; background-color: #795548; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;\">View Details</a></p>"
+            ? $"<p style=\"text-align: center;\"><a href=\"{WebUtility.HtmlEncode(appUrl)}\" style=\"display: inline-block; padding: 12px 24px; background-color: #795548; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;\">View Details</a></p>"
+            : "";
+
+        var rows = new StringBuilder();
+        foreach (var (label, value) in SummaryRows(model))
+        {
+            rows.Append($"""
+                            <tr>
+                                <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>{Html(label)}:</strong></td>
+                                <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">{Html(value)}</td>
+                            </tr>
+                """);
+        }
+
+        var (totalLabel, totalValue) = TotalRow(model);
+
+        var transfers = "";
+        if (model.TreasurerTransfers is { Count: > 0 } list)
+        {
+            var items = string.Concat(list.Select(t => $"<li>{Html(Capitalize(t))}</li>"));
+            transfers = $"""<div style="background-color: white; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin: 20px 0;"><h3 style="margin-top: 0; color: #795548;">Payments through you</h3><ul style="margin: 0; padding-left: 20px;">{items}</ul></div>""";
+        }
+
+        var headline = model.IsLedger
+            ? $"""<p style="font-size: 18px; color: #795548;"><strong>{Html(Capitalize(model.Headline))}.</strong></p>"""
             : "";
 
         return $"""
@@ -38,36 +58,29 @@ public static class SettlementEmailTemplate
                 </div>
 
                 <div style="background-color: #f5f5f5; padding: 20px; border-radius: 0 0 8px 8px;">
-                    <p>Hi {userName},</p>
+                    <p>Hi {Html(model.UserName)},</p>
 
-                    <p>A new settlement has been generated for <strong>{spaceName}</strong>.</p>
+                    <p>A new settlement has been generated for <strong>{Html(model.SpaceName)}</strong>.</p>
+
+                    {headline}
 
                     <div style="background-color: white; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin: 20px 0;">
                         <h3 style="margin-top: 0; color: #795548;">Settlement Summary</h3>
                         <table style="width: 100%; border-collapse: collapse;">
+            {rows}
                             <tr>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Billing Period:</strong></td>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">{billingPeriodName}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Period:</strong></td>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">{periodStart:dd MMM yyyy} - {periodEnd:dd MMM yyyy}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #eee;"><strong>Your Share:</strong></td>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">{consumptionPercentage:N1}%</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0;"><strong>Amount Due:</strong></td>
-                                <td style="padding: 8px 0; text-align: right; font-size: 18px; color: #795548;"><strong>{amountDue:N2} {currency}</strong></td>
+                                <td style="padding: 8px 0;"><strong>{Html(totalLabel)}:</strong></td>
+                                <td style="padding: 8px 0; text-align: right; font-size: 18px; color: #795548;"><strong>{Html(totalValue)}</strong></td>
                             </tr>
                         </table>
                     </div>
 
+                    {transfers}
+
                     {viewDetailsLink}
 
                     <p style="color: #666; font-size: 12px; margin-top: 20px;">
-                        Please confirm your payment once completed. If you have any questions, contact your space administrator.
+                        {Html(Footnote(model))}
                     </p>
                 </div>
 
@@ -82,35 +95,92 @@ public static class SettlementEmailTemplate
     /// <summary>
     /// Generates the plain text email body for a settlement notification.
     /// </summary>
-    public static string GeneratePlainText(
-        string userName,
-        string spaceName,
-        string billingPeriodName,
-        DateTime periodStart,
-        DateTime periodEnd,
-        decimal amountDue,
-        string currency,
-        decimal consumptionPercentage)
+    public static string GeneratePlainText(SettlementEmailModel model)
     {
-        return $"""
-            BeanShare Settlement
-            ====================
+        var text = new StringBuilder();
+        text.AppendLine("BeanShare Settlement");
+        text.AppendLine("====================");
+        text.AppendLine();
+        text.AppendLine($"Hi {model.UserName},");
+        text.AppendLine();
+        text.AppendLine($"A new settlement has been generated for {model.SpaceName}.");
+        text.AppendLine();
 
-            Hi {userName},
+        if (model.IsLedger)
+        {
+            text.AppendLine($"{Capitalize(model.Headline)}.");
+            text.AppendLine();
+        }
 
-            A new settlement has been generated for {spaceName}.
+        text.AppendLine("Settlement Summary");
+        text.AppendLine("------------------");
+        foreach (var (label, value) in SummaryRows(model))
+            text.AppendLine($"{label}: {value}");
 
-            Settlement Summary
-            ------------------
-            Billing Period: {billingPeriodName}
-            Period: {periodStart:dd MMM yyyy} - {periodEnd:dd MMM yyyy}
-            Your Share: {consumptionPercentage:N1}%
-            Amount Due: {amountDue:N2} {currency}
+        var (totalLabel, totalValue) = TotalRow(model);
+        text.AppendLine($"{totalLabel}: {totalValue}");
 
-            Please confirm your payment once completed. If you have any questions, contact your space administrator.
+        if (model.TreasurerTransfers is { Count: > 0 } transfers)
+        {
+            text.AppendLine();
+            text.AppendLine("Payments through you");
+            text.AppendLine("--------------------");
+            foreach (var transfer in transfers)
+                text.AppendLine($"- {Capitalize(transfer)}");
+        }
 
-            --
-            Generated by BeanShare
-            """;
+        text.AppendLine();
+        text.AppendLine(Footnote(model));
+        text.AppendLine();
+        text.AppendLine("--");
+        text.Append("Generated by BeanShare");
+
+        return text.ToString();
     }
+
+    private static IEnumerable<(string Label, string Value)> SummaryRows(SettlementEmailModel model)
+    {
+        yield return ("Billing Period", model.BillingPeriodName);
+        yield return ("Period", $"{model.PeriodStart:dd MMM yyyy} - {model.PeriodEnd:dd MMM yyyy}");
+        yield return ("Your Share", $"{model.ConsumptionPercentage.ToString("N1", CultureInfo.InvariantCulture)}%");
+
+        if (!model.IsLedger)
+            yield break;
+
+        yield return ("Your coffee", Money(model.Cost == 0 ? 0m : -model.Cost, model));
+        if (model.Credit != 0)
+            yield return ("Bags you paid for", Money(model.Credit, model));
+        if (model.CarriedIn != 0)
+            yield return ("Carried from earlier settlements", Money(model.CarriedIn, model));
+        if (model.Adjustments != 0)
+            yield return ("Balance entries", Money(model.Adjustments, model));
+        if (model.MergeTransfer != 0)
+        {
+            var label = model.MergedIntoName is { } target ? $"Moved to {target}" : "Moved from merged members";
+            yield return (label, Money(model.MergeTransfer, model));
+        }
+        if (model.Rounding != 0)
+            yield return ("Rounding residual", Money(model.Rounding, model));
+    }
+
+    private static (string Label, string Value) TotalRow(SettlementEmailModel model) =>
+        model.IsLedger
+            ? ("Your net", Money(model.Net, model))
+            : ("Amount Due", Amount(model.Cost, model));
+
+    private static string Footnote(SettlementEmailModel model) =>
+        model.IsLedger
+            ? "Net = bags you paid for − your coffee + carried + balance entries + moved + rounding; positive means you get money back. Payments go through the treasurer. If you have any questions, contact your space administrator."
+            : "Please confirm your payment once completed. If you have any questions, contact your space administrator.";
+
+    private static string Money(decimal amount, SettlementEmailModel model) =>
+        $"{(amount > 0 ? "+" : "")}{Amount(amount, model)}";
+
+    private static string Amount(decimal amount, SettlementEmailModel model) =>
+        $"{amount.ToString($"N{model.CurrencyDecimals}", CultureInfo.InvariantCulture)} {model.Currency}";
+
+    private static string Capitalize(string text) =>
+        string.IsNullOrEmpty(text) ? text : char.ToUpperInvariant(text[0]) + text[1..];
+
+    private static string Html(string text) => WebUtility.HtmlEncode(text);
 }

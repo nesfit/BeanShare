@@ -9,7 +9,7 @@ public static class SettlementExportEndpoints
 {
     public static IEndpointRouteBuilder MapSettlementExportEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/settlements");
+        var group = endpoints.MapGroup("/api/settlements").RequireAuthorization();
 
         group.MapGet("/{id:guid}/export/pdf", ExportPdf);
         group.MapGet("/{id:guid}/export/excel", ExportExcel);

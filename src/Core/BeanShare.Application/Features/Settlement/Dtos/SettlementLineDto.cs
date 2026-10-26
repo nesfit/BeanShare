@@ -20,5 +20,7 @@ public sealed record SettlementLineDto(
     decimal? Rounding = null,
     string? Resolution = null,
     Guid? CarriedToSettlementId = null,
-    bool IsTreasurer = false
+    bool IsTreasurer = false,
+    decimal MergeTransfer = 0m,
+    string? MergedIntoName = null
 );

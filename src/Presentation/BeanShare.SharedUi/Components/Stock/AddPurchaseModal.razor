@@ -113,6 +113,21 @@
                     </InputSelect>
                 </div>
 
+                @if (PayerOptions is { Count: > 0 })
+                {
+                    <div class="bs-form-group">
+                        <label class="bs-label" for="paidBy">Paid by</label>
+                        <select id="paidBy" class="bs-input" value="@(model.PaidByUserId?.ToString() ?? "")" @onchange="OnPayerChanged">
+                            <option value="">Me (the recorder)</option>
+                            @foreach (var payer in PayerOptions)
+                            {
+                                <option value="@payer.UserId">@payer.Name</option>
+                            }
+                        </select>
+                        <div class="bs-text-subtle" style="font-size: 0.75rem;">Whoever paid gets the bags' cost as credit at the next settlement.</div>
+                    </div>
+                }
+
                 <div class="bs-form-group">
                     <label class="bs-label" for="purchaseDate">Purchase Date</label>
                     <InputDate id="purchaseDate"
@@ -168,7 +183,14 @@
     [Parameter]
     public EventCallback<string> OnBarcodeScanned { get; set; }
 
+    /// <summary>Members who may have paid for the bags; null hides the "Paid by" field.</summary>
+    [Parameter]
+    public IReadOnlyList<PayerOption>? PayerOptions { get; set; }
+
     private AddPurchaseModel model = new();
+
+    private void OnPayerChanged(ChangeEventArgs e) =>
+        model.PaidByUserId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
     private bool isSubmitting;
     private bool showDiscardConfirm;
     private bool showBarcodeScanner;
@@ -308,5 +330,10 @@
 
         [StringLength(64)]
         public string? Barcode { get; set; }
+
+        /// <summary>Who paid for the bags; null means the recorder.</summary>
+        public Guid? PaidByUserId { get; set; }
     }
+
+    public sealed record PayerOption(Guid UserId, string Name);
 }

@@ -25,7 +25,8 @@ public sealed record SettlementReportData(
     // Ledger settlements
     bool IsLedger = false,
     string? TreasurerName = null,
-    bool IsCarriedForward = false
+    bool IsCarriedForward = false,
+    IReadOnlyList<SettlementTransferDto>? Transfers = null
 );
 
 /// <summary>
@@ -47,5 +48,8 @@ public sealed record SettlementLineReportData(
     decimal? Rounding = null,
     decimal? Net = null,
     string? Resolution = null,
-    string? TransferText = null
+    string? TransferText = null,
+    bool IsTreasurer = false,
+    decimal MergeTransfer = 0m,
+    string? MergedIntoName = null
 );

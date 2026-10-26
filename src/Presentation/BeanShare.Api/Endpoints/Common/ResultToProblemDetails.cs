@@ -55,6 +55,33 @@ public static class ResultExtensions
     }
 
     /// <summary>
+    /// For endpoints that shape their own failures: sends a CONCURRENCY_CONFLICT failure as 409 with the
+    /// error codes in the body, the way <c>SendResultErrorsAsync</c> does, and returns true. Any other
+    /// result (success included) is left to the caller.
+    /// </summary>
+    public static async Task<bool> TrySendConflictAsync<TRequest, TResponse>(
+        this Endpoint<TRequest, TResponse> endpoint,
+        IReadOnlyList<Error> errors,
+        CancellationToken ct = default)
+        where TRequest : notnull
+    {
+        if (!IsConcurrencyConflict(errors))
+            return false;
+
+        foreach (var error in errors)
+        {
+            endpoint.AddError(error.Code, error.Message);
+        }
+
+        await endpoint.HttpContext.Response.SendErrorsAsync(endpoint.ValidationFailures, (int)HttpStatusCode.Conflict, cancellation: ct);
+        return true;
+    }
+
+    /// <summary>A retryable race: the data changed while the request ran.</summary>
+    public static bool IsConcurrencyConflict(IReadOnlyList<Error> errors) =>
+        errors.Any(e => e.Code == Error.Codes.ConcurrencyConflict);
+
+    /// <summary>
     /// Gets the appropriate HTTP status code for a collection of errors.
     /// Uses the first error to determine status code.
     /// </summary>
@@ -107,6 +134,7 @@ public static class ResultExtensions
             Error.Codes.LastAdminProtection => (int)HttpStatusCode.Conflict,
             Error.Codes.CannotRemoveLastAdmin => (int)HttpStatusCode.Conflict,
             Error.Codes.UnpaidSettlements => (int)HttpStatusCode.Conflict,
+            Error.Codes.ConcurrencyConflict => (int)HttpStatusCode.Conflict,
 
             // 422 Unprocessable Entity (domain logic errors)
             Error.Codes.InvalidBillingPeriodState => (int)HttpStatusCode.UnprocessableEntity,
@@ -129,6 +157,14 @@ public static class ResultExtensions
             Error.Codes.InvalidCurrency => (int)HttpStatusCode.BadRequest,
             Error.Codes.CsvImportFailed => (int)HttpStatusCode.BadRequest,
             Error.Codes.CsvImportInvalidFormat => (int)HttpStatusCode.BadRequest,
+            Error.Codes.EntryLocked => (int)HttpStatusCode.BadRequest,
+            Error.Codes.LineCarried => (int)HttpStatusCode.BadRequest,
+            Error.Codes.LedgerStartLocked => (int)HttpStatusCode.BadRequest,
+            Error.Codes.SettlementOrder => (int)HttpStatusCode.BadRequest,
+            Error.Codes.TreasurerRequired => (int)HttpStatusCode.BadRequest,
+            Error.Codes.BeforeLedgerStart => (int)HttpStatusCode.BadRequest,
+            Error.Codes.MemberHasBalance => (int)HttpStatusCode.BadRequest,
+            Error.Codes.PeriodNotDeletable => (int)HttpStatusCode.BadRequest,
 
             // 500 Internal Server Error
             Error.Codes.SystemError => (int)HttpStatusCode.InternalServerError,

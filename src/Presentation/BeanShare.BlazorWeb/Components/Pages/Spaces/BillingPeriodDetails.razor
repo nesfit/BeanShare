@@ -8,6 +8,9 @@
 @using BeanShare.Application.Features.Settlement.Commands.GenerateSettlement
 @using BeanShare.Application.Features.Settlement.Queries.GetSpaceSettlements
 @using BeanShare.Application.Features.Billing.Commands.ReopenBillingPeriod
+@using BeanShare.Application.Features.Billing.Commands.DeleteBillingPeriod
+@using BeanShare.Application.Features.Settlement.Queries.GetSettlementPreview
+@using BeanShare.Application.Features.Settlement.Dtos
 @using BeanShare.Application.Features.Billing.Dtos
 @using BeanShare.Domain.ValueObjects
 @using Microsoft.AspNetCore.Authorization
@@ -94,6 +97,10 @@
                             <span class="material-symbols-outlined">play_circle</span>
                             <span>Open Period</span>
                         }
+                    </button>
+                    <button class="bs-btn bs-btn-secondary" @onclick="RequestDelete" disabled="@isProcessing">
+                        <span class="material-symbols-outlined">delete</span>
+                        <span>Delete</span>
                     </button>
                 }
                 else if (period.State == "Open")
@@ -195,6 +202,86 @@
     }
 </div>
 
+@if (showGenerateModal)
+{
+    <div class="bs-modal-backdrop" @onclick="CloseGenerate">
+        <div class="bs-modal" style="max-width: 44rem;" @onclick:stopPropagation="true" @ontouchend:stopPropagation="true">
+            <div class="bs-modal-header">
+                <h3 class="bs-modal-title">Generate settlement?</h3>
+            </div>
+            @if (isLoadingPreview)
+            {
+                <div class="bs-skeleton" style="width: 100%; height: 8rem;"></div>
+            }
+            else if (preview == null)
+            {
+                <p style="margin: 0 0 0.75rem 0;">@previewError</p>
+                @if (previewNeedsTreasurer)
+                {
+                    <a class="bs-btn bs-btn-sm bs-btn-secondary" href="@($"/spaces/{SpaceId}/balances")">Set a treasurer in Balances</a>
+                }
+            }
+            else
+            {
+                <p style="margin: 0 0 0.75rem 0;">Treasurer: <strong>@preview.TreasurerName</strong>. Every payment goes through the treasurer.</p>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.8125rem;">
+                        <thead>
+                            <tr style="color: var(--bs-text-subtle); text-align: right;">
+                                <th style="text-align: left; padding: 0.25rem 0.5rem 0.25rem 0;">Member</th>
+                                <th style="padding: 0.25rem 0.5rem;">Cost</th>
+                                <th style="padding: 0.25rem 0.5rem;">Credit</th>
+                                <th style="padding: 0.25rem 0.5rem;">Carried</th>
+                                <th style="padding: 0.25rem 0.5rem;">Adj.</th>
+                                @if (preview.Lines.Any(l => (l.Rounding ?? 0) != 0))
+                                {
+                                    <th style="padding: 0.25rem 0.5rem;">Rounding</th>
+                                }
+                                <th style="padding: 0.25rem 0 0.25rem 0.5rem;">Net</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var line in preview.Lines)
+                            {
+                                <tr style="border-top: 1px solid var(--bs-border); text-align: right; font-variant-numeric: tabular-nums;">
+                                    <td style="text-align: left; padding: 0.375rem 0.5rem 0.375rem 0;">@line.UserName@(line.IsTreasurer ? " (treasurer)" : "")</td>
+                                    <td style="padding: 0.375rem 0.5rem;">@line.AmountDue.ToString("F2")</td>
+                                    <td style="padding: 0.375rem 0.5rem;">@((line.Credit ?? 0).ToString("F2"))</td>
+                                    <td style="padding: 0.375rem 0.5rem;">@((line.CarriedIn ?? 0).ToString("F2"))</td>
+                                    <td style="padding: 0.375rem 0.5rem;">@((line.Adjustments ?? 0).ToString("F2"))</td>
+                                    @if (preview.Lines.Any(l => (l.Rounding ?? 0) != 0))
+                                    {
+                                        <td style="padding: 0.375rem 0.5rem;">@((line.Rounding ?? 0) != 0 ? (line.Rounding ?? 0).ToString("F2") : "")</td>
+                                    }
+                                    <td style="padding: 0.375rem 0 0.375rem 0.5rem; font-weight: 700;">@line.NetBalance.ToString("F2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (preview.Transfers.Count > 0)
+                {
+                    <div style="margin-top: 0.75rem; font-size: 0.8125rem;">
+                        @foreach (var t in preview.Transfers)
+                        {
+                            <div>@t.FromName → @t.ToName: @preview.Currency @t.Amount.ToString("F2")</div>
+                        }
+                    </div>
+                }
+                <p class="bs-text-subtle" style="font-size: 0.8125rem; margin: 0.75rem 0 0 0;">
+                    A settlement is final; corrections go in as balance entries.
+                </p>
+            }
+            <div class="bs-hero-actions">
+                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="ConfirmGenerate" disabled="@(isProcessing || preview == null)">
+                    @(isProcessing ? "Generating..." : "Generate settlement")
+                </button>
+                <button type="button" class="bs-btn bs-btn-quiet" @onclick="CloseGenerate">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
 <ConfirmDialog IsVisible="@showConfirm"
                Title="@confirmTitle"
                Message="@confirmMessage"
@@ -242,15 +329,99 @@
         showConfirm = true;
     }
 
-    private void RequestGenerate()
+    private bool showGenerateModal;
+    private bool isLoadingPreview;
+    private SettlementPreviewDto? preview;
+    private string previewError = "";
+    private bool previewNeedsTreasurer;
+
+    private async Task RequestGenerate()
     {
-        confirmTitle = "Generate settlement?";
-        confirmMessage = "This calculates who owes what for this period from the logged cups and marks it settled. You can reopen the period and regenerate if entries change.";
-        confirmText = "Generate settlement";
-        confirmDestructive = false;
-        confirmCallback = HandleGenerateSettlement;
+        showGenerateModal = true;
+        await LoadPreview();
+    }
+
+    private async Task LoadPreview()
+    {
+        isLoadingPreview = true;
+        preview = null;
+        previewNeedsTreasurer = false;
+        try
+        {
+            var result = await Mediator.Send(new GetSettlementPreviewQuery(Guid.Parse(PeriodId)));
+            if (result.IsSuccess)
+            {
+                preview = result.Value;
+            }
+            else
+            {
+                previewNeedsTreasurer = result.Errors.Any(e => e.Code == Error.Codes.TreasurerRequired);
+                previewError = string.Join(", ", result.Errors.Select(e => e.Message));
+            }
+        }
+        catch (Exception ex)
+        {
+            previewError = $"Failed to preview the settlement: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingPreview = false;
+        }
+    }
+
+    private void CloseGenerate()
+    {
+        showGenerateModal = false;
+        preview = null;
+    }
+
+    private async Task ConfirmGenerate()
+    {
+        await HandleGenerateSettlement();
+    }
+
+    private void RequestDelete()
+    {
+        confirmTitle = "Delete this draft period?";
+        confirmMessage = "The period has not been opened yet, so nothing is lost but the period itself.";
+        confirmText = "Delete";
+        confirmDestructive = true;
+        confirmCallback = HandleDeletePeriod;
         showConfirm = true;
     }
+
+    private async Task HandleDeletePeriod()
+    {
+        isProcessing = true;
+        try
+        {
+            var result = await Mediator.Send(new DeleteBillingPeriodCommand(Guid.Parse(PeriodId)));
+            if (result.IsSuccess)
+            {
+                Navigation.NavigateTo($"/spaces/{SpaceId}/billing");
+            }
+            else if (IsConflict(result.Errors))
+            {
+                ShowToast(true, "Changed meanwhile", "This period changed in the meantime and was reloaded.");
+                await LoadPeriod();
+            }
+            else
+            {
+                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", $"Failed to delete billing period: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private static bool IsConflict(IEnumerable<Error> errors) =>
+        errors.Any(e => e.Code == Error.Codes.ConcurrencyConflict);
 
     private void RequestReopen()
     {
@@ -398,6 +569,13 @@
             if (result.IsSuccess)
             {
                 Navigation.NavigateTo($"/spaces/{SpaceId}/settlements/{result.Value.Id}");
+            }
+            else if (IsConflict(result.Errors))
+            {
+                ShowToast(true, "Changed meanwhile", "Something changed while generating; the preview was refreshed. Check it and generate again.");
+                await LoadPeriod();
+                if (showGenerateModal)
+                    await LoadPreview();
             }
             else
             {
