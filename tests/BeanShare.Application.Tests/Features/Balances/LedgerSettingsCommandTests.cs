@@ -6,6 +6,7 @@ using BeanShare.Application.Features.Balances.Commands.UpdateBalanceEntry;
 using BeanShare.Application.Features.Balances.Commands.UpdateLedgerSettings;
 using BeanShare.Application.Features.Spaces.Commands;
 using BeanShare.Application.Services;
+using BeanShare.Application.Tests.TestHelpers;
 using BeanShare.Domain.Aggregates.Ledger;
 using BeanShare.Domain.Aggregates.Space;
 using BeanShare.Domain.Common;
@@ -161,7 +162,7 @@ public sealed class LedgerSettingsCommandTests
     {
         _space.SetTreasurer(_secondAdmin);
         _settlementRepository.GetBySpaceIdAsync(_space.Id, Arg.Any<CancellationToken>()).Returns(new List<BeanShare.Domain.Aggregates.Settlement.Settlement>());
-        var handler = new RemoveMemberCommandHandler(_spaceRepository, _settlementRepository, _userContext, Substitute.For<IMapper>(), _clock);
+        var handler = new RemoveMemberCommandHandler(_spaceRepository, _settlementRepository, EmptyLedger.SnapshotService(_clock), _userContext, Substitute.For<IMapper>(), _clock);
 
         var result = await handler.Handle(new RemoveMemberCommand(_space.Id.Value, _secondAdmin.Value), default);
 
@@ -174,7 +175,7 @@ public sealed class LedgerSettingsCommandTests
     {
         var before = _space.LedgerVersion;
         _settlementRepository.GetBySpaceIdAsync(_space.Id, Arg.Any<CancellationToken>()).Returns(new List<BeanShare.Domain.Aggregates.Settlement.Settlement>());
-        var handler = new RemoveMemberCommandHandler(_spaceRepository, _settlementRepository, _userContext, Substitute.For<IMapper>(), _clock);
+        var handler = new RemoveMemberCommandHandler(_spaceRepository, _settlementRepository, EmptyLedger.SnapshotService(_clock), _userContext, Substitute.For<IMapper>(), _clock);
 
         var result = await handler.Handle(new RemoveMemberCommand(_space.Id.Value, _member.Value), default);
 
@@ -188,7 +189,7 @@ public sealed class LedgerSettingsCommandTests
         var before = _space.LedgerVersion;
         _userContext.CurrentUserId.Returns(_member);
         _settlementRepository.GetBySpaceIdAsync(_space.Id, Arg.Any<CancellationToken>()).Returns(new List<BeanShare.Domain.Aggregates.Settlement.Settlement>());
-        var handler = new LeaveSpaceCommandHandler(_spaceRepository, _settlementRepository, _userContext, _clock);
+        var handler = new LeaveSpaceCommandHandler(_spaceRepository, _settlementRepository, EmptyLedger.SnapshotService(_clock), _userContext, _clock);
 
         var result = await handler.Handle(new LeaveSpaceCommand(_space.Id.Value), default);
 

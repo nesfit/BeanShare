@@ -2,6 +2,7 @@ using BeanShare.Application.Abstractions;
 using BeanShare.Application.Features.Balances.Queries.GetLedgerStartImpact;
 using BeanShare.Application.Features.Balances.Queries.GetSpaceBalances;
 using BeanShare.Application.Services;
+using BeanShare.Application.Tests.TestHelpers;
 using BeanShare.Domain.Aggregates.BillingPeriod;
 using BeanShare.Domain.Aggregates.Ledger;
 using BeanShare.Domain.Aggregates.Space;
@@ -42,7 +43,7 @@ public sealed class BalanceQueryTests
     }
 
     private GetSpaceBalancesHandler CreateHandler() =>
-        new(_spaceRepository, _entryRepository, _settlementRepository, _userService, _userContext);
+        new(_spaceRepository, _entryRepository, _settlementRepository, EmptyLedger.SnapshotService(_clock), _userService, _userContext);
 
     [Fact]
     public async Task GetSpaceBalances_AsMember_AsksOnlyForOwnEntriesAndShowsThemFromOwnSide()

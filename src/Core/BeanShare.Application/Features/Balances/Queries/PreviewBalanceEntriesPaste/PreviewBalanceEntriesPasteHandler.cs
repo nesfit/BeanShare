@@ -14,16 +14,19 @@ public sealed class PreviewBalanceEntriesPasteHandler
     : IRequestHandler<PreviewBalanceEntriesPasteQuery, Result<BalancePastePreviewDto>>
 {
     private readonly ISpaceRepository _spaceRepository;
+    private readonly LedgerSnapshotService _ledgerSnapshotService;
     private readonly IUserService _userService;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
 
     public PreviewBalanceEntriesPasteHandler(
         ISpaceRepository spaceRepository,
+        LedgerSnapshotService ledgerSnapshotService,
         IUserService userService,
         IUserContext userContext,
         IClock clock)
     {
+        _ledgerSnapshotService = ledgerSnapshotService;
         _spaceRepository = spaceRepository;
         _userService = userService;
         _userContext = userContext;
@@ -41,6 +44,10 @@ public sealed class PreviewBalanceEntriesPasteHandler
             space, _userContext.CurrentUserId, query.CounterpartyUserId, query.EffectiveDate, query.Kind, query.BatchNote, _clock);
         var evaluation = BalancePasteEvaluator.Evaluate(query.Text, batch, members, _clock);
 
+        // Each pasted row moves its amount off the counterparty, so its running balance changes by −Σ.
+        var snapshot = await _ledgerSnapshotService.RunningAsync(space, cancellationToken);
+        var counterpartyBalance = snapshot.Calculation.NetFor(batch.CounterpartyUserId);
+
         return Result<BalancePastePreviewDto>.Success(new BalancePastePreviewDto(
             evaluation.Rows,
             evaluation.Errors,
@@ -51,6 +58,8 @@ public sealed class PreviewBalanceEntriesPasteHandler
             batch.CounterpartyUserId.Value,
             members.NameOf(batch.CounterpartyUserId),
             batch.EffectiveDate,
-            batch.Kind.ToString()));
+            batch.Kind.ToString(),
+            counterpartyBalance,
+            counterpartyBalance - evaluation.Total));
     }
 }

@@ -71,6 +71,11 @@ public readonly record struct Error(string Code, string Message)
         public const string LineCarried = "LINE_CARRIED";
         public const string LedgerStartLocked = "LEDGER_START_LOCKED";
         public const string EmailInUse = "EMAIL_IN_USE";
+        public const string SettlementOrder = "SETTLEMENT_ORDER";
+        public const string TreasurerRequired = "TREASURER_REQUIRED";
+        public const string BeforeLedgerStart = "BEFORE_LEDGER_START";
+        public const string MemberHasBalance = "MEMBER_HAS_BALANCE";
+        public const string PeriodNotDeletable = "PERIOD_NOT_DELETABLE";
     }
 
     public static Error SpaceNotFound(Guid spaceId) =>
@@ -224,4 +229,19 @@ public readonly record struct Error(string Code, string Message)
 
     public static Error EmailInUse() =>
         new(Codes.EmailInUse, "This email address is already in use");
+
+    public static Error SettlementOrder(string message) =>
+        new(Codes.SettlementOrder, message);
+
+    public static Error TreasurerRequired() =>
+        new(Codes.TreasurerRequired, "Choose a treasurer (an active admin of the space) in the balance settings before generating a settlement");
+
+    public static Error BeforeLedgerStart(DateTime ledgerStartDate) =>
+        new(Codes.BeforeLedgerStart, $"Cups before the ledger start date ({ledgerStartDate:yyyy-MM-dd}) are not billed and cannot be logged or changed");
+
+    public static Error MemberHasBalance(string reason) =>
+        new(Codes.MemberHasBalance, reason);
+
+    public static Error PeriodNotDeletable(string state) =>
+        new(Codes.PeriodNotDeletable, $"Only a draft billing period can be deleted (this one is {state})");
 }

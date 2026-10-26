@@ -2,6 +2,8 @@ using System.Linq;
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Features.Consumption.Commands;
 using BeanShare.Domain.Aggregates.CoffeeStock;
+using BeanShare.Domain.Aggregates.Space;
+using BeanShare.Domain.Specifications;
 using BeanShare.Domain.Common;
 using BeanShare.Domain.Entities;
 using BeanShare.Domain.ValueObjects;
@@ -13,6 +15,7 @@ namespace BeanShare.Application.Tests.Features.Consumption;
 public sealed class PresetConsumptionTests
 {
     private readonly IPresetRecipeRepository _presetRepository;
+    private readonly ISpaceRepository _spaceRepository;
     private readonly IConsumptionRepository _consumptionRepository;
     private readonly ICoffeeStockRepository _coffeeStockRepository;
     private readonly IUserContext _userContext;
@@ -22,13 +25,19 @@ public sealed class PresetConsumptionTests
     public PresetConsumptionTests()
     {
         _presetRepository = Substitute.For<IPresetRecipeRepository>();
+        _spaceRepository = Substitute.For<ISpaceRepository>();
         _consumptionRepository = Substitute.For<IConsumptionRepository>();
         _coffeeStockRepository = Substitute.For<ICoffeeStockRepository>();
         _userContext = Substitute.For<IUserContext>();
         _clock = Substitute.For<IClock>();
 
+        // The handler always loads the space for the ledger-start check (DS-20); none is set here.
+        _spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Space.Create(SpaceId.New(), "Lab", Currency.USD, UserId.New(), new InviteCode("CAFE23"), _clock));
+
         _handler = new RecordConsumptionFromPresetCommandHandler(
             _presetRepository,
+            _spaceRepository,
             _coffeeStockRepository,
             _consumptionRepository,
             _userContext,

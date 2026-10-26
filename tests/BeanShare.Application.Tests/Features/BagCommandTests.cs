@@ -436,6 +436,71 @@ public sealed class BagCommandTests
         bag.Version.Should().BeGreaterThan(versionBefore);
     }
 
+    // T-STK-01 (C2 part): write-offs bill only current members (DS-34) and stamp each bag drawn (B4).
+    [Fact]
+    public async Task MarkBagEmpty_SkipsDrinkersWhoAreNoLongerMembers_AndRenormalises()
+    {
+        var space = CreateSpace();
+        var stock = StockWithOneBag(1000);
+        var bag = stock.Purchases.First();
+        var exMember = new UserId(Guid.NewGuid());
+        stock.ConsumeStock(_product, Weight.FromGrams(400), _clock, bag.Id);
+        var priorCups = new List<ConsumptionEntry> { Cup(_memberB, 100, bag.Id), Cup(exMember, 300, bag.Id) };
+
+        var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
+        var consumptionRepo = Substitute.For<IConsumptionRepository>();
+        consumptionRepo.GetBySpaceIdAsync(Arg.Any<SpaceId>(), Arg.Any<CancellationToken>()).Returns(priorCups);
+        var added = new List<ConsumptionEntry>();
+        consumptionRepo.AddAsync(Arg.Do<ConsumptionEntry>(added.Add), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+
+        var result = await new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, _clock)
+            .Handle(new MarkBagEmptyCommand(_spaceId.Value, bag.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        added.Should().ContainSingle().Which.UserId.Should().Be(_memberB);
+        added.Single().Quantity.Grams.Should().Be(600m);
+    }
+
+    [Fact]
+    public async Task SplitRemainingStock_StampsOneEntryPerUserPerBagAndSkipsExMembers()
+    {
+        var space = CreateSpace();
+        var stock = CoffeeStock.Create(_spaceId, _clock);
+        stock.AddPurchase(_product, Weight.FromGrams(100), Money.Create(10m, "USD"), "S", _admin, _clock.UtcNow.AddDays(-2), _clock);
+        stock.AddPurchase(_product, Weight.FromGrams(100), Money.Create(20m, "USD"), "S", _memberB, _clock.UtcNow.AddDays(-1), _clock);
+        var bags = stock.Purchases.OrderBy(p => p.PurchasedAt).ToList();
+        var exMember = new UserId(Guid.NewGuid());
+        var consumptions = new InMemoryConsumptions();
+        consumptions.Entries.Add(Cup(_admin, 10, bags[0].Id));
+        consumptions.Entries.Add(Cup(_memberB, 30, bags[0].Id));
+        consumptions.Entries.Add(Cup(exMember, 60, bags[0].Id));
+
+        var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
+        var userService = Substitute.For<Application.Services.IUserService>();
+        userService.GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>()).Returns(new List<User>());
+
+        var result = await new SplitRemainingStockCommandHandler(coffeeStockRepo, consumptions, spaceRepo, userService, userContext, _clock)
+            .Handle(new SplitRemainingStockCommand(_spaceId.Value, stock.StockLevels.Single().Id), CancellationToken.None);
+
+        // 200 g left over two bags, split 25:75 between the current members: admin 50 g, B 150 g.
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Allocations.Should().NotContain(a => a.UserId == exMember.Value);
+        var writeOffs = consumptions.Entries.Where(e => e.IsWriteOff).ToList();
+        writeOffs.Should().OnlyContain(e => e.StockLotId != null && e.Cost != null);
+        writeOffs.Where(e => e.UserId == _admin).Sum(e => e.Quantity.Grams).Should().Be(50m);
+        writeOffs.Where(e => e.UserId == _memberB).Sum(e => e.Quantity.Grams).Should().Be(150m);
+        writeOffs.Where(e => e.StockLotId == bags[0].Id).Sum(e => e.Quantity.Grams).Should().Be(100m);
+        writeOffs.Where(e => e.StockLotId == bags[1].Id).Sum(e => e.Quantity.Grams).Should().Be(100m);
+        writeOffs.Single(e => e.UserId == _memberB && e.StockLotId == bags[1].Id).Cost!.Amount.Should().Be(20m);
+    }
+
+    [Fact]
+    public void ConsumeStock_RequiresASpaceAdmin()
+    {
+        typeof(ConsumeStockCommand).GetCustomAttributes(typeof(Application.Common.Authorization.RequireSpaceAdminAttribute), false)
+            .Should().ContainSingle("drawing stock without a cup destroys the payer's credit (DS-36)");
+    }
+
     private static IBillingPeriodRepository BillingPeriods()
     {
         var repo = Substitute.For<IBillingPeriodRepository>();
@@ -473,6 +538,9 @@ public sealed class BagCommandTests
 
         public Task<IReadOnlyList<ConsumptionEntry>> GetBySpecAsync(Domain.Specifications.ISpec<ConsumptionEntry> specification, CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<ConsumptionEntry>>(Entries.Where(specification.Criteria.Compile()).ToList());
+
+        public Task<IReadOnlyList<ConsumptionEntry>> GetBySpecForUpdateAsync(Domain.Specifications.ISpec<ConsumptionEntry> specification, CancellationToken cancellationToken = default) =>
+            GetBySpecAsync(specification, cancellationToken);
 
         public Task<(IReadOnlyList<ConsumptionEntry> Items, int TotalCount)> GetPagedBySpecAsync(Domain.Specifications.ISpec<ConsumptionEntry> specification, int skip, int take, CancellationToken cancellationToken = default)
         {

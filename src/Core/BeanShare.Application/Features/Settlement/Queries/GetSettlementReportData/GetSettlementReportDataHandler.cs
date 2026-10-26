@@ -61,6 +61,8 @@ public sealed class GetSettlementReportDataHandler : IRequestHandler<GetSettleme
 
         var allUserIds = settlement.Lines.Select(l => l.UserId).ToList();
         allUserIds.Add(settlement.GeneratedBy);
+        if (settlement.TreasurerUserId is { } treasurerId)
+            allUserIds.Add(treasurerId);
 
         var confirmedByIds = settlement.Lines
             .Where(l => l.Confirmation != null)
@@ -78,8 +80,12 @@ public sealed class GetSettlementReportDataHandler : IRequestHandler<GetSettleme
         var totalCoffeeGrams = settlement.Lines.Sum(l => l.TotalCoffeeGrams);
         var totalMilkMl = settlement.Lines.Sum(l => l.TotalMilkMl ?? 0);
 
+        var treasurerName = settlement.TreasurerUserId is { } treasurer && userLookup.TryGetValue(treasurer, out var treasurerUser)
+            ? treasurerUser.Name
+            : null;
+
         var lines = new List<SettlementLineReportData>();
-        foreach (var line in settlement.Lines)
+        foreach (var line in settlement.Lines.OrderBy(l => l.NetAmount ?? 0m))
         {
             userLookup.TryGetValue(line.UserId, out var user);
             var userName = user?.Name ?? $"User {line.UserId.Value}";
@@ -104,7 +110,14 @@ public sealed class GetSettlementReportDataHandler : IRequestHandler<GetSettleme
                 line.AmountDue.Amount,
                 line.IsConfirmed,
                 confirmedByName,
-                line.Confirmation?.ConfirmedAt
+                line.Confirmation?.ConfirmedAt,
+                line.CreditAmount,
+                line.CarriedInAmount,
+                line.AdjustmentsAmount,
+                line.RoundingAmount,
+                line.NetAmount,
+                line.Resolution?.ToString(),
+                TransferText(settlement, line, treasurerName)
             ));
         }
 
@@ -120,9 +133,23 @@ public sealed class GetSettlementReportDataHandler : IRequestHandler<GetSettleme
             settlement.Lines.Count,
             totalCoffeeGrams,
             totalMilkMl,
-            lines
+            lines,
+            settlement.IsLedger,
+            treasurerName,
+            settlement.SupersededBySettlementId.HasValue
         );
 
         return Result<SettlementReportData>.Success(reportData);
+    }
+
+    /// <summary>"Pay {T} X" / "{T} pays X" for a ledger line; empty for the treasurer, a zero net or a legacy line.</summary>
+    private static string? TransferText(Domain.Aggregates.Settlement.Settlement settlement, Domain.Aggregates.Settlement.SettlementLine line, string? treasurerName)
+    {
+        if (!settlement.IsLedger || settlement.IsTreasurerLine(line) || line.NetAmount is not { } net || net == 0)
+            return null;
+
+        var amount = BeanShare.Domain.ValueObjects.Currency.Create(settlement.Currency).FormatAmount(Math.Abs(net));
+        var treasurer = treasurerName ?? "the treasurer";
+        return net < 0 ? $"Pay {treasurer} {amount}" : $"{treasurer} pays {amount}";
     }
 }

@@ -3,6 +3,9 @@ using BeanShare.Application.Common;
 using BeanShare.Application.Features.Billing.Commands.CloseBillingPeriod;
 using BeanShare.Application.Features.Billing.Commands.CreateBillingPeriod;
 using BeanShare.Application.Features.Billing.Commands.OpenBillingPeriod;
+using BeanShare.Application.Features.Billing.Commands.DeleteBillingPeriod;
+using BeanShare.Application.Features.Billing.Commands.ReopenBillingPeriod;
+using BeanShare.Application.Tests.TestHelpers;
 using BeanShare.Domain.Aggregates.BillingPeriod;
 using BeanShare.Domain.Aggregates.Space;
 using BeanShare.Domain.Common;
@@ -252,7 +255,7 @@ public sealed class BillingPeriodCommandTests
 
         _billingPeriodRepository.GetByIdAsync(Arg.Any<BillingPeriodId>(), default).Returns(billingPeriod);
         _spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(_space);
-        _consumptionRepository.GetBySpecAsync(Arg.Any<ISpec<ConsumptionEntry>>(), default).Returns(consumptions);
+        _consumptionRepository.GetBySpecForUpdateAsync(Arg.Any<ISpec<ConsumptionEntry>>(), default).Returns(consumptions);
 
         var handler = new CloseBillingPeriodHandler(
             _billingPeriodRepository,
@@ -285,7 +288,7 @@ public sealed class BillingPeriodCommandTests
 
         _billingPeriodRepository.GetByIdAsync(Arg.Any<BillingPeriodId>(), default).Returns(billingPeriod);
         _spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(_space);
-        _consumptionRepository.GetBySpecAsync(Arg.Any<ISpec<ConsumptionEntry>>(), default).Returns(new List<ConsumptionEntry>());
+        _consumptionRepository.GetBySpecForUpdateAsync(Arg.Any<ISpec<ConsumptionEntry>>(), default).Returns(new List<ConsumptionEntry>());
 
         var handler = new CloseBillingPeriodHandler(
             _billingPeriodRepository,
@@ -325,7 +328,7 @@ public sealed class BillingPeriodCommandTests
 
         _billingPeriodRepository.GetByIdAsync(Arg.Any<BillingPeriodId>(), default).Returns(billingPeriod);
         _spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(_space);
-        _consumptionRepository.GetBySpecAsync(Arg.Any<ISpec<ConsumptionEntry>>(), default).Returns(unassignedConsumptions);
+        _consumptionRepository.GetBySpecForUpdateAsync(Arg.Any<ISpec<ConsumptionEntry>>(), default).Returns(unassignedConsumptions);
 
         var handler = new CloseBillingPeriodHandler(
             _billingPeriodRepository,
@@ -404,5 +407,134 @@ public sealed class BillingPeriodCommandTests
             Weight.FromGrams(18m),
             consumedAt,
             _clock);
+    }
+
+    // --- T-BIL-01 / T-BIL-02: ordering and concurrency rules of period transitions (B5, DS-25, DS-26) ---
+
+    private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime Jan31 = new(2026, 1, 31, 0, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime Feb1 = new(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc);
+    private static readonly DateTime Feb28 = new(2026, 2, 28, 0, 0, 0, DateTimeKind.Utc);
+
+    private static LedgerWorld LedgerWorld() => new("CZK", new DateTime(2026, 3, 10, 10, 0, 0, DateTimeKind.Utc));
+
+    [Fact]
+    public async Task ReopenBillingPeriod_WithALaterPeriod_KeepsTheEndDate()
+    {
+        var world = LedgerWorld();
+        var january = world.AddPeriod("January", Jan1, Jan31);
+        world.AddPeriod("February", Feb1, Feb28, BillingState.Draft);
+        var end = january.EndDate;
+        var versionBefore = january.Version;
+        var ledgerVersionBefore = world.Space.LedgerVersion;
+
+        var result = await new ReopenBillingPeriodHandler(world.BillingPeriodRepository, world.SpaceRepository, world.UserContext, world.Clock)
+            .Handle(new ReopenBillingPeriodCommand(january.Id.Value), default);
+
+        result.IsSuccess.Should().BeTrue();
+        january.State.Should().Be(BillingState.Open);
+        january.EndDate.Should().Be(end);
+        january.Version.Should().BeGreaterThan(versionBefore);
+        world.Space.LedgerVersion.Should().BeGreaterThan(ledgerVersionBefore);
+    }
+
+    [Fact]
+    public async Task ReopenBillingPeriod_WithoutALaterPeriod_BecomesOpenEnded()
+    {
+        var world = LedgerWorld();
+        var january = world.AddPeriod("January", Jan1, Jan31);
+
+        var result = await new ReopenBillingPeriodHandler(world.BillingPeriodRepository, world.SpaceRepository, world.UserContext, world.Clock)
+            .Handle(new ReopenBillingPeriodCommand(january.Id.Value), default);
+
+        result.IsSuccess.Should().BeTrue();
+        january.IsOpenEnded.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(BillingState.Draft, true)]
+    [InlineData(BillingState.Open, false)]
+    [InlineData(BillingState.Closed, false)]
+    [InlineData(BillingState.Settled, false)]
+    public async Task DeleteBillingPeriod_AllowsDraftOnly(BillingState state, bool deletable)
+    {
+        var world = LedgerWorld();
+        var period = world.AddPeriod("January", Jan1, Jan31, state);
+        var ledgerVersionBefore = world.Space.LedgerVersion;
+
+        var result = await new DeleteBillingPeriodHandler(world.BillingPeriodRepository, world.SpaceRepository, world.UserContext)
+            .Handle(new DeleteBillingPeriodCommand(period.Id.Value), default);
+
+        if (deletable)
+        {
+            result.IsSuccess.Should().BeTrue();
+            world.Periods.Should().BeEmpty();
+            world.Space.LedgerVersion.Should().BeGreaterThan(ledgerVersionBefore);
+        }
+        else
+        {
+            result.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.PeriodNotDeletable);
+            world.Periods.Should().ContainSingle();
+        }
+    }
+
+    [Fact]
+    public async Task DeleteBillingPeriod_ByANonAdmin_IsRefused()
+    {
+        var world = LedgerWorld();
+        var period = world.AddPeriod("January", Jan1, Jan31, BillingState.Draft);
+        world.Actor = world.AddMember("Member");
+
+        var result = await new DeleteBillingPeriodHandler(world.BillingPeriodRepository, world.SpaceRepository, world.UserContext)
+            .Handle(new DeleteBillingPeriodCommand(period.Id.Value), default);
+
+        result.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.InsufficientPrivileges);
+    }
+
+    [Fact]
+    public async Task CreateBillingPeriod_StartingOnOrBeforeTheLastSettledEnd_IsRefused()
+    {
+        var world = LedgerWorld();
+        world.AddPeriod("January", Jan1, Jan31, BillingState.Settled);
+        var handler = new CreateBillingPeriodHandler(world.BillingPeriodRepository, world.SpaceRepository, world.UserContext, world.Clock);
+
+        var backDated = await handler.Handle(new CreateBillingPeriodCommand(world.Space.Id.Value, "Late", Jan31, Feb28), default);
+        var afterwards = await handler.Handle(new CreateBillingPeriodCommand(world.Space.Id.Value, "February", Feb1, Feb28), default);
+
+        backDated.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.SettlementOrder);
+        afterwards.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task OpenBillingPeriod_OfADraftStartingBeforeTheLastSettledEnd_IsRefused()
+    {
+        var world = LedgerWorld();
+        var draft = world.AddPeriod("Old draft", Jan1, Jan1.AddDays(9), BillingState.Draft);
+        world.AddPeriod("Later", Jan1.AddDays(10), Jan31, BillingState.Settled);
+
+        var result = await new OpenBillingPeriodHandler(world.BillingPeriodRepository, world.SpaceRepository, world.UserContext, world.Clock)
+            .Handle(new OpenBillingPeriodCommand(draft.Id.Value), default);
+
+        result.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.SettlementOrder);
+        draft.State.Should().Be(BillingState.Draft);
+    }
+
+    [Fact]
+    public async Task CloseBillingPeriod_BumpsBothVersions_AndStampsTrackedCups()
+    {
+        var world = LedgerWorld();
+        var january = world.AddPeriod("January", Jan1, Jan31, BillingState.Open);
+        var cup = world.LegacyCup(world.Admin, 10m, Jan1.AddDays(3));
+        var versionBefore = january.Version;
+        var ledgerVersionBefore = world.Space.LedgerVersion;
+
+        var result = await new CloseBillingPeriodHandler(world.BillingPeriodRepository, world.SpaceRepository, world.ConsumptionRepository, world.UserContext, world.Clock)
+            .Handle(new CloseBillingPeriodCommand(january.Id.Value), default);
+
+        result.IsSuccess.Should().BeTrue();
+        cup.BillingPeriodId.Should().Be(january.Id);
+        january.Version.Should().BeGreaterThan(versionBefore);
+        world.Space.LedgerVersion.Should().BeGreaterThan(ledgerVersionBefore);
+        await world.ConsumptionRepository.Received().GetBySpecForUpdateAsync(Arg.Any<ISpec<ConsumptionEntry>>(), Arg.Any<CancellationToken>());
     }
 }

@@ -4,6 +4,7 @@ using BeanShare.Application.Features.Consumption.Dtos;
 using BeanShare.Domain.Common;
 using BeanShare.Domain.Entities;
 using BeanShare.Domain.Exceptions;
+using BeanShare.Domain.Specifications;
 using BeanShare.Domain.ValueObjects;
 using MediatR;
 
@@ -11,6 +12,7 @@ namespace BeanShare.Application.Features.Consumption.Commands;
 public sealed class RecordConsumptionFromPresetCommandHandler : IRequestHandler<RecordConsumptionFromPresetCommand, Result<ConsumptionEntryDto>>
 {
     private readonly IPresetRecipeRepository _presetRepository;
+    private readonly ISpaceRepository _spaceRepository;
     private readonly ICoffeeStockRepository _coffeeStockRepository;
     private readonly IConsumptionRepository _consumptionRepository;
     private readonly IUserContext _userContext;
@@ -18,12 +20,14 @@ public sealed class RecordConsumptionFromPresetCommandHandler : IRequestHandler<
 
     public RecordConsumptionFromPresetCommandHandler(
         IPresetRecipeRepository presetRepository,
+        ISpaceRepository spaceRepository,
         ICoffeeStockRepository coffeeStockRepository,
         IConsumptionRepository consumptionRepository,
         IUserContext userContext,
         IClock clock)
     {
         _presetRepository = presetRepository;
+        _spaceRepository = spaceRepository;
         _coffeeStockRepository = coffeeStockRepository;
         _consumptionRepository = consumptionRepository;
         _userContext = userContext;
@@ -66,6 +70,17 @@ public sealed class RecordConsumptionFromPresetCommandHandler : IRequestHandler<
         if (consumedAt > _clock.UtcNow.AddMinutes(5))
         {
             return Result<ConsumptionEntryDto>.Failure(Error.InvalidConsumptionTime());
+        }
+
+        var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(spaceId), cancellationToken);
+        if (space == null)
+        {
+            return Result<ConsumptionEntryDto>.Failure(Error.SpaceNotFound(request.SpaceId));
+        }
+
+        if (space.LedgerStartDate is { } ledgerStart && consumedAt < ledgerStart)
+        {
+            return Result<ConsumptionEntryDto>.Failure(Error.BeforeLedgerStart(ledgerStart));
         }
 
         var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(spaceId, cancellationToken);

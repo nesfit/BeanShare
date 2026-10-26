@@ -202,7 +202,9 @@ public sealed class GetUserConsumptionHistoryHandler : IRequestHandler<GetUserCo
                 }
             }
 
-            var canEdit = c.BillingPeriodId == null || editablePeriodIds.Contains(c.BillingPeriodId.Value);
+            // Cups before the ledger start are never billed, so they cannot be edited either (B22).
+            var beforeLedgerStart = space?.LedgerStartDate is { } ledgerStart && c.ConsumedAt < ledgerStart;
+            var canEdit = !beforeLedgerStart && (c.BillingPeriodId == null || editablePeriodIds.Contains(c.BillingPeriodId.Value));
 
             items.Add(new ConsumptionHistoryItemDto(
                 c.Id.Value,

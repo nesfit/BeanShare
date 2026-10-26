@@ -65,6 +65,17 @@ internal sealed class ConsumptionRepository : IConsumptionRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ConsumptionEntry>> GetBySpecForUpdateAsync(ISpec<ConsumptionEntry> specification, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(specification);
+
+        // Tracked: callers stamp the cups (B1).
+        return await _context.Consumptions
+            .Where(specification.Criteria)
+            .OrderBy(c => c.ConsumedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<(IReadOnlyList<ConsumptionEntry> Items, int TotalCount)> GetPagedBySpecAsync(ISpec<ConsumptionEntry> specification, int skip, int take, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(specification);

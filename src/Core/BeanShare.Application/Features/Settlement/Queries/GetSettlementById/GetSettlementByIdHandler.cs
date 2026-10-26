@@ -3,12 +3,17 @@ using BeanShare.Application.Common;
 using BeanShare.Application.Features.Settlement.Dtos;
 using BeanShare.Application.Services;
 using BeanShare.Domain.Common;
-using BeanShare.Domain.Entities;
 using BeanShare.Domain.Specifications;
 using BeanShare.Domain.ValueObjects;
 using MediatR;
 
 namespace BeanShare.Application.Features.Settlement.Queries.GetSettlementById;
+
+/// <summary>
+/// Reads a settlement from its stored snapshot: a ledger settlement never recomputes anything (I7); a
+/// legacy one shows its frozen Paid, falling back to the old purchase-based figure only when the
+/// backfill has not frozen it yet.
+/// </summary>
 public sealed class GetSettlementByIdHandler : IRequestHandler<GetSettlementByIdQuery, Result<SettlementDto>>
 {
     private readonly ISettlementRepository _settlementRepository;
@@ -58,80 +63,15 @@ public sealed class GetSettlementByIdHandler : IRequestHandler<GetSettlementById
             return Result<SettlementDto>.Failure(Error.InsufficientSpacePrivileges("view settlement"));
         }
 
-        var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(settlement.SpaceId, cancellationToken);
-        var periodPurchases = coffeeStock?.Purchases
-            .Where(p => p.PurchasedAt >= billingPeriod.StartDate && p.PurchasedAt <= billingPeriod.EndDate)
-            .ToList() ?? new();
-
-        if (!periodPurchases.Any())
+        IReadOnlyDictionary<UserId, decimal>? legacyPaid = null;
+        if (!settlement.IsLedger && settlement.Lines.Any(l => l.LegacyAmountPaid is null))
         {
-            periodPurchases = coffeeStock?.Purchases
-                .Where(p => p.PurchasedAt <= billingPeriod.EndDate)
-                .ToList() ?? new();
+            var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(settlement.SpaceId, cancellationToken);
+            legacyPaid = LegacyPaid.Compute(coffeeStock, billingPeriod, settlement.Currency);
         }
 
-        var purchasesByUser = periodPurchases
-            .Where(p => p.Cost.Currency == settlement.Currency)
-            .GroupBy(p => p.PurchasedBy)
-            .ToDictionary(g => g.Key, g => g.Sum(p => p.Cost.Amount));
-
-        var userIds = settlement.Lines.Select(l => l.UserId).Distinct().ToList();
-        var users = await _userService.GetByIdsAsync(userIds, cancellationToken);
-        var userLookup = users.ToDictionary(u => u.Id);
-
-        var totalConsumption = settlement.Lines.Sum(l => l.TotalCoffeeGrams);
-
-        var lines = new List<SettlementLineDto>();
-        foreach (var line in settlement.Lines)
-        {
-            userLookup.TryGetValue(line.UserId, out var user);
-            var userName = user?.Name ?? $"User {line.UserId.Value}";
-            var userEmail = user?.Email ?? $"user{line.UserId.Value}@example.com";
-
-            var consumptionPercentage = totalConsumption > 0
-                ? (line.TotalCoffeeGrams / totalConsumption) * 100
-                : 0;
-
-            var amountPaid = purchasesByUser.TryGetValue(line.UserId, out var paid) ? paid : 0m;
-            var netBalance = amountPaid - line.AmountDue.Amount;
-
-            var lineDto = new SettlementLineDto(
-                line.UserId.Value,
-                userName,
-                userEmail,
-                line.TotalCoffeeGrams,
-                line.TotalMilkMl ?? 0,
-                line.AmountDue.Amount,
-                amountPaid,
-                netBalance,
-                line.AmountDue.Currency,
-                consumptionPercentage,
-                line.IsConfirmed,
-                line.Confirmation?.ConfirmedBy.Value,
-                line.Confirmation?.ConfirmedAt,
-                user?.RevolutTag
-            );
-
-            lines.Add(lineDto);
-        }
-
-        var dto = new SettlementDto(
-            settlement.Id.Value,
-            settlement.SpaceId.Value,
-            settlement.BillingPeriodId.Value,
-            billingPeriod.Name,
-            billingPeriod.StartDate,
-            billingPeriod.EndDate,
-            settlement.GeneratedAt,
-            settlement.GeneratedBy.Value,
-            settlement.TotalAmount,
-            settlement.Currency,
-            settlement.Status.ToString(),
-            settlement.CompletedAt,
-            settlement.ConfirmedLinesCount,
-            settlement.TotalLinesCount,
-            lines
-        );
+        var users = await _userService.GetByIdsAsync(SettlementDtoMapper.UserIdsOf(settlement), cancellationToken);
+        var dto = SettlementDtoMapper.ToDto(settlement, billingPeriod, users.ToDictionary(u => u.Id), legacyPaid);
 
         return Result<SettlementDto>.Success(dto);
     }

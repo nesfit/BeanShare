@@ -3,6 +3,7 @@ using BeanShare.Application.Features.Consumption.Commands;
 using BeanShare.Domain.Aggregates.CoffeeStock;
 using BeanShare.Domain.Common;
 using BeanShare.Domain.Entities;
+using BeanShare.Domain.Specifications;
 using BeanShare.Domain.ValueObjects;
 using NSubstitute;
 
@@ -19,6 +20,10 @@ public sealed class ConsumptionCommandTests
 
     public ConsumptionCommandTests()
     {
+        // The space is always loaded for the ledger-start check (DS-20); none is set by default.
+        _spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Domain.Aggregates.Space.Space>>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Domain.Aggregates.Space.Space.Create(SpaceId.New(), "Lab", Currency.USD, UserId.New(), new InviteCode("CAFE23"), _clock));
+
         _handler = new RecordConsumptionCommandHandler(_coffeeStockRepository, _consumptionRepository, _spaceRepository, _userContext, _clock);
     }
 

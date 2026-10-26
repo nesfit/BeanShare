@@ -1,5 +1,6 @@
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Common;
+using BeanShare.Application.Features.Balances.Services;
 using BeanShare.Domain.Common;
 using BeanShare.Domain.Enums;
 using BeanShare.Domain.Exceptions;
@@ -12,17 +13,20 @@ public sealed class LeaveSpaceCommandHandler : IRequestHandler<LeaveSpaceCommand
 {
     private readonly ISpaceRepository _spaceRepository;
     private readonly ISettlementRepository _settlementRepository;
+    private readonly LedgerSnapshotService _ledgerSnapshotService;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
 
     public LeaveSpaceCommandHandler(
         ISpaceRepository spaceRepository,
         ISettlementRepository settlementRepository,
+        LedgerSnapshotService ledgerSnapshotService,
         IUserContext userContext,
         IClock clock)
     {
         _spaceRepository = spaceRepository;
         _settlementRepository = settlementRepository;
+        _ledgerSnapshotService = ledgerSnapshotService;
         _userContext = userContext;
         _clock = clock;
     }
@@ -52,13 +56,9 @@ public sealed class LeaveSpaceCommandHandler : IRequestHandler<LeaveSpaceCommand
                 "leave this space as an admin. Please transfer admin rights first or ask another admin to remove you"));
         }
 
-        var settlements = await _settlementRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
-        var hasUnpaidSettlements = settlements.Any(s =>
-            s.Lines.Any(l => l.UserId == currentUserId && !l.IsConfirmed));
-
-        if (hasUnpaidSettlements)
+        if (await MemberDepartureGuard.CheckAsync(space, currentUserId, _settlementRepository, _ledgerSnapshotService, cancellationToken) is { } departureError)
         {
-            return Result<LeaveSpaceResult>.Failure(Error.UnpaidSettlements(currentUserId.Value));
+            return Result<LeaveSpaceResult>.Failure(departureError);
         }
 
         try

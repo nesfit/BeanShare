@@ -10,5 +10,6 @@ public interface IBillingPeriodRepository
     Task<IReadOnlyList<BillingPeriod>> GetBySpaceIdAsync(SpaceId spaceId, CancellationToken cancellationToken = default);
     Task AddAsync(BillingPeriod billingPeriod, CancellationToken cancellationToken = default);
     Task UpdateAsync(BillingPeriod billingPeriod, CancellationToken cancellationToken = default);
+    void Remove(BillingPeriod billingPeriod);
     Task<bool> HasOverlappingPeriodAsync(SpaceId spaceId, DateTime startDate, DateTime endDate, BillingPeriodId? excludeId = null, CancellationToken cancellationToken = default);
 }

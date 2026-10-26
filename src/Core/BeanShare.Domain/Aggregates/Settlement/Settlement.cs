@@ -306,21 +306,7 @@ public sealed class Settlement : AggregateRoot
         if (SupersededBySettlementId.HasValue)
             throw new InvalidOperationException($"Settlement {Id} was already carried into {SupersededBySettlementId}");
 
-        var carryOut = new Dictionary<UserId, decimal>();
-        var othersTotal = 0m;
-        foreach (var line in _lines.Where(l => !IsTreasurerLine(l)))
-        {
-            if (!line.IsOpen)
-                continue;
-
-            var amount = line.NetAmount ?? 0m;
-            carryOut[line.UserId] = amount;
-            othersTotal += amount;
-        }
-
-        var treasurerLine = _lines.FirstOrDefault(IsTreasurerLine);
-        if (treasurerLine is not null)
-            carryOut[treasurerLine.UserId] = -othersTotal;
+        var carryOut = GetCarryOut();
 
         var carriedAny = false;
         foreach (var line in _lines.Where(l => l.IsOpen).ToList())
@@ -333,6 +319,30 @@ public sealed class Settlement : AggregateRoot
             SupersededBySettlementId = nextSettlementId;
 
         Version++;
+
+        return carryOut;
+    }
+
+    /// <summary>
+    /// What the next settlement would carry in from this one, without changing anything (design §4.2):
+    /// the full Net of every open non-treasurer line, and the counter-sum for the treasurer. Zeros omitted.
+    /// </summary>
+    public IReadOnlyDictionary<UserId, decimal> GetCarryOut()
+    {
+        if (!IsLedger || SupersededBySettlementId.HasValue)
+            return new Dictionary<UserId, decimal>();
+
+        var carryOut = new Dictionary<UserId, decimal>();
+        var othersTotal = 0m;
+        foreach (var line in _lines.Where(l => l.IsOpen && !IsTreasurerLine(l)))
+        {
+            var amount = line.NetAmount ?? 0m;
+            carryOut[line.UserId] = amount;
+            othersTotal += amount;
+        }
+
+        if (_lines.FirstOrDefault(IsTreasurerLine) is { } treasurerLine)
+            carryOut[treasurerLine.UserId] = -othersTotal;
 
         return carryOut.Where(kv => kv.Value != 0).ToDictionary(kv => kv.Key, kv => kv.Value);
     }

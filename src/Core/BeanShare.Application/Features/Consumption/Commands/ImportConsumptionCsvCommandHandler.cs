@@ -178,6 +178,9 @@ public sealed class ImportConsumptionCsvCommandHandler
         if (row.ConsumedAt > _clock.UtcNow.AddMinutes(5))
             errors.Add(new ImportRowError(row.RowNumber, "ConsumedAt", "Date cannot be in the future"));
 
+        if (space.LedgerStartDate is { } ledgerStart && row.ConsumedAt < ledgerStart)
+            errors.Add(new ImportRowError(row.RowNumber, "ConsumedAt", Error.BeforeLedgerStart(ledgerStart).Message));
+
         return errors;
     }
 }

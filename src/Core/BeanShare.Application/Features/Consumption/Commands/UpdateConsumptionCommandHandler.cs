@@ -4,6 +4,7 @@ using BeanShare.Application.Features.Consumption.Dtos;
 using BeanShare.Domain.Common;
 using BeanShare.Domain.Enums;
 using BeanShare.Domain.Exceptions;
+using BeanShare.Domain.Specifications;
 using BeanShare.Domain.ValueObjects;
 using MediatR;
 
@@ -15,17 +16,20 @@ public sealed class UpdateConsumptionCommandHandler
     private readonly IConsumptionRepository _consumptionRepository;
     private readonly IBillingPeriodRepository _billingPeriodRepository;
     private readonly ICoffeeStockRepository _coffeeStockRepository;
+    private readonly ISpaceRepository _spaceRepository;
     private readonly IClock _clock;
 
     public UpdateConsumptionCommandHandler(
         IConsumptionRepository consumptionRepository,
         IBillingPeriodRepository billingPeriodRepository,
         ICoffeeStockRepository coffeeStockRepository,
+        ISpaceRepository spaceRepository,
         IClock clock)
     {
         _consumptionRepository = consumptionRepository;
         _billingPeriodRepository = billingPeriodRepository;
         _coffeeStockRepository = coffeeStockRepository;
+        _spaceRepository = spaceRepository;
         _clock = clock;
     }
 
@@ -43,13 +47,18 @@ public sealed class UpdateConsumptionCommandHandler
         if (entry.SpaceId.Value != request.SpaceId)
             return Result<ConsumptionEntryDto>.Failure(Error.InsufficientSpacePrivileges("edit this consumption"));
 
+        Domain.Aggregates.BillingPeriod.BillingPeriod? stampedPeriod = null;
         if (entry.BillingPeriodId != null)
         {
-            var billingPeriod = await _billingPeriodRepository.GetByIdAsync(entry.BillingPeriodId.Value, cancellationToken);
-            if (billingPeriod != null && billingPeriod.State != BillingState.Draft && billingPeriod.State != BillingState.Open)
+            stampedPeriod = await _billingPeriodRepository.GetByIdAsync(entry.BillingPeriodId.Value, cancellationToken);
+            if (stampedPeriod != null && stampedPeriod.State != BillingState.Draft && stampedPeriod.State != BillingState.Open)
                 return Result<ConsumptionEntryDto>.Failure(
-                    Error.InvalidBillingPeriodState("edit consumption in", billingPeriod.State.ToString()));
+                    Error.InvalidBillingPeriodState("edit consumption in", stampedPeriod.State.ToString()));
         }
+
+        var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(entry.SpaceId), cancellationToken);
+        if (space?.LedgerStartDate is { } ledgerStart && request.ConsumedAt < ledgerStart)
+            return Result<ConsumptionEntryDto>.Failure(Error.BeforeLedgerStart(ledgerStart));
 
         if (!Enum.TryParse<CoffeeType>(request.ProductType, ignoreCase: true, out var coffeeType))
             return Result<ConsumptionEntryDto>.Failure(Error.InvalidCoffeeType());
@@ -68,6 +77,10 @@ public sealed class UpdateConsumptionCommandHandler
         {
             return Result<ConsumptionEntryDto>.Failure(Error.DomainError(ex.Message));
         }
+
+        // A cup re-dated out of its open period loses the stamp; the next close stamps it again (DS-27).
+        if (stampedPeriod != null && !stampedPeriod.ContainsDate(entry.ConsumedAt))
+            entry.ClearBillingPeriod();
 
         var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(entry.SpaceId, cancellationToken);
         if (coffeeStock != null)

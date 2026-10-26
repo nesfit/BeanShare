@@ -41,6 +41,7 @@ public static class DatabaseInitializationExtensions
                 await context.Database.MigrateAsync(cancellationToken);
                 await RunLotBackfillAsync(scope.ServiceProvider, context, cancellationToken);
                 await SeedAsync(scope.ServiceProvider, context, includeDemoData, cancellationToken);
+                await RunLedgerBackfillAsync(scope.ServiceProvider, context, cancellationToken);
             }
             finally
             {
@@ -59,6 +60,7 @@ public static class DatabaseInitializationExtensions
 
         await context.Database.EnsureCreatedAsync(cancellationToken);
         await SeedAsync(scope.ServiceProvider, context, includeDemoData, cancellationToken);
+        await RunLedgerBackfillAsync(scope.ServiceProvider, context, cancellationToken);
     }
 
     private static async Task SeedAsync(
@@ -70,6 +72,16 @@ public static class DatabaseInitializationExtensions
         var logger = serviceProvider.GetRequiredService<ILogger<DatabaseSeeder>>();
         var seeder = new DatabaseSeeder(context, logger);
         await seeder.SeedAsync(includeDemoData: includeDemoData, cancellationToken);
+    }
+
+    /// <summary>Stamps cups already billed before the money ledger and freezes legacy Paid (idempotent).</summary>
+    private static async Task RunLedgerBackfillAsync(
+        IServiceProvider serviceProvider,
+        BeanShareDbContext context,
+        CancellationToken cancellationToken)
+    {
+        var logger = serviceProvider.GetRequiredService<ILogger<LedgerBackfillService>>();
+        await new LedgerBackfillService(context, logger).RunAsync(cancellationToken);
     }
 
     /// <summary>

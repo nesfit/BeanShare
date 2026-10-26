@@ -131,7 +131,11 @@ public sealed class BillingPeriod : AggregateRoot
         ));
     }
 
-    public void Reopen(UserId userId, IClock clock)
+    /// <summary>
+    /// Reopens a closed period. The end date goes back to open-ended only when no later period exists;
+    /// otherwise it stays, so periods never overlap (a later re-close would end today).
+    /// </summary>
+    public void Reopen(UserId userId, IClock clock, bool hasLaterPeriod = false)
     {
         ArgumentNullException.ThrowIfNull(userId);
         ArgumentNullException.ThrowIfNull(clock);
@@ -144,7 +148,8 @@ public sealed class BillingPeriod : AggregateRoot
         State = BillingState.Open;
         ClosedAt = null;
         ClosedBy = null;
-        EndDate = OpenEndedSentinel;
+        if (!hasLaterPeriod)
+            EndDate = OpenEndedSentinel;
         Version++;
 
         RaiseDomainEvent(new BillingPeriodOpened(

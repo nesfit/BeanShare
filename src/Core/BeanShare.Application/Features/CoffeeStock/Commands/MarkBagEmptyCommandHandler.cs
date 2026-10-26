@@ -56,7 +56,10 @@ public sealed class MarkBagEmptyCommandHandler : IRequestHandler<MarkBagEmptyCom
 
         // Who absorbs the remainder, in priority order: this bag's own drinkers → the product's
         // drinkers → any space consumer → an equal split among members.
-        var consumptions = (await _consumptionRepository.GetBySpaceIdAsync(spaceId, cancellationToken)).ToList();
+        // Only current members share a write-off, renormalised over them (DS-34): ex-members are never billed.
+        var consumptions = (await _consumptionRepository.GetBySpaceIdAsync(spaceId, cancellationToken))
+            .Where(c => space.HasMember(c.UserId))
+            .ToList();
 
         var byUser =
             GramsByUser(consumptions.Where(c => c.StockLotId == command.LotId));

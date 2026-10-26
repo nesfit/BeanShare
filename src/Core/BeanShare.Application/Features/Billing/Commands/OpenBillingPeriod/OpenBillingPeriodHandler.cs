@@ -50,6 +50,13 @@ public sealed class OpenBillingPeriodHandler : IRequestHandler<OpenBillingPeriod
             return Result.Failure(Error.InsufficientSpacePrivileges("open billing periods"));
         }
 
+        var spacePeriods = await _billingPeriodRepository.GetBySpaceIdAsync(space.Id, cancellationToken);
+        if (billingPeriod.State == Domain.Enums.BillingState.Draft
+            && BillingPeriodOrdering.CheckStartsAfterLastSettled(billingPeriod.StartDate, spacePeriods) is { } orderError)
+        {
+            return Result.Failure(orderError);
+        }
+
         try
         {
             billingPeriod.Open(currentUserId, _clock);

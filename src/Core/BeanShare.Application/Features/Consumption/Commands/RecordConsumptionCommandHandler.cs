@@ -35,15 +35,14 @@ public sealed class RecordConsumptionCommandHandler : IRequestHandler<RecordCons
     {
         var spaceId = new SpaceId(request.SpaceId);
 
+        // Always loaded: the ledger start date gates every cup (DS-20).
+        var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(spaceId), cancellationToken);
+        if (space == null)
+            return Result<ConsumptionEntryDto>.Failure(Error.SpaceNotFound(request.SpaceId));
+
         UserId targetUserId;
         if (request.ForUserId.HasValue)
         {
-            var spec = new SpaceByIdSpecification(spaceId);
-            var space = await _spaceRepository.GetSingleBySpecAsync(spec, cancellationToken);
-
-            if (space == null)
-                return Result<ConsumptionEntryDto>.Failure(Error.SpaceNotFound(request.SpaceId));
-
             var forUser = new UserId(request.ForUserId.Value);
             if (!space.HasMember(forUser))
                 return Result<ConsumptionEntryDto>.Failure(Error.MemberNotFound(request.ForUserId.Value, request.SpaceId));
@@ -67,6 +66,11 @@ public sealed class RecordConsumptionCommandHandler : IRequestHandler<RecordCons
         if (consumedAt > _clock.UtcNow.AddMinutes(5))
         {
             return Result<ConsumptionEntryDto>.Failure(Error.InvalidConsumptionTime());
+        }
+
+        if (space.LedgerStartDate is { } ledgerStart && consumedAt < ledgerStart)
+        {
+            return Result<ConsumptionEntryDto>.Failure(Error.BeforeLedgerStart(ledgerStart));
         }
 
         var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(spaceId, cancellationToken);

@@ -95,7 +95,9 @@ public sealed class GetRecentConsumptionsQueryHandler
                 PresetName = e.PresetName,
                 CostAmount = e.Cost?.Amount,
                 CostCurrency = e.Cost?.Currency.Code,
-                CanEdit = e.BillingPeriodId == null || editablePeriodIds.Contains(e.BillingPeriodId.Value)
+                // Cups before the ledger start are never billed, so they cannot be edited either (B22).
+                CanEdit = !(space.LedgerStartDate is { } ledgerStart && e.ConsumedAt < ledgerStart)
+                    && (e.BillingPeriodId == null || editablePeriodIds.Contains(e.BillingPeriodId.Value))
             })
             .ToList();
 

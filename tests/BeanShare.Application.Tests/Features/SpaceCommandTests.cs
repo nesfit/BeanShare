@@ -303,9 +303,9 @@ public class SpaceCommandTests
         space.Join(memberId, clock);
 
         spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(space);
-        settlementRepository.GetBySpaceIdAsync(spaceId, default).Returns(new List<Settlement>());
+        settlementRepository.GetBySpaceIdAsync(spaceId, default).Returns(new List<Domain.Aggregates.Settlement.Settlement>());
 
-        var handler = new RemoveMemberCommandHandler(spaceRepository, settlementRepository, userContext, mapper, clock);
+        var handler = new RemoveMemberCommandHandler(spaceRepository, settlementRepository, EmptyLedger.SnapshotService(clock), userContext, mapper, clock);
         var command = new RemoveMemberCommand(spaceId.Value, memberId.Value);
 
         var result = await handler.Handle(command, default);
@@ -335,9 +335,9 @@ public class SpaceCommandTests
         var space = Space.Create(spaceId, "Test Space", Currency.USD, adminId, inviteCode, clock);
 
         spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(space);
-        settlementRepository.GetBySpaceIdAsync(spaceId, default).Returns(new List<Settlement>());
+        settlementRepository.GetBySpaceIdAsync(spaceId, default).Returns(new List<Domain.Aggregates.Settlement.Settlement>());
 
-        var handler = new RemoveMemberCommandHandler(spaceRepository, settlementRepository, userContext, mapper, clock);
+        var handler = new RemoveMemberCommandHandler(spaceRepository, settlementRepository, EmptyLedger.SnapshotService(clock), userContext, mapper, clock);
         var command = new RemoveMemberCommand(spaceId.Value, adminId.Value);
 
         var result = await handler.Handle(command, default);
@@ -370,9 +370,9 @@ public class SpaceCommandTests
         space.Join(otherMemberId, clock);
 
         spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(space);
-        settlementRepository.GetBySpaceIdAsync(spaceId, default).Returns(new List<Settlement>());
+        settlementRepository.GetBySpaceIdAsync(spaceId, default).Returns(new List<Domain.Aggregates.Settlement.Settlement>());
 
-        var handler = new RemoveMemberCommandHandler(spaceRepository, settlementRepository, userContext, mapper, clock);
+        var handler = new RemoveMemberCommandHandler(spaceRepository, settlementRepository, EmptyLedger.SnapshotService(clock), userContext, mapper, clock);
         var command = new RemoveMemberCommand(spaceId.Value, otherMemberId.Value);
 
         var result = await handler.Handle(command, default);

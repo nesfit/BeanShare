@@ -34,6 +34,46 @@ public sealed class BillingPeriodConcurrencyTests
         (await container.SendAsync(scenario.Admin, new ReopenBillingPeriodCommand(periodId))).IsSuccess.Should().BeTrue();
     }
 
+    // T-INF-07: ports of Probe_ReopenRacingGenerate_* (InMemory asserts the outcome only, DS-39).
+    [Fact(Timeout = 10000)]
+    public async Task ReopenHeld_RacingGeneration_TheHeldReopenGetsConcurrencyConflict()
+    {
+        await using var container = await InMemoryContainer.CreateAsync();
+        var scenario = await LedgerScenario.CreateAsync(container);
+        var periodId = await scenario.CreateOpenPeriodAsync(LedgerScenario.Today.AddDays(-10), LedgerScenario.Today.AddDays(-1));
+        await scenario.LogCupAsync(LedgerScenario.Today.AddDays(-5));
+        (await container.SendAsync(scenario.Admin, new CloseBillingPeriodCommand(periodId))).IsSuccess.Should().BeTrue();
+
+        container.Barrier.Arm();
+        var held = Task.Run(() => container.SendAsync(scenario.Admin, new ReopenBillingPeriodCommand(periodId)));
+        await container.Barrier.WaitUntilHeldAsync();
+
+        (await container.SendAsync(scenario.Admin, new GenerateSettlementCommand(periodId))).IsSuccess.Should().BeTrue();
+
+        container.Barrier.Release();
+        (await held).Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.ConcurrencyConflict);
+    }
+
+    [Fact(Timeout = 10000)]
+    public async Task GenerationHeld_RacingReopen_TheHeldGenerationGetsConcurrencyConflict()
+    {
+        await using var container = await InMemoryContainer.CreateAsync();
+        var scenario = await LedgerScenario.CreateAsync(container);
+        var periodId = await scenario.CreateOpenPeriodAsync(LedgerScenario.Today.AddDays(-10), LedgerScenario.Today.AddDays(-1));
+        await scenario.LogCupAsync(LedgerScenario.Today.AddDays(-5));
+        (await container.SendAsync(scenario.Admin, new CloseBillingPeriodCommand(periodId))).IsSuccess.Should().BeTrue();
+
+        container.Barrier.Arm();
+        var held = Task.Run(() => container.SendAsync(scenario.Admin, new GenerateSettlementCommand(periodId)));
+        await container.Barrier.WaitUntilHeldAsync();
+
+        (await container.SendAsync(scenario.Admin, new ReopenBillingPeriodCommand(periodId))).IsSuccess.Should().BeTrue();
+
+        container.Barrier.Release();
+        (await held).Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.ConcurrencyConflict);
+        (await container.SendAsync(scenario.Admin, new CloseBillingPeriodCommand(periodId))).IsSuccess.Should().BeTrue();
+    }
+
     // Port of Evidence_StaleCircuitClose_RegressesSettledToClosed, inverted.
     [Fact(Timeout = 10000)]
     public async Task StaleCircuitClose_AfterSettling_IsRefused()

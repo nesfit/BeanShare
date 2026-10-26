@@ -1,3 +1,4 @@
+using BeanShare.Application.Features.Balances.Commands.UpdateLedgerSettings;
 using BeanShare.Application.Features.Billing.Commands.CreateBillingPeriod;
 using BeanShare.Application.Features.Billing.Commands.OpenBillingPeriod;
 using BeanShare.Application.Features.CoffeeStock.Commands;
@@ -7,7 +8,7 @@ using BeanShare.Domain.Common;
 
 namespace BeanShare.Infrastructure.Tests.InMemory;
 
-/// <summary>A space with one admin, one 1000 g bag and helpers to log cups and open periods.</summary>
+/// <summary>A space with one admin (its treasurer), one 1000 g bag and helpers to log cups and open periods.</summary>
 internal sealed class LedgerScenario
 {
     public const string ProductName = "Alfa";
@@ -36,6 +37,9 @@ internal sealed class LedgerScenario
         var bag = await container.SendAsync(admin, new AddStockPurchaseCommand(
             scenario.SpaceId, ProductName, ProductBrand, "Filter", 1000m, 20m, currency, "Store", Today.AddDays(-20)));
         bag.IsSuccess.Should().BeTrue();
+
+        var settings = await container.SendAsync(admin, new UpdateLedgerSettingsCommand(scenario.SpaceId, admin.Value, null));
+        settings.IsSuccess.Should().BeTrue();
         return scenario;
     }
 

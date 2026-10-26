@@ -27,7 +27,9 @@ public sealed record BalancePastePreviewDto(
     Guid CounterpartyUserId,
     string CounterpartyName,
     DateTime EffectiveDate,
-    string Kind)
+    string Kind,
+    decimal CounterpartyBalance,
+    decimal CounterpartyResultingBalance)
 {
     public bool CanCommit => Errors.Count == 0 && ErrorRowCount == 0 && Rows.Count > 0;
 }

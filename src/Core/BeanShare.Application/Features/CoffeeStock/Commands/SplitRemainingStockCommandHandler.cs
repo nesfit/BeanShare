@@ -70,8 +70,11 @@ public sealed class SplitRemainingStockCommandHandler : IRequestHandler<SplitRem
         var product = CoffeeProduct.Create(stockLevel.Product.Name, stockLevel.Product.Brand, stockLevel.Product.Type);
 
         var allConsumptions = await _consumptionRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
+
+        // Only current members share a write-off, renormalised over them (DS-34).
         var productConsumptions = allConsumptions
             .Where(c => c.Product.Name == product.Name && c.Product.Brand == product.Brand && c.Product.Type == product.Type)
+            .Where(c => space.HasMember(c.UserId))
             .ToList();
 
         var memberIds = space.Members.Select(m => m.UserId).ToList();
@@ -119,30 +122,9 @@ public sealed class SplitRemainingStockCommandHandler : IRequestHandler<SplitRem
         }
 
         var now = _clock.UtcNow;
-        foreach (var allocation in allocations.Where(a => a.AllocatedGrams > 0))
-        {
-            // Each ConsumptionEntry needs its own CoffeeProduct instance for EF owned-type tracking
-            var entryProduct = CoffeeProduct.Create(product.Name, product.Brand, product.Type);
-            var quantity = Weight.FromGrams(allocation.AllocatedGrams);
-            var consumptionEntry = ConsumptionEntry.Create(
-                spaceId,
-                new UserId(allocation.UserId),
-                entryProduct,
-                quantity,
-                now,
-                _clock,
-                presetId: null,
-                presetName: request.Reason,
-                isWriteOff: true);
 
-            await _consumptionRepository.AddAsync(consumptionEntry, cancellationToken);
-        }
-
-        var totalDistributed = allocations.Sum(a => a.AllocatedGrams);
-
-        // Draw the written-off grams down per bag (cups never span bags), oldest first, so no
-        // single draw ever exceeds one bag's remaining and the whole-product total is honoured.
-        var remainingToConsume = totalDistributed;
+        // Each member's share is drawn bag by bag, oldest first (cups never span bags), and every draw
+        // becomes its own entry stamped with that bag's cost, so the bag's payer is credited (B4).
         var nonEmptyBags = coffeeStock.Purchases
             .Where(p => !p.IsEmpty
                 && p.Product.Name == product.Name
@@ -151,16 +133,40 @@ public sealed class SplitRemainingStockCommandHandler : IRequestHandler<SplitRem
             .OrderBy(p => p.PurchasedAt).ThenBy(p => p.CreatedAt)
             .ToList();
 
-        foreach (var bag in nonEmptyBags)
+        var totalDistributed = 0m;
+        foreach (var allocation in allocations.Where(a => a.AllocatedGrams > 0))
         {
-            if (remainingToConsume <= 0)
-                break;
-
-            var take = Math.Min(remainingToConsume, bag.RemainingGrams.Grams);
-            if (take > 0)
+            var remainingShare = allocation.AllocatedGrams;
+            foreach (var bag in nonEmptyBags)
             {
-                coffeeStock.ConsumeStock(product, Weight.FromGrams(take), _clock, bag.Id);
-                remainingToConsume -= take;
+                if (remainingShare <= 0)
+                    break;
+
+                var take = Math.Min(remainingShare, bag.RemainingGrams.Grams);
+                if (take <= 0)
+                    continue;
+
+                var draw = coffeeStock.ConsumeStock(product, Weight.FromGrams(take), _clock, bag.Id);
+                remainingShare -= take;
+                totalDistributed += take;
+
+                // Each ConsumptionEntry needs its own CoffeeProduct instance for EF owned-type tracking
+                var entryProduct = CoffeeProduct.Create(product.Name, product.Brand, product.Type);
+                var consumptionEntry = ConsumptionEntry.Create(
+                    spaceId,
+                    new UserId(allocation.UserId),
+                    entryProduct,
+                    Weight.FromGrams(take),
+                    now,
+                    _clock,
+                    presetId: null,
+                    presetName: request.Reason,
+                    stockLotId: draw.LotId,
+                    cost: draw.Cost,
+                    unitCostPerGram: draw.UnitCostPerGram,
+                    isWriteOff: true);
+
+                await _consumptionRepository.AddAsync(consumptionEntry, cancellationToken);
             }
         }
 

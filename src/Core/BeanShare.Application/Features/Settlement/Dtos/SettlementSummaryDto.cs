@@ -9,5 +9,8 @@ public sealed record SettlementSummaryDto(
     int ConfirmedLinesCount,
     int TotalLinesCount,
     int UserCount,
-    decimal YourShare
+    decimal YourShare,
+    decimal? YourNet = null,
+    string? Model = null,
+    bool IsCarriedForward = false
 );

@@ -1,5 +1,7 @@
 using BeanShare.Application.Common;
 using BeanShare.Application.Features.Balances.Commands.UpdateLedgerSettings;
+using BeanShare.Application.Features.Balances.Queries.GetSpaceBalances;
+using BeanShare.Application.Features.Consumption.Commands;
 using BeanShare.Application.Features.Spaces.Commands;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,5 +49,27 @@ public sealed class ScopedSenderContainerTests
 
         renamed.IsSuccess.Should().BeTrue();
         renamed.Value.Name.Should().Be("Kava 2");
+    }
+
+    [Fact(Timeout = 10000)]
+    public async Task StaleCircuit_SeesALedgerStartSetByAnotherScope()
+    {
+        await using var container = await InMemoryContainer.CreateAsync();
+        var scenario = await LedgerScenario.CreateAsync(container);
+
+        await using var circuit = container.Services.CreateAsyncScope();
+        var circuitSender = circuit.ServiceProvider.GetRequiredService<IScopedSender>();
+        container.User.Set(scenario.Admin);
+        await circuitSender.Send(new GetSpaceBalancesQuery(scenario.SpaceId));
+
+        var start = LedgerScenario.Today.AddDays(-3);
+        (await container.SendAsync(scenario.Admin, new UpdateLedgerSettingsCommand(scenario.SpaceId, scenario.Admin.Value, start)))
+            .IsSuccess.Should().BeTrue();
+
+        container.User.Set(scenario.Admin);
+        var cup = await circuitSender.Send(new RecordConsumptionCommand(
+            scenario.SpaceId, LedgerScenario.ProductName, LedgerScenario.ProductBrand, "Filter", 10m, start.AddDays(-1)));
+
+        cup.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.BeforeLedgerStart);
     }
 }

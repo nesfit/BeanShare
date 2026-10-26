@@ -1,23 +1,26 @@
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Common;
+using BeanShare.Application.Features.Balances.Services;
 using BeanShare.Application.Features.Settlement.Dtos;
 using BeanShare.Application.Services;
-using BeanShare.Domain.Aggregates.Settlement;
 using BeanShare.Domain.Common;
-using BeanShare.Domain.Enums;
-using BeanShare.Domain.Services;
 using BeanShare.Domain.Specifications;
 using BeanShare.Domain.ValueObjects;
 using MediatR;
 
 namespace BeanShare.Application.Features.Settlement.Commands.GenerateSettlement;
+
+/// <summary>
+/// Generates the ledger settlement of a closed period: guards G1–G5, one snapshot line per non-zero
+/// position plus the treasurer, the previous settlement's open lines carried in, and every included
+/// cup and entry stamped in the same unit of work.
+/// </summary>
 public sealed class GenerateSettlementHandler : IRequestHandler<GenerateSettlementCommand, Result<SettlementDto>>
 {
     private readonly ISettlementRepository _settlementRepository;
     private readonly IBillingPeriodRepository _billingPeriodRepository;
-    private readonly IConsumptionRepository _consumptionRepository;
-    private readonly ICoffeeStockRepository _coffeeStockRepository;
     private readonly ISpaceRepository _spaceRepository;
+    private readonly LedgerSnapshotService _ledgerSnapshotService;
     private readonly IUserContext _userContext;
     private readonly IUserService _userService;
     private readonly IClock _clock;
@@ -25,18 +28,16 @@ public sealed class GenerateSettlementHandler : IRequestHandler<GenerateSettleme
     public GenerateSettlementHandler(
         ISettlementRepository settlementRepository,
         IBillingPeriodRepository billingPeriodRepository,
-        IConsumptionRepository consumptionRepository,
-        ICoffeeStockRepository coffeeStockRepository,
         ISpaceRepository spaceRepository,
+        LedgerSnapshotService ledgerSnapshotService,
         IUserContext userContext,
         IUserService userService,
         IClock clock)
     {
         _settlementRepository = settlementRepository;
         _billingPeriodRepository = billingPeriodRepository;
-        _consumptionRepository = consumptionRepository;
-        _coffeeStockRepository = coffeeStockRepository;
         _spaceRepository = spaceRepository;
+        _ledgerSnapshotService = ledgerSnapshotService;
         _userContext = userContext;
         _userService = userService;
         _clock = clock;
@@ -53,20 +54,14 @@ public sealed class GenerateSettlementHandler : IRequestHandler<GenerateSettleme
             return Result<SettlementDto>.Failure(Error.BillingPeriodNotFound(command.BillingPeriodId));
         }
 
-        if (billingPeriod.State != BillingState.Closed)
+        // G1 (repeated in the guards, which the preview shares)
+        if (billingPeriod.State != Domain.Enums.BillingState.Closed)
         {
             return Result<SettlementDto>.Failure(
                 Error.InvalidBillingPeriodState("generate settlement", billingPeriod.State.ToString()));
         }
 
-        var existingSettlement = await _settlementRepository.GetByBillingPeriodIdAsync(billingPeriodId, cancellationToken);
-        if (existingSettlement != null)
-        {
-            return Result<SettlementDto>.Failure(Error.SettlementAlreadyExists(command.BillingPeriodId));
-        }
-
-        var spaceSpec = new SpaceByIdSpecification(billingPeriod.SpaceId);
-        var space = await _spaceRepository.GetSingleBySpecAsync(spaceSpec, cancellationToken);
+        var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(billingPeriod.SpaceId), cancellationToken);
         if (space == null)
         {
             return Result<SettlementDto>.Failure(Error.SpaceNotFound(billingPeriod.SpaceId.Value));
@@ -77,141 +72,60 @@ public sealed class GenerateSettlementHandler : IRequestHandler<GenerateSettleme
             return Result<SettlementDto>.Failure(Error.InsufficientSpacePrivileges("generate settlements"));
         }
 
-        var consumptionSpec = new ConsumptionsByBillingPeriodSpecification(billingPeriod.SpaceId, billingPeriod.StartDate, billingPeriod.EndDate);
-        var periodConsumptions = await _consumptionRepository.GetBySpecAsync(consumptionSpec, cancellationToken);
-
-        if (!periodConsumptions.Any())
+        var spacePeriods = await _billingPeriodRepository.GetBySpaceIdAsync(space.Id, cancellationToken);
+        if (await SettlementGuards.CheckAsync(space, billingPeriod, spacePeriods, _userService, cancellationToken) is { } guardError)
         {
-            return Result<SettlementDto>.Failure(Error.NoConsumptionsInPeriod());
+            return Result<SettlementDto>.Failure(guardError);
         }
 
-        var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(billingPeriod.SpaceId, cancellationToken);
-        if (coffeeStock == null)
+        // G5
+        if (await _settlementRepository.GetByBillingPeriodIdAsync(billingPeriodId, cancellationToken) != null)
         {
-            return Result<SettlementDto>.Failure(Error.SystemFailure("retrieving coffee stock"));
+            return Result<SettlementDto>.Failure(Error.SettlementAlreadyExists(command.BillingPeriodId));
         }
 
-        var periodPurchases = coffeeStock.Purchases
-            .Where(p => p.PurchasedAt >= billingPeriod.StartDate && p.PurchasedAt <= billingPeriod.EndDate)
-            .ToList();
+        var snapshot = await _ledgerSnapshotService.ForPeriodAsync(space, billingPeriod, forUpdate: true, cancellationToken);
+        var sequence = await _settlementRepository.GetMaxSequenceAsync(space.Id, cancellationToken) + 1;
 
-        if (!periodPurchases.Any())
-        {
-            // Fall back to purchases up to and including the billing period end date
-            // rather than ALL historical purchases which would distort cost calculations
-            periodPurchases = coffeeStock.Purchases
-                .Where(p => p.PurchasedAt <= billingPeriod.EndDate)
-                .ToList();
-        }
-
-        var totalConsumedWeight = Weight.FromGrams(periodConsumptions.Sum(c => c.Quantity.Grams));
-        if (totalConsumedWeight.Grams == 0)
-        {
-            return Result<SettlementDto>.Failure(Error.NoConsumptionsInPeriod());
-        }
-
-        var currency = space.Currency;
-
-        // Each cup's cost is stamped from the exact bag it was drawn from at log time, so a
-        // settlement is simply the sum of those stamped costs per user. Legacy entries that predate
-        // per-bag tracking (Cost == null) fall back to a weighted-average per-gram rate over the
-        // period's purchases, computed at full precision and rounded once per line.
-        var fallbackPurchases = periodPurchases.Where(p => p.Cost.Currency == currency.Code).ToList();
-        var fallbackTotalCost = fallbackPurchases.Sum(p => p.Cost.Amount);
-        var fallbackTotalGrams = fallbackPurchases.Sum(p => p.Quantity.Grams);
-        var fallbackPerGram = fallbackTotalGrams > 0 ? fallbackTotalCost / fallbackTotalGrams : 0m;
-
-        var settlement = Domain.Aggregates.Settlement.Settlement.Create(
-            billingPeriod.SpaceId,
+        var settlement = Domain.Aggregates.Settlement.Settlement.CreateLedger(
+            space.Id,
             billingPeriodId,
-            currency,
+            space.Currency,
             currentUserId,
+            space.TreasurerUserId!.Value,
+            sequence,
             _clock);
 
-        var purchasesByUser = periodPurchases
-            .Where(p => p.Cost.Currency == currency.Code)
-            .GroupBy(p => p.PurchasedBy)
-            .ToDictionary(g => g.Key, g => g.Sum(p => p.Cost.Amount));
+        var previous = snapshot.PreviousSettlement;
+        previous?.CarryForwardTo(settlement.Id, _clock);
 
-        var userConsumptions = periodConsumptions.GroupBy(c => c.UserId);
-
-        foreach (var userGroup in userConsumptions)
+        foreach (var line in snapshot.Calculation.Lines)
         {
-            var userId = userGroup.Key;
-            var userTotalCoffee = userGroup.Sum(c => c.Quantity.Grams);
+            settlement.AddLedgerLine(line, previous?.Id, _clock);
+        }
 
-            var userAmount = 0m;
-            foreach (var c in userGroup)
-            {
-                userAmount += c.Cost != null && c.Cost.Currency.Code == currency.Code
-                    ? c.Cost.Amount
-                    : fallbackPerGram * c.Quantity.Grams;
-            }
-            userAmount = Math.Round(userAmount, currency.DecimalPlaces);
+        foreach (var cup in snapshot.Cups.Where(c => c.BillingPeriodId is null))
+        {
+            cup.AssignToBillingPeriod(billingPeriodId);
+        }
 
-            settlement.AddLine(
-                userId,
-                userTotalCoffee,
-                userAmount,
-                _clock,
-                null
-            );
+        foreach (var entry in snapshot.Entries)
+        {
+            entry.MarkIncluded(settlement.Id);
         }
 
         settlement.FinalizeGeneration(_clock);
-
         await _settlementRepository.AddAsync(settlement, cancellationToken);
 
         billingPeriod.MarkAsSettled(currentUserId, _clock);
         await _billingPeriodRepository.UpdateAsync(billingPeriod, cancellationToken);
 
-        var userIds = settlement.Lines.Select(l => l.UserId).Distinct().ToList();
-        var users = await _userService.GetByIdsAsync(userIds, cancellationToken);
-        var userLookup = users.ToDictionary(u => u.Id);
+        // Serializes generation against settings changes, member removal and other generations.
+        space.BumpLedgerVersion();
+        await _spaceRepository.UpdateAsync(space, cancellationToken);
 
-        var lines = new List<SettlementLineDto>();
-        foreach (var line in settlement.Lines)
-        {
-            userLookup.TryGetValue(line.UserId, out var user);
-            var userName = user?.Name ?? $"User {line.UserId.Value}";
-            var userEmail = user?.Email ?? $"user{line.UserId.Value}@example.com";
-            var amountPaid = purchasesByUser.TryGetValue(line.UserId, out var paid) ? paid : 0m;
-            var netBalance = amountPaid - line.AmountDue.Amount;
-
-            lines.Add(new SettlementLineDto(
-                line.UserId.Value,
-                userName,
-                userEmail,
-                line.TotalCoffeeGrams,
-                line.TotalMilkMl,
-                line.AmountDue.Amount,
-                amountPaid,
-                netBalance,
-                line.AmountDue.Currency,
-                line.GetConsumptionPercentage(totalConsumedWeight.Grams),
-                line.IsConfirmed,
-                line.Confirmation?.ConfirmedBy.Value,
-                line.Confirmation?.ConfirmedAt
-            ));
-        }
-
-        var dto = new SettlementDto(
-            settlement.Id.Value,
-            settlement.SpaceId.Value,
-            settlement.BillingPeriodId.Value,
-            billingPeriod.Name,
-            billingPeriod.StartDate,
-            billingPeriod.EndDate,
-            settlement.GeneratedAt,
-            settlement.GeneratedBy.Value,
-            settlement.TotalAmount,
-            settlement.Currency,
-            settlement.Status.ToString(),
-            settlement.CompletedAt,
-            settlement.ConfirmedLinesCount,
-            settlement.TotalLinesCount,
-            lines
-        );
+        var users = await _userService.GetByIdsAsync(SettlementDtoMapper.UserIdsOf(settlement), cancellationToken);
+        var dto = SettlementDtoMapper.ToDto(settlement, billingPeriod, users.ToDictionary(u => u.Id));
 
         return Result<SettlementDto>.Success(dto);
     }

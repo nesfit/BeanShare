@@ -36,9 +36,13 @@ public sealed class CloseBillingPeriodHandler : IRequestHandler<CloseBillingPeri
         if (billingPeriod == null)
             return Result.Failure(Error.BillingPeriodNotFound(command.BillingPeriodId));
 
-        var authResult = await EnsureAdminAccess(billingPeriod.SpaceId, cancellationToken);
-        if (!authResult.IsSuccess)
-            return authResult;
+        var space = await _spaceRepository.GetSingleBySpecAsync(
+            new SpaceByIdSpecification(billingPeriod.SpaceId), cancellationToken);
+
+        if (space == null)
+            return Result.Failure(Error.SpaceNotFound(billingPeriod.SpaceId.Value));
+        if (!space.IsAdmin(_userContext.CurrentUserId))
+            return Result.Failure(Error.InsufficientSpacePrivileges("close billing periods"));
 
         try
         {
@@ -46,25 +50,16 @@ public sealed class CloseBillingPeriodHandler : IRequestHandler<CloseBillingPeri
             await AssignUnbilledConsumptions(billingPeriod, billingPeriodId, cancellationToken);
             await _billingPeriodRepository.UpdateAsync(billingPeriod, cancellationToken);
 
+            // A close races generation and settings changes (DS-25).
+            space.BumpLedgerVersion();
+            await _spaceRepository.UpdateAsync(space, cancellationToken);
+
             return Result.Success();
         }
         catch (InvalidOperationException)
         {
             return Result.Failure(Error.InvalidBillingPeriodState("close", billingPeriod.State.ToString()));
         }
-    }
-
-    private async Task<Result> EnsureAdminAccess(SpaceId spaceId, CancellationToken ct)
-    {
-        var space = await _spaceRepository.GetSingleBySpecAsync(
-            new SpaceByIdSpecification(spaceId), ct);
-
-        if (space == null)
-            return Result.Failure(Error.SpaceNotFound(spaceId.Value));
-        if (!space.IsAdmin(_userContext.CurrentUserId))
-            return Result.Failure(Error.InsufficientSpacePrivileges("close billing periods"));
-
-        return Result.Success();
     }
 
     private async Task AssignUnbilledConsumptions(
@@ -75,7 +70,8 @@ public sealed class CloseBillingPeriodHandler : IRequestHandler<CloseBillingPeri
         var spec = new UnassignedConsumptionsInPeriodSpecification(
             billingPeriod.SpaceId, billingPeriod.StartDate, billingPeriod.EndDate);
 
-        var consumptions = await _consumptionRepository.GetBySpecAsync(spec, ct);
+        // Tracked, so the stamps are actually saved (B1).
+        var consumptions = await _consumptionRepository.GetBySpecForUpdateAsync(spec, ct);
         foreach (var entry in consumptions)
             entry.AssignToBillingPeriod(billingPeriodId);
     }

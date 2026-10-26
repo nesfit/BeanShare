@@ -49,6 +49,11 @@ public sealed class BillingPeriodRepository : IBillingPeriodRepository
         return Task.CompletedTask;
     }
 
+    public void Remove(BillingPeriod billingPeriod)
+    {
+        _context.BillingPeriods.Remove(billingPeriod);
+    }
+
     public async Task<bool> HasOverlappingPeriodAsync(
         SpaceId spaceId,
         DateTime startDate,

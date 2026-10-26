@@ -45,6 +45,7 @@ public sealed class GetSpaceSettlementsHandler : IRequestHandler<GetSpaceSettlem
             var currentUserId = _userContext.CurrentUserId;
             var userLine = settlement.Lines.FirstOrDefault(l => l.UserId == currentUserId);
             var yourShare = userLine?.AmountDue.Amount ?? 0;
+            var yourNet = settlement.IsLedger ? userLine?.NetAmount ?? 0m : (decimal?)null;
 
             var summary = new SettlementSummaryDto(
                 settlement.Id.Value,
@@ -56,7 +57,10 @@ public sealed class GetSpaceSettlementsHandler : IRequestHandler<GetSpaceSettlem
                 settlement.ConfirmedLinesCount,
                 settlement.TotalLinesCount,
                 settlement.Lines.Count,
-                yourShare
+                yourShare,
+                yourNet,
+                settlement.Model?.ToString(),
+                settlement.SupersededBySettlementId.HasValue
             );
 
             summaries.Add(summary);

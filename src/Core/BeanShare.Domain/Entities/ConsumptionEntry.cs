@@ -168,6 +168,19 @@ public sealed class ConsumptionEntry : AggregateRoot
         Version++;
     }
 
+    /// <summary>
+    /// Drops the period stamp of a cup re-dated out of its (still open) period, so the next close stamps
+    /// it again by date (DS-27). The caller ensures the stamped period is neither Closed nor Settled.
+    /// </summary>
+    public void ClearBillingPeriod()
+    {
+        if (BillingPeriodId is null)
+            return;
+
+        BillingPeriodId = null;
+        Version++;
+    }
+
     public void AssignToBillingPeriod(BillingPeriodId billingPeriodId)
     {
         ArgumentNullException.ThrowIfNull(billingPeriodId);

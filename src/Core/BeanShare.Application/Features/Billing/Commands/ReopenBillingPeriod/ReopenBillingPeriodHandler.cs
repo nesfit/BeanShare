@@ -43,10 +43,16 @@ public sealed class ReopenBillingPeriodHandler : IRequestHandler<ReopenBillingPe
         if (!space.IsAdmin(currentUserId))
             return Result.Failure(Error.InsufficientSpacePrivileges("reopen billing periods"));
 
+        var spacePeriods = await _billingPeriodRepository.GetBySpaceIdAsync(space.Id, cancellationToken);
+        var hasLaterPeriod = spacePeriods.Any(p => p.Id != billingPeriod.Id && p.StartDate > billingPeriod.StartDate);
+
         try
         {
-            billingPeriod.Reopen(currentUserId, _clock);
+            billingPeriod.Reopen(currentUserId, _clock, hasLaterPeriod);
             await _billingPeriodRepository.UpdateAsync(billingPeriod, cancellationToken);
+
+            space.BumpLedgerVersion();
+            await _spaceRepository.UpdateAsync(space, cancellationToken);
             return Result.Success();
         }
         catch (InvalidOperationException ex)

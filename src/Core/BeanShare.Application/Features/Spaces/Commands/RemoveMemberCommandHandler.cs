@@ -1,5 +1,6 @@
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Common;
+using BeanShare.Application.Features.Balances.Services;
 using BeanShare.Application.Features.Spaces.Dtos;
 using BeanShare.Domain.Common;
 using BeanShare.Domain.Enums;
@@ -14,6 +15,7 @@ public sealed class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCom
 {
     private readonly ISpaceRepository _spaceRepository;
     private readonly ISettlementRepository _settlementRepository;
+    private readonly LedgerSnapshotService _ledgerSnapshotService;
     private readonly IUserContext _userContext;
     private readonly IMapper _mapper;
     private readonly IClock _clock;
@@ -21,12 +23,14 @@ public sealed class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCom
     public RemoveMemberCommandHandler(
         ISpaceRepository spaceRepository,
         ISettlementRepository settlementRepository,
+        LedgerSnapshotService ledgerSnapshotService,
         IUserContext userContext,
         IMapper mapper,
         IClock clock)
     {
         _spaceRepository = spaceRepository;
         _settlementRepository = settlementRepository;
+        _ledgerSnapshotService = ledgerSnapshotService;
         _userContext = userContext;
         _mapper = mapper;
         _clock = clock;
@@ -65,13 +69,9 @@ public sealed class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCom
             return Result<MemberActionDto>.Failure(Error.CannotRemoveLastAdmin());
         }
 
-        var settlements = await _settlementRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
-        var hasUnpaidSettlements = settlements.Any(s =>
-            s.Lines.Any(l => l.UserId == targetUserId && !l.IsConfirmed));
-
-        if (hasUnpaidSettlements)
+        if (await MemberDepartureGuard.CheckAsync(space, targetUserId, _settlementRepository, _ledgerSnapshotService, cancellationToken) is { } departureError)
         {
-            return Result<MemberActionDto>.Failure(Error.UnpaidSettlements(command.UserId));
+            return Result<MemberActionDto>.Failure(departureError);
         }
 
         try

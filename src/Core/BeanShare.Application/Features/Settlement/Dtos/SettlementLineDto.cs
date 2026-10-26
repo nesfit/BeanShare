@@ -13,5 +13,12 @@ public sealed record SettlementLineDto(
     bool IsConfirmed,
     Guid? ConfirmedBy,
     DateTime? ConfirmedAt,
-    string? RevolutTag = null
+    string? RevolutTag = null,
+    decimal? Credit = null,
+    decimal? CarriedIn = null,
+    decimal? Adjustments = null,
+    decimal? Rounding = null,
+    string? Resolution = null,
+    Guid? CarriedToSettlementId = null,
+    bool IsTreasurer = false
 );

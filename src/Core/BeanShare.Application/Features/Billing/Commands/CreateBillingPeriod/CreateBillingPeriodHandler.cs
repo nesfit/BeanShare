@@ -54,6 +54,12 @@ public sealed class CreateBillingPeriodHandler : IRequestHandler<CreateBillingPe
             return Result<BillingPeriodDto>.Failure(Error.BillingPeriodOverlap());
         }
 
+        var spacePeriods = await _billingPeriodRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
+        if (BillingPeriodOrdering.CheckStartsAfterLastSettled(command.StartDate, spacePeriods) is { } orderError)
+        {
+            return Result<BillingPeriodDto>.Failure(orderError);
+        }
+
         var billingPeriod = BillingPeriod.Create(
             spaceId,
             command.Name,

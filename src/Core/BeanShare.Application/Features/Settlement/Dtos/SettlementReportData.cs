@@ -20,7 +20,12 @@ public sealed record SettlementReportData(
     decimal TotalMilkMl,
 
     // Lines
-    IReadOnlyList<SettlementLineReportData> Lines
+    IReadOnlyList<SettlementLineReportData> Lines,
+
+    // Ledger settlements
+    bool IsLedger = false,
+    string? TreasurerName = null,
+    bool IsCarriedForward = false
 );
 
 /// <summary>
@@ -35,5 +40,12 @@ public sealed record SettlementLineReportData(
     decimal AmountDue,
     bool IsPaid,
     string? ConfirmedByName,
-    DateTime? ConfirmedAt
+    DateTime? ConfirmedAt,
+    decimal? Credit = null,
+    decimal? CarriedIn = null,
+    decimal? Adjustments = null,
+    decimal? Rounding = null,
+    decimal? Net = null,
+    string? Resolution = null,
+    string? TransferText = null
 );

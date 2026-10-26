@@ -4,6 +4,7 @@ using BeanShare.Application.Features.Balances.Commands.CommitBalanceEntriesPaste
 using BeanShare.Application.Features.Balances.Queries.PreviewBalanceEntriesPaste;
 using BeanShare.Application.Features.Balances.Services;
 using BeanShare.Application.Services;
+using BeanShare.Application.Tests.TestHelpers;
 using BeanShare.Domain.Aggregates.Ledger;
 using BeanShare.Domain.Aggregates.Space;
 using BeanShare.Domain.Common;
@@ -45,7 +46,8 @@ public sealed class BalancePasteTests
             .Returns(ci => users.Where(u => ci.Arg<IEnumerable<UserId>>().Contains(u.Id)).ToList());
     }
 
-    private PreviewBalanceEntriesPasteHandler CreatePreviewHandler() => new(_spaceRepository, _userService, _userContext, _clock);
+    private PreviewBalanceEntriesPasteHandler CreatePreviewHandler() =>
+        new(_spaceRepository, EmptyLedger.SnapshotService(_clock), _userService, _userContext, _clock);
 
     private CommitBalanceEntriesPasteHandler CreateCommitHandler() =>
         new(_spaceRepository, _entryRepository, _userService, _userContext, _clock);
