@@ -41,7 +41,7 @@ public class SettlementService : ISettlementService
     {
         try
         {
-            var response = await _httpClient.PostAsync($"/api/billing-periods/{billingPeriodId}/settlement", null);
+            var response = await _httpClient.PostAsJsonAsync($"/api/billing-periods/{billingPeriodId}/settlement", new { });
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<SettlementDto>();
         }
@@ -55,7 +55,7 @@ public class SettlementService : ISettlementService
     {
         try
         {
-            var response = await _httpClient.PutAsync($"/api/settlements/{settlementId}/confirm-payment/{memberUserId}", null);
+            var response = await _httpClient.PutAsJsonAsync($"/api/settlements/{settlementId}/confirm-payment/{memberUserId}", new { });
             return response.IsSuccessStatusCode;
         }
         catch
