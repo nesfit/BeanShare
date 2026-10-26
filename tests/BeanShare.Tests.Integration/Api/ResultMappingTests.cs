@@ -8,6 +8,7 @@ using BeanShare.Application.Features.Spaces.Commands;
 using BeanShare.Contracts.Spaces;
 using BeanShare.Application.Common;
 using FastEndpoints;
+using System.Text.Json;
 using FluentAssertions;
 using MediatR;
 
@@ -147,10 +148,13 @@ public sealed class ResultMappingTests
         var endpoint = Factory.Create<GenerateSettlementEndpoint>(
             new CannedMediator(Result<BeanShare.Application.Features.Settlement.Dtos.SettlementDto>.Failure(Error.SettlementOrder("Settle or delete 'L2' first"))));
 
+        var body = CaptureBody(endpoint);
         await endpoint.HandleAsync(new GenerateSettlementRequest { BillingPeriodId = Guid.NewGuid() }, default);
 
         endpoint.HttpContext.Response.StatusCode.Should().Be(400);
         endpoint.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.SettlementOrder);
+        ReadProblem(endpoint, body).Should().BeEquivalentTo(("Settle or delete 'L2' first", new[] { Error.Codes.SettlementOrder }));
+        endpoint.HttpContext.Response.Headers.WWWAuthenticate.Should().BeEmpty();
     }
 
     [Fact]
@@ -172,10 +176,13 @@ public sealed class ResultMappingTests
     {
         var endpoint = Factory.Create<CloseBillingPeriodEndpoint>(new CannedMediator(Result.Failure(Error.Unauthenticated())));
 
+        var body = CaptureBody(endpoint);
         await endpoint.HandleAsync(new CloseBillingPeriodRequest { BillingPeriodId = Guid.NewGuid() }, default);
 
         endpoint.HttpContext.Response.StatusCode.Should().Be(401);
         endpoint.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.Unauthenticated);
+        endpoint.HttpContext.Response.Headers.WWWAuthenticate.ToString().Should().Be("Bearer");
+        ReadProblem(endpoint, body).Should().BeEquivalentTo((Error.Unauthenticated().Message, new[] { Error.Codes.Unauthenticated }));
     }
 
     [Fact]
@@ -188,6 +195,7 @@ public sealed class ResultMappingTests
 
         endpoint.HttpContext.Response.StatusCode.Should().Be(403);
         endpoint.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.InsufficientPrivileges);
+        endpoint.HttpContext.Response.Headers.WWWAuthenticate.Should().BeEmpty();
     }
 
     [Fact]
@@ -226,6 +234,29 @@ public sealed class ResultMappingTests
     }
 
     /// <summary>Answers every Send with one canned response.</summary>
+    // A8-1 / A8-4: a coded error body keeps the readable message in Detail next to the code in Errors[].Reason, and a
+    // 401 carries the Bearer challenge. Factory.Create's context has no body stream, so give it one first.
+    private static MemoryStream CaptureBody(BaseEndpoint endpoint)
+    {
+        var body = new MemoryStream();
+        endpoint.HttpContext.Response.Body = body;
+        return body;
+    }
+
+    private static (string? Detail, string[] Reasons) ReadProblem(BaseEndpoint endpoint, MemoryStream body)
+    {
+        endpoint.HttpContext.Response.ContentType.Should().StartWith("application/problem+json");
+        using var json = JsonDocument.Parse(body.ToArray());
+        // The API host serializes PascalCase; Factory.Create uses FastEndpoints' default options.
+        JsonElement? Find(JsonElement e, string name) =>
+            e.EnumerateObject().Where(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase))
+                .Select(p => (JsonElement?)p.Value).FirstOrDefault();
+        var detail = Find(json.RootElement, "Detail")?.GetString();
+        var reasons = Find(json.RootElement, "Errors")!.Value.EnumerateArray()
+            .Select(e => Find(e, "Reason")!.Value.GetString()!).ToArray();
+        return (detail, reasons);
+    }
+
     private sealed class CannedMediator(object response) : IMediator
     {
         public Task<TResponse> Send<TResponse>(IRequest<TResponse> request, CancellationToken cancellationToken = default) =>

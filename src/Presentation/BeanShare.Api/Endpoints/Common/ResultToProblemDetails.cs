@@ -1,6 +1,7 @@
 using System.Net;
 using BeanShare.Application.Common;
 using FastEndpoints;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace BeanShare.Api.Endpoints.Common;
 
@@ -23,13 +24,7 @@ public static class ResultExtensions
         if (!result.IsFailure)
             return;
 
-        foreach (var error in result.Errors)
-        {
-            endpoint.AddError(error.Code, error.Message);
-        }
-
-        var statusCode = GetStatusCode(result.Errors);
-        await endpoint.HttpContext.Response.SendErrorsAsync(endpoint.ValidationFailures, statusCode, cancellation: ct);
+        await SendCodedErrorsAsync(endpoint, result.Errors, GetStatusCode(result.Errors), ct);
     }
 
     /// <summary>
@@ -45,13 +40,7 @@ public static class ResultExtensions
         if (!result.IsFailure)
             return;
 
-        foreach (var error in result.Errors)
-        {
-            endpoint.AddError(error.Code, error.Message);
-        }
-
-        var statusCode = GetStatusCode(result.Errors);
-        await endpoint.HttpContext.Response.SendErrorsAsync(endpoint.ValidationFailures, statusCode, cancellation: ct);
+        await SendCodedErrorsAsync(endpoint, result.Errors, GetStatusCode(result.Errors), ct);
     }
 
     /// <summary>
@@ -70,12 +59,7 @@ public static class ResultExtensions
         if (status is not ((int)HttpStatusCode.Unauthorized or (int)HttpStatusCode.Forbidden) && !IsConcurrencyConflict(errors))
             return false;
 
-        foreach (var error in errors)
-        {
-            endpoint.AddError(error.Code, error.Message);
-        }
-
-        await endpoint.HttpContext.Response.SendErrorsAsync(endpoint.ValidationFailures, status, cancellation: ct);
+        await SendCodedErrorsAsync(endpoint, errors, status, ct);
         return true;
     }
 
@@ -90,12 +74,41 @@ public static class ResultExtensions
         CancellationToken ct = default)
         where TRequest : notnull
     {
+        await SendCodedErrorsAsync(endpoint, errors, statusCode, ct);
+    }
+
+    private const string ProblemJson = "application/problem+json; charset=utf-8";
+
+    /// <summary>
+    /// Sends <paramref name="errors"/> as FastEndpoints' problem details with <paramref name="statusCode"/>: each code in
+    /// <c>Errors[].Reason</c> and the first error's message in <c>Detail</c>. A 401 also carries the Bearer challenge
+    /// (RFC 9110 §15.5.2), as the authentication middleware's own 401 does.
+    /// </summary>
+    private static async Task SendCodedErrorsAsync<TRequest, TResponse>(
+        Endpoint<TRequest, TResponse> endpoint,
+        IReadOnlyList<Error> errors,
+        int statusCode,
+        CancellationToken ct)
+        where TRequest : notnull
+    {
         foreach (var error in errors)
         {
             endpoint.AddError(error.Code, error.Message);
         }
 
-        await endpoint.HttpContext.Response.SendErrorsAsync(endpoint.ValidationFailures, statusCode, cancellation: ct);
+        var http = endpoint.HttpContext;
+        if (statusCode == (int)HttpStatusCode.Unauthorized)
+            http.Response.Headers.WWWAuthenticate = JwtBearerDefaults.AuthenticationScheme;
+
+        var problem = new ProblemDetails(endpoint.ValidationFailures, http.Request.Path, http.TraceIdentifier, statusCode)
+        {
+            Detail = errors.Count > 0 ? errors[0].Message : null
+        };
+        // What FastEndpoints' SendErrorsAsync does with UseProblemDetails(), with this body: its JSON options and the
+        // problem-details content type.
+        http.MarkResponseStart();
+        http.Response.StatusCode = statusCode;
+        await http.Response.WriteAsJsonAsync(problem, new Config().Serializer.Options, ProblemJson, ct);
     }
 
     /// <summary>A retryable race: the data changed while the request ran.</summary>
