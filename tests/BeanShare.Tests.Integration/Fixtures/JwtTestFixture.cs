@@ -44,8 +44,6 @@ public sealed class JwtTestFixture : WebApplicationFactory<Program>, IAsyncLifet
                 options.UseNpgsql(ConnectionString);
             });
 
-            builder.UseSetting("UseMockServices", "false");
-
             var authDescriptors = services.Where(s => s.ServiceType.FullName?.Contains("Authentication") == true).ToList();
             foreach (var authDescriptor in authDescriptors)
             {
