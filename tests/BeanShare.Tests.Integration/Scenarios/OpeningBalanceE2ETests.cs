@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Xml.Linq;
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Common;
 using BeanShare.Application.Features.Balances.Dtos;
@@ -175,10 +176,10 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
         foreach (var (nn, id) in _p)
             LineOf(s1, id).NetBalance.Should().Be(OpeningBalanceScenario.OpeningAmountOf(nn));
         s1.Lines.Sum(l => l.NetBalance).Should().Be(0m);
-        s1.Transfers.Should().ContainEquivalentOf(new { FromUserId = _a, ToUserId = _h, Amount = 616.00m });
-        s1.Transfers.Should().ContainEquivalentOf(new { FromUserId = _h, ToUserId = _b, Amount = 165.00m });
-        foreach (var (nn, id) in _p)
-            s1.Transfers.Should().ContainEquivalentOf(new { FromUserId = id, ToUserId = _h, Amount = 10m * nn });
+        // The exact star plan: A→H 616.00, H→B 165.00 and PNN→H 10·NN, nothing else.
+        s1.Transfers.Should().BeEquivalentTo(
+            new[] { new { FromUserId = _a, ToUserId = _h, Amount = 616.00m }, new { FromUserId = _h, ToUserId = _b, Amount = 165.00m } }
+                .Concat(_p.Select(p => new { FromUserId = p.Value, ToUserId = _h, Amount = 10m * p.Key })));
         var balances = await OkAsync<SpaceBalancesDto>(_asH.GetAsync($"/api/spaces/{_space}/balances"));
         balances.Entries.Should().HaveCount(29).And.OnlyContain(e => e.IsLocked);
         var locked = balances.Entries.First(e => e.UserId == _a);
@@ -200,11 +201,13 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
         BalanceOf(afterS1, _h).Should().Be(270.00m);
 
         // 10b. Exports, and the S1 emails: exactly H, A, B, P01 and P03 (N4, D25).
-        await OkAsync(_asH.GetAsync($"/api/settlements/{s1.Id}/export/pdf"));
+        (await _asH.GetAsync($"/api/settlements/{s1.Id}/export/pdf")).StatusCode.Should().Be(HttpStatusCode.OK);
         var excel = await _asH.GetAsync($"/api/settlements/{s1.Id}/export/excel");
         excel.StatusCode.Should().Be(HttpStatusCode.OK);
-        var excelText = ExcelText(await excel.Content.ReadAsByteArrayAsync());
-        excelText.Should().Contain("Net").And.Contain("Carried").And.Contain("Adj.", "the Adjustments column is headed Adj.");
+        // The header row of the ledger lines sheet; the Adjustments column is headed "Adj." as built.
+        var details = ExcelSheetRows(await excel.Content.ReadAsByteArrayAsync(), "Details");
+        details.Should().Contain(row => row.Count > 0 && row[0] == "Member")
+            .Which.Should().Contain(new[] { "Credit", "Carried", "Adj.", "Moved (merge)", "Rounding", "Net" });
         (await OkAsync<EmailsSentResponse>(_asH.PostAsJsonAsync($"/api/settlements/{s1.Id}/send-emails", new { }))).EmailsSent.Should().Be(5);
         _emails.TakeRecipients().Should().BeEquivalentTo("h@example.org", "a@example.org", "b@example.org", "p01@example.org", "p03@example.org");
 
@@ -219,9 +222,8 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
         }));
         await OkAsync(_asH.PutAsJsonAsync($"/api/billing-periods/{l2}/close", new { }));
         await OkAsync(_asH.PutAsJsonAsync($"/api/billing-periods/{l3}/close", new { }));
-        // The generate endpoint keeps its problem shape, so the body carries the guard's message (SETTLEMENT_ORDER).
         (await FailsAsync(_asH.PostAsJsonAsync($"/api/billing-periods/{l3}/settlement", new { }), HttpStatusCode.BadRequest))
-            .Should().Contain("Settle or delete 'L2' first");
+            .Should().Contain(Error.Codes.SettlementOrder);
 
         // 12. S2.
         var s2 = await GenerateAsync(l2);
@@ -238,21 +240,25 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
 
         // 13. A carried line is confirmed where it was carried to (LINE_CARRIED).
         (await FailsAsync(_asH.PutAsJsonAsync($"/api/settlements/{s1.Id}/confirm-payment/{_p[27]}", new { }), HttpStatusCode.BadRequest))
-            .Should().Contain("carried into settlement");
+            .Should().Contain(Error.Codes.LineCarried);
 
-        // 14. S3 (no cups) carries S2's nets; S2 is superseded.
+        // 14. S3 (no cups) carries S2's nets, and has exactly those five lines; S2 is superseded.
         var s3 = await GenerateAsync(l3);
-        foreach (var (who, net) in new[] { (_a, -14.00m), (_b, 14.00m), (_p[5], 50.00m), (_p[27], -270.00m), (_h, 220.00m) })
+        var carried = new Dictionary<Guid, decimal> { [_a] = -14.00m, [_b] = 14.00m, [_p[5]] = 50.00m, [_p[27]] = -270.00m, [_h] = 220.00m };
+        foreach (var (who, net) in carried)
         {
             LineOf(s3, who).CarriedIn.Should().Be(net);
             LineOf(s3, who).NetBalance.Should().Be(net);
         }
 
+        s3.Lines.Select(l => l.UserId).Should().BeEquivalentTo(carried.Keys, "members with nothing carried get no line");
+        s3.Lines.Sum(l => l.NetBalance).Should().Be(0m);
+
         (await SettlementAsync(s2.Id)).SupersededBySettlementId.Should().Be(s3.Id);
         s3.Lines.Sum(l => l.TotalCoffeeGrams).Should().Be(0m, "neither the C−2 cup nor any history is ever included");
 
         // 15. A superseded settlement still exports, but its emails are refused (N-2; the 400 shape as built).
-        await OkAsync(_asH.GetAsync($"/api/settlements/{s1.Id}/export/pdf"));
+        (await _asH.GetAsync($"/api/settlements/{s1.Id}/export/pdf")).StatusCode.Should().Be(HttpStatusCode.OK);
         (await FailsAsync(_asH.PostAsJsonAsync($"/api/settlements/{s1.Id}/send-emails", new { }), HttpStatusCode.BadRequest))
             .Should().Contain("Cannot send emails for settlement in carried-forward state");
         _emails.TakeRecipients().Should().BeEmpty();
@@ -288,13 +294,13 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
         await OkAsync(_asH.PostAsJsonAsync($"/api/spaces/{_space}/placeholders/{_p[27]}/merge", new { TargetUserId = _a }));
         (await OkAsync<SpaceBalancesDto>(_asH.GetAsync($"/api/spaces/{_space}/balances"))).Entries.Should().HaveCount(entriesBeforeMerge, "no Correction entry");
         var afterMerge = await UnsettledAsync(_asH);
-        (afterMerge.Members.SingleOrDefault(m => m.UserId == _p[27])?.Balance ?? 0m).Should().Be(0m);
+        BalanceOf(afterMerge, _p[27]).Should().Be(0m, "the merged placeholder is still a (hidden) member, swept to 0");
         BalanceOf(afterMerge, _a).Should().Be(-291.00m);
         var spaceHistory = await OkAsync<SpaceHistoryDto>(_asH.GetAsync($"/api/spaces/{_space}/history"));
         spaceHistory.MemberCups.Single(m => m.UserId == _a).HistoricalCups.Should().Be(55);
         (await SpaceAsync()).Members.Should().NotContain(m => m.UserId == _p[27]);
         (await FailsAsync(_asH.PutAsJsonAsync($"/api/settlements/{s3.Id}/confirm-payment/{_p[27]}", new { }), HttpStatusCode.BadRequest))
-            .Should().Contain("merged");
+            .Should().Contain(Error.Codes.LineMerged);
         (await FailsAsync(LogCupResponseAsync(_p[27], y, "Beta", D.AddDays(-1).AddHours(10)), HttpStatusCode.BadRequest))
             .Should().Contain(Error.Codes.MemberMerged);
         (await FailsAsync(_asH.PostAsJsonAsync($"/api/spaces/{_space}/members/{_p[27]}/remove", new { SpaceId = _space, UserId = _p[27] }), HttpStatusCode.BadRequest))
@@ -476,17 +482,38 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
         return body;
     }
 
-    /// <summary>All text of an .xlsx: shared strings and inline strings of every part.</summary>
-    private static string ExcelText(byte[] xlsx)
+    /// <summary>The cell texts, row by row, of the worksheet named <paramref name="sheetName"/> in an .xlsx.</summary>
+    private static List<List<string>> ExcelSheetRows(byte[] xlsx, string sheetName)
     {
+        XNamespace main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+        XNamespace rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+        XNamespace pkg = "http://schemas.openxmlformats.org/package/2006/relationships";
         using var zip = new ZipArchive(new MemoryStream(xlsx), ZipArchiveMode.Read);
-        return string.Concat(zip.Entries
-            .Where(e => e.FullName.StartsWith("xl/", StringComparison.Ordinal) && e.FullName.EndsWith(".xml", StringComparison.Ordinal))
-            .Select(e =>
+        XDocument Load(string path)
+        {
+            using var stream = zip.GetEntry(path)!.Open();
+            return XDocument.Load(stream);
+        }
+
+        var sheet = Load("xl/workbook.xml").Descendants(main + "sheet").Single(s => (string?)s.Attribute("name") == sheetName);
+        var relId = (string)sheet.Attribute(rel + "id")!;
+        var target = (string)Load("xl/_rels/workbook.xml.rels").Descendants(pkg + "Relationship")
+            .Single(r => (string?)r.Attribute("Id") == relId).Attribute("Target")!;
+        var sheetPath = target.StartsWith('/') ? target.TrimStart('/') : "xl/" + target;
+        var shared = zip.GetEntry("xl/sharedStrings.xml") is null
+            ? new List<string>()
+            : Load("xl/sharedStrings.xml").Descendants(main + "si").Select(si => string.Concat(si.Descendants(main + "t").Select(t => t.Value))).ToList();
+
+        return Load(sheetPath).Descendants(main + "row")
+            .Select(row => row.Elements(main + "c").Select(c => (string?)c.Attribute("t") switch
             {
-                using var reader = new StreamReader(e.Open());
-                return reader.ReadToEnd();
-            }));
+                "s" => c.Element(main + "v") is { } index
+                    ? shared[int.Parse(index.Value, System.Globalization.CultureInfo.InvariantCulture)]
+                    : "",
+                "inlineStr" => string.Concat(c.Descendants(main + "t").Select(t => t.Value)),
+                _ => c.Element(main + "v")?.Value ?? ""
+            }).ToList())
+            .ToList();
     }
 
     private sealed record EmailsSentResponse(int EmailsSent, string Message);
