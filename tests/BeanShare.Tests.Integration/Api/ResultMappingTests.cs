@@ -15,8 +15,11 @@ namespace BeanShare.Tests.Integration.Api;
 
 // Code round 3, G4/G11: failures keep their HTTP meaning on endpoints that shape their own errors.
 // Pure unit tests (FastEndpoints' Factory, a canned mediator); no database or container.
+[Collection(FastEndpointsFactoryCollection.Name)]
 public sealed class ResultMappingTests
 {
+    public ResultMappingTests() => FastEndpointsFactoryIsolation.ResetResolver();
+
     [Fact]
     public void TheSharedMapping_SendsConflictsAs409_AndTheLedgerCodesAs400()
     {
