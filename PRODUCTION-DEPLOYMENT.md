@@ -449,6 +449,7 @@ mean the running balance. These status codes change:
 | `POST /api/users/sync` | 500 on a sync failure | 403 `EMAIL_NOT_VERIFIED` or `SYNC_FAILED`, 409 `PLACEHOLDER_LINK_PENDING`; the 200 response is unchanged |
 | `POST /api/users/sync/placeholder-link` (new) | — | `{ "accept": true \| false }` → 200 with the outcome; 404 when nothing is pending; 409 `CONCURRENCY_CONFLICT`; 403 `SYNC_FAILED` |
 | Placeholder create/edit (new) | — | 409 `EMAIL_IN_USE` for an address another user already has |
+| `DELETE /api/consumptions/{id}`, `PUT /api/consumptions/{id}` | A cup before the ledger start could be deleted, or re-dated past it | 400 `BEFORE_LEDGER_START` for a cup before the ledger start, and for a re-date across it in either direction |
 
 Queries (GET) keep their own failure shapes. A body "with the code" is the shared problem-details shape
 (`application/problem+json`): each entry of `Errors` carries an error code in `Reason`, and `Detail` carries the first

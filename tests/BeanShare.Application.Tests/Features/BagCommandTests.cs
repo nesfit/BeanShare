@@ -610,7 +610,7 @@ public sealed class BagCommandTests
         bag.WrittenOffGrams.Should().Be(300m);
 
         var delete = new BeanShare.Application.Features.Consumption.Commands.DeleteConsumptionCommandHandler(
-            world.ConsumptionRepository, world.BillingPeriodRepository, world.CoffeeStockRepository, world.Clock);
+            world.ConsumptionRepository, world.BillingPeriodRepository, world.CoffeeStockRepository, world.SpaceRepository, world.Clock);
         foreach (var share in world.Cups.Where(c => c.IsWriteOff).ToList())
             (await delete.Handle(new BeanShare.Application.Features.Consumption.Commands.DeleteConsumptionCommand(share.Id.Value, world.Space.Id.Value), CancellationToken.None))
                 .IsSuccess.Should().BeTrue();

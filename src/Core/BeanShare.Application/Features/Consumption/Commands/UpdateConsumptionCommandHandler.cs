@@ -62,7 +62,8 @@ public sealed class UpdateConsumptionCommandHandler
         }
 
         var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(entry.SpaceId), cancellationToken);
-        if (space?.LedgerStartDate is { } ledgerStart && request.ConsumedAt < ledgerStart)
+        // Neither a cup before the ledger start nor a re-date across it: a cup before C is never billed (B22).
+        if (space?.LedgerStartDate is { } ledgerStart && (entry.ConsumedAt < ledgerStart || request.ConsumedAt < ledgerStart))
             return Result<ConsumptionEntryDto>.Failure(Error.BeforeLedgerStart(ledgerStart));
 
         if (!Enum.TryParse<CoffeeType>(request.ProductType, ignoreCase: true, out var coffeeType))

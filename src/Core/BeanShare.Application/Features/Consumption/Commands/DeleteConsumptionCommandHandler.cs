@@ -3,6 +3,7 @@ using BeanShare.Application.Common;
 using BeanShare.Domain.Common;
 using BeanShare.Domain.Enums;
 using BeanShare.Domain.Exceptions;
+using BeanShare.Domain.Specifications;
 using BeanShare.Domain.ValueObjects;
 using MediatR;
 
@@ -14,17 +15,20 @@ public sealed class DeleteConsumptionCommandHandler
     private readonly IConsumptionRepository _consumptionRepository;
     private readonly IBillingPeriodRepository _billingPeriodRepository;
     private readonly ICoffeeStockRepository _coffeeStockRepository;
+    private readonly ISpaceRepository _spaceRepository;
     private readonly IClock _clock;
 
     public DeleteConsumptionCommandHandler(
         IConsumptionRepository consumptionRepository,
         IBillingPeriodRepository billingPeriodRepository,
         ICoffeeStockRepository coffeeStockRepository,
+        ISpaceRepository spaceRepository,
         IClock clock)
     {
         _consumptionRepository = consumptionRepository;
         _billingPeriodRepository = billingPeriodRepository;
         _coffeeStockRepository = coffeeStockRepository;
+        _spaceRepository = spaceRepository;
         _clock = clock;
     }
 
@@ -49,6 +53,11 @@ public sealed class DeleteConsumptionCommandHandler
                 return Result<bool>.Failure(
                     Error.InvalidBillingPeriodState("delete consumption in", billingPeriod.State.ToString()));
         }
+
+        // A cup before the ledger start is never billed; deleting it would only hand its grams back to the bag (B22).
+        var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(entry.SpaceId), cancellationToken);
+        if (space?.LedgerStartDate is { } ledgerStart && entry.ConsumedAt < ledgerStart)
+            return Result<bool>.Failure(Error.BeforeLedgerStart(ledgerStart));
 
         var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(entry.SpaceId, cancellationToken);
         if (coffeeStock != null)

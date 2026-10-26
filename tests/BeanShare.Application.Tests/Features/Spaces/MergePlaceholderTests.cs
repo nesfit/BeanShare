@@ -187,7 +187,7 @@ public sealed class MergePlaceholderTests
         (await new UndoBagEmptyCommandHandler(
                 _world.CoffeeStockRepository, _world.ConsumptionRepository, _world.BillingPeriodRepository, _world.SpaceRepository, _world.UserContext, _world.Clock)
             .Handle(new UndoBagEmptyCommand(_world.Space.Id.Value, bag.Id), default)).IsSuccess.Should().BeTrue();
-        (await new DeleteConsumptionCommandHandler(_world.ConsumptionRepository, _world.BillingPeriodRepository, _world.CoffeeStockRepository, _world.Clock)
+        (await new DeleteConsumptionCommandHandler(_world.ConsumptionRepository, _world.BillingPeriodRepository, _world.CoffeeStockRepository, _world.SpaceRepository, _world.Clock)
             .Handle(new DeleteConsumptionCommand(cup.Id.Value, _world.Space.Id.Value), default)).IsSuccess.Should().BeTrue();
         _world.Drink(_world.Admin, 20m, Feb10, bag);
 
