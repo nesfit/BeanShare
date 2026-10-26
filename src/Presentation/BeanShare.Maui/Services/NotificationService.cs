@@ -42,7 +42,7 @@ public class NotificationService : INotificationService
     {
         try
         {
-            var response = await _httpClient.PostAsync($"/api/me/notifications/{notificationId}/read", null);
+            var response = await _httpClient.PostAsJsonAsync($"/api/me/notifications/{notificationId}/read", new { });
             return response.IsSuccessStatusCode;
         }
         catch

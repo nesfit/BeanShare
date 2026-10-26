@@ -51,13 +51,13 @@ public class BillingService : IBillingService
 
     public async Task OpenBillingPeriodAsync(Guid billingPeriodId)
     {
-        using var response = await _httpClient.PutAsync($"/api/billing-periods/{billingPeriodId}/open", null);
+        using var response = await _httpClient.PutAsJsonAsync($"/api/billing-periods/{billingPeriodId}/open", new { });
         response.EnsureSuccessStatusCode();
     }
 
     public async Task CloseBillingPeriodAsync(Guid billingPeriodId)
     {
-        using var response = await _httpClient.PutAsync($"/api/billing-periods/{billingPeriodId}/close", null);
+        using var response = await _httpClient.PutAsJsonAsync($"/api/billing-periods/{billingPeriodId}/close", new { });
         response.EnsureSuccessStatusCode();
     }
 }
