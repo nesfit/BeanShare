@@ -112,6 +112,7 @@ public sealed class GetSettlementPreviewHandler : IRequestHandler<GetSettlementP
             NameOf(treasurerId),
             lines.Sum(l => l.Cost),
             lineDtos,
-            transfers));
+            transfers,
+            snapshot.FallbackRateMissing));
     }
 }

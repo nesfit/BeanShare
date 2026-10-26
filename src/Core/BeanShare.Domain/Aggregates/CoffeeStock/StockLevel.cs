@@ -49,7 +49,8 @@ public sealed class StockLevel
 
         var totalPurchased = Weight.FromGrams(lots.Sum(l => l.Quantity.Grams));
         var totalConsumed = Weight.FromGrams(lots.Sum(l => l.ConsumedGrams));
-        var totalDiscarded = Weight.FromGrams(lots.Sum(l => l.DiscardedGrams));
+        // Voided phantom grams (DS-42) are gone like a discard.
+        var totalDiscarded = Weight.FromGrams(lots.Sum(l => l.DiscardedGrams + l.VoidedGrams));
         var isOpen = lots.Any(l => l.IsOpen);
         var updatedAt = lots
             .Select(l => l.DepletedAt ?? l.OpenedAt ?? l.CreatedAt)

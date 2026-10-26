@@ -57,6 +57,13 @@ public sealed class UpdateStockPurchaseCommandHandler
         if (coffeeStock == null)
             return Result<StockPurchaseDto>.Failure(Error.StockNotFound(command.SpaceId));
 
+        // A "Paid in Excel" bag must stay before the ledger start (H4), and a date change is a ledger input,
+        // so it shares the space token with UpdateLedgerSettings (I4).
+        var existing = coffeeStock.Purchases.FirstOrDefault(p => p.Id == command.PurchaseId);
+        if (existing is { ExcludedFromLedgerCredit: true } && space.LedgerStartDate is { } ledgerStart && command.PurchasedAt >= ledgerStart)
+            return Result<StockPurchaseDto>.Failure(Error.BagPaidInExcel(BagNames.Of(existing)));
+        var dateChanged = existing is not null && existing.PurchasedAt != command.PurchasedAt;
+
         try
         {
             CoffeeType? coffeeType = null;
@@ -78,6 +85,12 @@ public sealed class UpdateStockPurchaseCommandHandler
 
             await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
 
+            if (dateChanged)
+            {
+                space.BumpLedgerVersion();
+                await _spaceRepository.UpdateAsync(space, cancellationToken);
+            }
+
             var purchase = coffeeStock.Purchases.First(p => p.Id == command.PurchaseId);
             var dto = new StockPurchaseDto
             {
@@ -93,7 +106,8 @@ public sealed class UpdateStockPurchaseCommandHandler
                 PaidByUserId = purchase.PaidByUserId?.Value,
                 PurchasedAt = purchase.PurchasedAt,
                 CreatedAt = purchase.CreatedAt,
-                CostPerGram = purchase.CostPerGram.Amount
+                CostPerGram = purchase.CostPerGram.Amount,
+                ExcludedFromLedgerCredit = purchase.ExcludedFromLedgerCredit
             };
 
             return Result<StockPurchaseDto>.Success(dto);

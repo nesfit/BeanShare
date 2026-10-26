@@ -85,6 +85,10 @@ public readonly record struct Error(string Code, string Message)
         public const string SyncFailed = "SYNC_FAILED";
         public const string PlaceholderLinkPending = "PLACEHOLDER_LINK_PENDING";
         public const string HistoryImportInvalid = "HISTORY_IMPORT_INVALID";
+
+        // Cutover tools (DS-41, DS-42)
+        public const string BagPaidInExcel = "BAG_PAID_IN_EXCEL";
+        public const string NotVoidable = "NOT_VOIDABLE";
     }
 
     public static Error SpaceNotFound(Guid spaceId) =>
@@ -274,4 +278,11 @@ public readonly record struct Error(string Code, string Message)
 
     public static Error HistoryImportInvalid(string message) =>
         new(Codes.HistoryImportInvalid, message);
+
+    public static Error BagPaidInExcel(string bagLabel) =>
+        new(Codes.BagPaidInExcel,
+            $"Bag {bagLabel} is marked Paid in Excel. Unflag it first, and correct the opening entry that holds its price, or the bag is paid twice.");
+
+    public static Error NotVoidable(string what) =>
+        new(Codes.NotVoidable, $"{what} is not a write-off share or a bag-less row; delete it instead");
 }

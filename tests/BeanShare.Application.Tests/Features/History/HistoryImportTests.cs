@@ -190,7 +190,7 @@ public sealed class HistoryImportTests
     {
         (await CommitAsync("A;2025-01-01;2025-06-30;Alice;1")).IsSuccess.Should().BeTrue();
         var handler = new UpdateLedgerSettingsHandler(
-            _world.SpaceRepository, _world.SettlementRepository, _world.UserService, _world.UserRepository, _world.BillingPeriodRepository);
+            _world.SpaceRepository, _world.SettlementRepository, _world.UserService, _world.UserRepository, _world.BillingPeriodRepository, _world.CoffeeStockRepository);
 
         var inside = await handler.Handle(new UpdateLedgerSettingsCommand(_world.Space.Id.Value, null, new DateTime(2025, 6, 30, 0, 0, 0, DateTimeKind.Utc)), default);
         var after = await handler.Handle(new UpdateLedgerSettingsCommand(_world.Space.Id.Value, null, new DateTime(2025, 7, 1, 0, 0, 0, DateTimeKind.Utc)), default);

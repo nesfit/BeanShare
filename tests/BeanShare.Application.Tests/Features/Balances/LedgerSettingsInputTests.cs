@@ -37,7 +37,7 @@ public sealed class LedgerSettingsInputTests
         _spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), Arg.Any<CancellationToken>()).Returns(_space);
     }
 
-    private UpdateLedgerSettingsHandler CreateHandler() => new(_spaceRepository, _settlementRepository, Substitute.For<IUserService>(), TestUsers.ActiveRepository(), Substitute.For<IBillingPeriodRepository>());
+    private UpdateLedgerSettingsHandler CreateHandler() => new(_spaceRepository, _settlementRepository, Substitute.For<IUserService>(), TestUsers.ActiveRepository(), Substitute.For<IBillingPeriodRepository>(), Substitute.For<ICoffeeStockRepository>());
 
     [Fact]
     public async Task ChangingOnlyTheTreasurer_KeepsTheLedgerStart()

@@ -105,6 +105,13 @@ else
                         }
                     </p>
                 </div>
+
+                <CutoverCard SpaceId="@Guid.Parse(SpaceId)"
+                             LedgerStartDate="@balances.Settings.LedgerStartDate"
+                             IsLocked="@balances.Settings.IsLedgerStartLocked"
+                             Currency="@balances.Currency"
+                             OnChanged="LoadBalances"
+                             OnMessage="OnCutoverMessage" />
             }
 
             <!-- Balances -->
@@ -822,6 +829,8 @@ else
     }
 
     // ---- helpers ----
+
+    private void OnCutoverMessage((bool IsError, string Title, string Message) m) => ShowToast(m.IsError, m.Title, m.Message);
 
     /// <summary>A stale view never stays on screen: conflicts and locked entries reload the page data.</summary>
     private async Task HandleFailure(IReadOnlyList<Error> errors, bool closeEntryModal = false)

@@ -596,4 +596,60 @@ public sealed class BagCommandTests
         world.Cups.Select(c => c.UserId).Should().BeEquivalentTo(new[] { world.Admin, alice });
         world.Cups.Sum(c => c.Quantity.Grams).Should().Be(1000m);
     }
+    // T-STK-02 (Z2, B25; DR7 R7-1): deleting write-off shares keeps the bag's counters honest.
+    [Fact]
+    public async Task DeletingWriteOffShares_ThenDiscardAndUndo_RestoresExactlyTheDiscard()
+    {
+        var world = new LedgerWorld("CZK");
+        var alice = world.AddMember("Alice");
+        var bag = world.AddBag(1000m, 500m, world.Clock.UtcNow.AddDays(-2));
+        world.Drink(alice, 700m, world.Clock.UtcNow.AddDays(-1), bag);
+        (await new MarkBagEmptyCommandHandler(
+                world.CoffeeStockRepository, world.ConsumptionRepository, world.SpaceRepository, world.UserContext, world.Clock, world.UserRepository)
+            .Handle(new MarkBagEmptyCommand(world.Space.Id.Value, bag.Id), CancellationToken.None)).IsSuccess.Should().BeTrue();
+        bag.WrittenOffGrams.Should().Be(300m);
+
+        var delete = new BeanShare.Application.Features.Consumption.Commands.DeleteConsumptionCommandHandler(
+            world.ConsumptionRepository, world.BillingPeriodRepository, world.CoffeeStockRepository, world.Clock);
+        foreach (var share in world.Cups.Where(c => c.IsWriteOff).ToList())
+            (await delete.Handle(new BeanShare.Application.Features.Consumption.Commands.DeleteConsumptionCommand(share.Id.Value, world.Space.Id.Value), CancellationToken.None))
+                .IsSuccess.Should().BeTrue();
+
+        bag.ConsumedGrams.Should().Be(700m);
+        bag.WrittenOffGrams.Should().Be(0m);
+        bag.Status.Should().Be(LotStatus.Open);
+
+        world.Stock.DiscardBag(bag.Id, world.Clock).Grams.Should().Be(300m);
+        var undo = await new UndoBagEmptyCommandHandler(world.CoffeeStockRepository, world.ConsumptionRepository, world.BillingPeriodRepository,
+                world.SpaceRepository, world.UserContext, world.Clock)
+            .Handle(new UndoBagEmptyCommand(world.Space.Id.Value, bag.Id), CancellationToken.None);
+
+        undo.IsSuccess.Should().BeTrue();
+        undo.Value.RestoredGrams.Should().Be(300m);
+        bag.ConsumedGrams.Should().Be(700m);
+        bag.RemainingGrams.Grams.Should().Be(300m);
+    }
+
+    // T-STK-02, rev9 (H8): a write-off share cannot be edited, and the bag stays as it is.
+    [Fact]
+    public async Task EditingAWriteOffShare_IsRefused()
+    {
+        var world = new LedgerWorld("CZK");
+        var alice = world.AddMember("Alice");
+        var bag = world.AddBag(1000m, 500m, world.Clock.UtcNow.AddDays(-2));
+        world.Drink(alice, 700m, world.Clock.UtcNow.AddDays(-1), bag);
+        (await new MarkBagEmptyCommandHandler(
+                world.CoffeeStockRepository, world.ConsumptionRepository, world.SpaceRepository, world.UserContext, world.Clock, world.UserRepository)
+            .Handle(new MarkBagEmptyCommand(world.Space.Id.Value, bag.Id), CancellationToken.None)).IsSuccess.Should().BeTrue();
+        var share = world.Cups.First(c => c.IsWriteOff);
+        var (consumed, writtenOff, version) = (bag.ConsumedGrams, bag.WrittenOffGrams, bag.Version);
+
+        var result = await new BeanShare.Application.Features.Consumption.Commands.UpdateConsumptionCommandHandler(
+                world.ConsumptionRepository, world.BillingPeriodRepository, world.CoffeeStockRepository, world.SpaceRepository, world.Clock)
+            .Handle(new BeanShare.Application.Features.Consumption.Commands.UpdateConsumptionCommand(
+                share.Id.Value, world.Space.Id.Value, "Alfa", "Roaster", "Filter", 10m, share.ConsumedAt), CancellationToken.None);
+
+        result.Errors.Should().ContainSingle().Which.Message.Should().Contain("delete it instead");
+        (bag.ConsumedGrams, bag.WrittenOffGrams, bag.Version).Should().Be((consumed, writtenOff, version));
+    }
 }

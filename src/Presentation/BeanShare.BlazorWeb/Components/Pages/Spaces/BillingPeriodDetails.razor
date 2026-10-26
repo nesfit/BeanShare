@@ -253,6 +253,13 @@
             else
             {
                 <p style="margin: 0 0 0.75rem 0;">Treasurer: <strong>@preview.TreasurerName</strong>. Every payment goes through the treasurer.</p>
+                @if (preview.FallbackRateMissing)
+                {
+                    <div style="margin: 0 0 0.75rem 0; padding: 0.75rem; border-radius: 0.5rem; font-size: 0.8125rem; background: var(--bs-warning-light); color: var(--bs-warning-dark);">
+                        Some cups have no bag price and there is no purchase to take an average price from, so they cost nothing in this settlement.
+                        Record the missing purchases, or check the bags marked Paid in Excel on the Balances page, before generating.
+                    </div>
+                }
                 <div style="overflow-x: auto;">
                     <table style="width: 100%; border-collapse: collapse; font-size: 0.8125rem;">
                         <thead>

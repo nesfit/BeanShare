@@ -1,0 +1,302 @@
+@using BeanShare.Application.Common
+@using BeanShare.Application.Abstractions
+@using BeanShare.Application.Features.CoffeeStock.Dtos
+@using BeanShare.Application.Features.CoffeeStock.Queries
+@using BeanShare.Application.Features.CoffeeStock.Commands.SetBagPaidInExcel
+@using BeanShare.Application.Features.Balances.Queries.GetPhantomCandidates
+@using BeanShare.Application.Features.Consumption.Commands.VoidPhantomRows
+@inject IScopedSender Mediator
+
+@* The cutover tools (DS-41, DS-42): "Paid in Excel" bags and voiding phantom write-off rows. Admins only. *@
+<div class="bs-card" style="padding: 1.5rem; margin-bottom: 1rem;">
+    <h3 style="margin: 0 0 0.5rem 0; font-size: 1.05rem; font-weight: 600;">Cutover from Excel</h3>
+    @if (LedgerStartDate is not { } start)
+    {
+        <p class="bs-text-subtle" style="font-size: 0.8125rem; margin: 0;">Set the ledger start date first; the cutover tools work on the bags and rows around it.</p>
+    }
+    else
+    {
+        @* The flags are a cutover input: hidden once a ledger settlement exists (DS-41). *@
+        @if (!IsLocked)
+        {
+            <h4 style="margin: 0.75rem 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">Bags paid in Excel</h4>
+            <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0 0 0.5rem 0;">
+                Bags bought before @start.ToString("yyyy-MM-dd") whose price the spreadsheet already settled. A flagged bag earns no ledger credit,
+                stays out of the average price, and its cups are billed at the average price.
+                Unflagging a bag means correcting the opening entry that holds its price, or the bag is paid twice.
+            </p>
+            @if (bags == null)
+            {
+                <p class="bs-text-subtle" style="font-size: 0.8125rem;">Loading bags...</p>
+            }
+            else if (bags.Count == 0)
+            {
+                <p class="bs-text-subtle" style="font-size: 0.8125rem;">No bag was bought before the ledger start.</p>
+            }
+            else
+            {
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.8125rem;">
+                        <thead>
+                            <tr style="text-align: left; border-bottom: 1px solid var(--bs-border, #e5e7eb);">
+                                <th style="padding: 0.375rem 0.5rem;">Coffee</th>
+                                <th style="padding: 0.375rem 0.5rem;">Bought</th>
+                                <th style="padding: 0.375rem 0.5rem;">Paid by</th>
+                                <th style="padding: 0.375rem 0.5rem; text-align: right;">Cost</th>
+                                <th style="padding: 0.375rem 0.5rem;">Paid in Excel</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var bag in bags)
+                            {
+                                <tr style="border-bottom: 1px solid var(--bs-border, #f3f4f6);">
+                                    <td style="padding: 0.375rem 0.5rem;">@BagName(bag)</td>
+                                    <td style="padding: 0.375rem 0.5rem;">@bag.PurchasedAt.ToString("yyyy-MM-dd")</td>
+                                    <td style="padding: 0.375rem 0.5rem;">@(bag.PaidByName ?? bag.PurchasedByName)</td>
+                                    <td style="padding: 0.375rem 0.5rem; text-align: right;">@Money(bag.CostAmount)</td>
+                                    <td style="padding: 0.375rem 0.5rem;">
+                                        <input type="checkbox" checked="@bag.ExcludedFromLedgerCredit" disabled="@isBusy"
+                                               @onchange="@(e => SetPaidInExcel(bag, e.Value is true))" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+
+        <h4 style="margin: 1.25rem 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">Phantom rows</h4>
+        <p class="bs-text-subtle" style="font-size: 0.75rem; margin: 0 0 0.5rem 0;">
+            Write-off shares and split rows since the ledger start, grouped by when they were made. Voiding removes the rows and
+            does not put their grams back into any bag. It cannot be undone, and nothing here proves a row is a phantom: decide that first.
+        </p>
+        <label class="bs-flex bs-items-center" style="gap: 0.4rem; font-size: 0.8125rem; margin-bottom: 0.5rem;">
+            <input type="checkbox" checked="@includeAllBagLess" @onchange="@(e => ToggleAllBagLess(e.Value is true))" />
+            Show every row without a bag
+        </label>
+        @if (candidates == null)
+        {
+            <p class="bs-text-subtle" style="font-size: 0.8125rem;">Loading rows...</p>
+        }
+        else if (candidates.Events.Count == 0)
+        {
+            <p class="bs-text-subtle" style="font-size: 0.8125rem;">No rows to void.</p>
+        }
+        else
+        {
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.8125rem;">
+                    <thead>
+                        <tr style="text-align: left; border-bottom: 1px solid var(--bs-border, #e5e7eb);">
+                            <th style="padding: 0.375rem 0.5rem;"></th>
+                            <th style="padding: 0.375rem 0.5rem;">When</th>
+                            <th style="padding: 0.375rem 0.5rem;">Coffee</th>
+                            <th style="padding: 0.375rem 0.5rem;">Kind</th>
+                            <th style="padding: 0.375rem 0.5rem;">Members</th>
+                            <th style="padding: 0.375rem 0.5rem; text-align: right;">Grams</th>
+                            <th style="padding: 0.375rem 0.5rem; text-align: right;">Cost</th>
+                            <th style="padding: 0.375rem 0.5rem;">Period</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var ev in candidates.Events)
+                        {
+                            var key = EventKey(ev);
+                            <tr style="border-bottom: 1px solid var(--bs-border, #f3f4f6);">
+                                <td style="padding: 0.375rem 0.5rem;">
+                                    <input type="checkbox" checked="@selected.Contains(key)" disabled="@(!ev.CanVoid || isBusy)"
+                                           @onchange="@(e => ToggleEvent(key, e.Value is true))" />
+                                </td>
+                                <td style="padding: 0.375rem 0.5rem; white-space: nowrap;">@ev.At.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td style="padding: 0.375rem 0.5rem;">@ev.Product @(ev.BagLabel is { Length: > 0 } label ? $"({label})" : "")</td>
+                                <td style="padding: 0.375rem 0.5rem;">@KindOf(ev)</td>
+                                <td style="padding: 0.375rem 0.5rem;">@string.Join(", ", ev.Rows.Select(r => r.UserName))</td>
+                                <td style="padding: 0.375rem 0.5rem; text-align: right;">@ev.TotalGrams.ToString("0.#")</td>
+                                <td style="padding: 0.375rem 0.5rem; text-align: right;">@Money(ev.TotalCost)</td>
+                                <td style="padding: 0.375rem 0.5rem;">@(ev.PeriodName is { } periodName ? $"{periodName} ({ev.PeriodState})" : ev.PeriodState)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="bs-flex bs-items-center" style="gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap;">
+                <input class="bs-input" style="flex: 1; min-width: 14rem;" maxlength="200" placeholder="Reason (required)" @bind="voidReason" @bind:event="oninput" />
+                <button class="bs-btn bs-btn-sm bs-btn-secondary" disabled="@(isBusy || selected.Count == 0 || string.IsNullOrWhiteSpace(voidReason))" @onclick="@(() => showVoidConfirm = true)">
+                    Void selected (@SelectedRowCount rows)
+                </button>
+            </div>
+        }
+    }
+</div>
+
+<ConfirmDialog IsVisible="@showVoidConfirm"
+               Title="@($"Void {SelectedRowCount} rows?")"
+               Message="The rows are removed and their grams do not go back into any bag. This cannot be undone."
+               ConfirmText="Void"
+               IsDestructive="true"
+               IsProcessing="@isBusy"
+               OnConfirm="VoidSelected"
+               OnCancel="@(() => showVoidConfirm = false)" />
+
+@code {
+    [Parameter, EditorRequired] public Guid SpaceId { get; set; }
+    [Parameter] public DateTime? LedgerStartDate { get; set; }
+    [Parameter] public bool IsLocked { get; set; }
+    [Parameter] public string Currency { get; set; } = "USD";
+
+    /// <summary>Something changed or conflicted: the page reloads its balances.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    /// <summary>(isError, title, message) for the page's toast.</summary>
+    [Parameter] public EventCallback<(bool IsError, string Title, string Message)> OnMessage { get; set; }
+
+    private List<StockPurchaseDto>? bags;
+    private PhantomCandidatesDto? candidates;
+    private readonly HashSet<string> selected = new();
+    private bool includeAllBagLess;
+    private bool isBusy;
+    private bool showVoidConfirm;
+    private string voidReason = "";
+    private DateTime? loadedFor;
+
+    private int SelectedRowCount => candidates?.Events.Where(e => selected.Contains(EventKey(e))).Sum(e => e.Rows.Count) ?? 0;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (LedgerStartDate == loadedFor && bags != null)
+            return;
+        loadedFor = LedgerStartDate;
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        selected.Clear();
+        if (LedgerStartDate is not { } start)
+        {
+            bags = [];
+            candidates = null;
+            return;
+        }
+
+        var stock = await Mediator.Send(new GetSpaceStockQuery(SpaceId, 1, int.MaxValue));
+        bags = stock.IsSuccess
+            ? stock.Value.RecentPurchases.Where(p => p.PurchasedAt < start).OrderBy(p => p.PurchasedAt).ToList()
+            : [];
+
+        var result = await Mediator.Send(new GetPhantomCandidatesQuery(SpaceId, includeAllBagLess));
+        candidates = result.IsSuccess ? result.Value : null;
+        if (result.IsFailure)
+            await OnMessage.InvokeAsync((true, "Error", Message(result.Errors)));
+    }
+
+    private async Task SetPaidInExcel(StockPurchaseDto bag, bool paidInExcel)
+    {
+        isBusy = true;
+        try
+        {
+            var result = await Mediator.Send(new SetBagPaidInExcelCommand(SpaceId, bag.Id, paidInExcel));
+            if (result.IsSuccess)
+            {
+                await OnMessage.InvokeAsync((false, "Saved", paidInExcel
+                    ? $"{BagName(bag)} is marked Paid in Excel."
+                    : $"{BagName(bag)} is no longer marked Paid in Excel. Correct the opening entry that holds its price."));
+                await OnChanged.InvokeAsync();
+            }
+            else
+            {
+                await Fail(result.Errors);
+            }
+
+            await ReloadAsync();
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task ToggleAllBagLess(bool value)
+    {
+        includeAllBagLess = value;
+        await ReloadAsync();
+    }
+
+    private void ToggleEvent(string key, bool on)
+    {
+        if (on)
+            selected.Add(key);
+        else
+            selected.Remove(key);
+    }
+
+    private async Task VoidSelected()
+    {
+        if (candidates == null)
+            return;
+
+        isBusy = true;
+        try
+        {
+            var ids = candidates.Events.Where(e => selected.Contains(EventKey(e))).SelectMany(e => e.Rows.Select(r => r.ConsumptionId)).ToList();
+            var result = await Mediator.Send(new VoidPhantomRowsCommand(SpaceId, ids, voidReason.Trim()));
+            showVoidConfirm = false;
+            if (result.IsSuccess)
+            {
+                voidReason = "";
+                await OnMessage.InvokeAsync((false, "Voided", $"{ids.Count} rows voided."));
+                await OnChanged.InvokeAsync();
+            }
+            else
+            {
+                await Fail(result.Errors);
+            }
+
+            await ReloadAsync();
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task Fail(IReadOnlyList<Error> errors)
+    {
+        if (errors.Any(e => e.Code == Error.Codes.ConcurrencyConflict))
+        {
+            await OnMessage.InvokeAsync((true, "Changed meanwhile", "The data changed in the meantime and was reloaded. Please check and try again."));
+            await OnChanged.InvokeAsync();
+            return;
+        }
+
+        await OnMessage.InvokeAsync((true, "Error", Message(errors)));
+    }
+
+    private static string EventKey(PhantomEventDto e) => string.Join(",", e.Rows.Select(r => r.ConsumptionId));
+
+    private static string KindOf(PhantomEventDto e)
+    {
+        if (e.IsWriteOff)
+            return "Write-off";
+        return e.LooksLikeSplit ? "Split" : "No bag";
+    }
+
+    private static string BagName(StockPurchaseDto bag) =>
+        string.IsNullOrWhiteSpace(bag.Label) ? $"{bag.ProductName} ({bag.ProductBrand})" : $"{bag.ProductName} ({bag.ProductBrand}) {bag.Label}";
+
+    private static string Message(IReadOnlyList<Error> errors) =>
+        errors.Count > 0 ? string.Join(", ", errors.Select(e => e.Message)) : "Something went wrong.";
+
+    private string Money(decimal amount)
+    {
+        try
+        {
+            return BeanShare.Domain.ValueObjects.Currency.Create(Currency).FormatAmount(amount);
+        }
+        catch
+        {
+            return amount.ToString("0.00");
+        }
+    }
+}

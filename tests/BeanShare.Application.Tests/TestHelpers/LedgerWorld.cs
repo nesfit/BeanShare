@@ -218,6 +218,8 @@ public sealed class LedgerWorld
         ConsumptionRepository.GetByIdAsync(Arg.Any<ConsumptionEntryId>(), Arg.Any<CancellationToken>())
             .Returns(ci => Cups.FirstOrDefault(c => c.Id == ci.Arg<ConsumptionEntryId>()));
         ConsumptionRepository.AddAsync(Arg.Do<ConsumptionEntry>(Cups.Add), Arg.Any<CancellationToken>());
+        ConsumptionRepository.When(r => r.RemoveAsync(Arg.Any<ConsumptionEntry>(), Arg.Any<CancellationToken>()))
+            .Do(ci => Cups.Remove(ci.Arg<ConsumptionEntry>()));
 
         BalanceEntryRepository.GetUnincludedForUpdateAsync(Arg.Any<SpaceId>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
             .Returns(ci => (IReadOnlyList<BalanceEntry>)Entries.Where(e => !e.IsLocked && e.EffectiveDate <= ci.Arg<DateTime>()).ToList());

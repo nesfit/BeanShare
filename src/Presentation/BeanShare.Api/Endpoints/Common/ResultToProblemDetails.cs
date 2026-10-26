@@ -173,6 +173,8 @@ public static class ResultExtensions
             Error.Codes.MemberMerged => (int)HttpStatusCode.BadRequest,
             Error.Codes.NotPlaceholder => (int)HttpStatusCode.BadRequest,
             Error.Codes.HistoryImportInvalid => (int)HttpStatusCode.BadRequest,
+            Error.Codes.BagPaidInExcel => (int)HttpStatusCode.BadRequest,
+            Error.Codes.NotVoidable => (int)HttpStatusCode.BadRequest,
 
             // 500 Internal Server Error
             Error.Codes.SystemError => (int)HttpStatusCode.InternalServerError,

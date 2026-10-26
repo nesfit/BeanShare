@@ -2,6 +2,7 @@ using BeanShare.Application.Abstractions;
 using BeanShare.Application.Common;
 using BeanShare.Application.Features.Balances.Dtos;
 using BeanShare.Application.Features.Balances.Services;
+using BeanShare.Application.Features.CoffeeStock;
 using BeanShare.Application.Services;
 using BeanShare.Domain.Common;
 using BeanShare.Domain.Specifications;
@@ -17,14 +18,17 @@ public sealed class UpdateLedgerSettingsHandler : IRequestHandler<UpdateLedgerSe
     private readonly IUserService _userService;
     private readonly IUserRepository _userRepository;
     private readonly IBillingPeriodRepository _billingPeriodRepository;
+    private readonly ICoffeeStockRepository _coffeeStockRepository;
 
     public UpdateLedgerSettingsHandler(
         ISpaceRepository spaceRepository,
         ISettlementRepository settlementRepository,
         IUserService userService,
         IUserRepository userRepository,
-        IBillingPeriodRepository billingPeriodRepository)
+        IBillingPeriodRepository billingPeriodRepository,
+        ICoffeeStockRepository coffeeStockRepository)
     {
+        _coffeeStockRepository = coffeeStockRepository;
         _userRepository = userRepository;
         _billingPeriodRepository = billingPeriodRepository;
         _spaceRepository = spaceRepository;
@@ -62,13 +66,28 @@ public sealed class UpdateLedgerSettingsHandler : IRequestHandler<UpdateLedgerSe
         if (hasLedgerSettlement && ledgerStart != space.LedgerStartDate)
             return Result<LedgerSettingsDto>.Failure(Error.LedgerStartLocked());
 
-        // History never touches money: every imported period must end before the ledger starts (DS-37).
-        if (ledgerStart is { } newStart && ledgerStart != space.LedgerStartDate)
+        // A "Paid in Excel" bag must stay before the ledger start, so C cannot move onto or before it, and
+        // cannot be cleared while any bag is flagged (H4, I4).
+        if (ledgerStart != space.LedgerStartDate
+            && await _coffeeStockRepository.GetBySpaceIdAsync(spaceId, cancellationToken) is { } stock
+            && stock.Purchases.Where(p => p.ExcludedFromLedgerCredit).ToList() is { Count: > 0 } flagged
+            && flagged.FirstOrDefault(p => ledgerStart is not { } start || p.PurchasedAt >= start) is { } blocking)
+        {
+            return Result<LedgerSettingsDto>.Failure(Error.BagPaidInExcel(BagNames.Of(blocking)));
+        }
+
+        // History never touches money: every imported period must end before the ledger starts (DS-37), so while
+        // history exists the start can neither move into it nor be cleared.
+        if (ledgerStart != space.LedgerStartDate)
         {
             var periods = await _billingPeriodRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
-            if (periods.Where(p => p.IsHistorical).Select(p => (DateTime?)p.EndDate).Max() is { } historyEnd && historyEnd >= newStart)
+            if (periods.Where(p => p.IsHistorical).Select(p => (DateTime?)p.EndDate).Max() is { } historyEnd
+                && (ledgerStart is not { } newStart || historyEnd >= newStart))
+            {
                 return Result<LedgerSettingsDto>.Failure(Error.ValidationFailure(
-                    nameof(command.LedgerStartDate), $"The ledger start date must be after the imported history, which ends {historyEnd:yyyy-MM-dd}"));
+                    nameof(command.LedgerStartDate),
+                    $"The ledger start date must stay after the imported history, which ends {historyEnd:yyyy-MM-dd}"));
+            }
         }
 
         if (treasurer != space.TreasurerUserId)

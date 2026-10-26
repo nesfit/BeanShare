@@ -51,7 +51,7 @@ public sealed class LedgerSettingsCommandTests
             .Returns(ci => ci.Arg<IEnumerable<UserId>>().Select(id => User.CreateWithIdAndPassword(id.Value, $"{id}@example.org", id.ToString(), "hash", Now)).ToList());
     }
 
-    private UpdateLedgerSettingsHandler CreateHandler() => new(_spaceRepository, _settlementRepository, _userService, TestUsers.ActiveRepository(), Substitute.For<IBillingPeriodRepository>());
+    private UpdateLedgerSettingsHandler CreateHandler() => new(_spaceRepository, _settlementRepository, _userService, TestUsers.ActiveRepository(), Substitute.For<IBillingPeriodRepository>(), Substitute.For<ICoffeeStockRepository>());
 
     [Fact]
     public async Task SetTreasurer_ToAnAdmin_SucceedsAndBumpsLedgerVersion()

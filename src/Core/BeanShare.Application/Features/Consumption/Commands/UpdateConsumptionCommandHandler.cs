@@ -47,6 +47,11 @@ public sealed class UpdateConsumptionCommandHandler
         if (entry.SpaceId.Value != request.SpaceId)
             return Result<ConsumptionEntryDto>.Failure(Error.InsufficientSpacePrivileges("edit this consumption"));
 
+        // Its edit path would re-draw the share as an ordinary cup (H8).
+        if (entry.IsWriteOff)
+            return Result<ConsumptionEntryDto>.Failure(Error.ValidationFailure(
+                "Id", "A write-off share cannot be edited; delete it instead"));
+
         Domain.Aggregates.BillingPeriod.BillingPeriod? stampedPeriod = null;
         if (entry.BillingPeriodId != null)
         {

@@ -157,8 +157,8 @@ public sealed class Purchase : Entity
         };
     }
 
-    /// <summary>Grams still available in this bag.</summary>
-    public Weight RemainingGrams => Weight.FromGrams(Quantity.Grams - ConsumedGrams - DiscardedGrams);
+    /// <summary>Grams still available in this bag; voided grams (DS-42) are gone for good.</summary>
+    public Weight RemainingGrams => Weight.FromGrams(Quantity.Grams - ConsumedGrams - DiscardedGrams - VoidedGrams);
 
     /// <summary>Full-precision price per gram for this bag (round only the final cup cost).</summary>
     public decimal UnitCostPerGram => Quantity.Grams > 0 ? Cost.Amount / Quantity.Grams : 0m;
@@ -173,9 +173,10 @@ public sealed class Purchase : Entity
         if (!newQuantity.IsPositive)
             throw new ArgumentException("Quantity must be positive", nameof(newQuantity));
 
-        if (newQuantity.Grams < ConsumedGrams + DiscardedGrams)
+        var used = ConsumedGrams + DiscardedGrams + VoidedGrams;
+        if (newQuantity.Grams < used)
             throw new StockDomainException(
-                $"Cannot set bag size to {newQuantity.Grams}g — {ConsumedGrams + DiscardedGrams}g has already been consumed from or discarded off it.");
+                $"Cannot set bag size to {newQuantity.Grams}g — {used}g has already been consumed from or discarded off it.");
 
         if (newCostAmount <= 0)
             throw new ArgumentException("Cost must be positive", nameof(newCostAmount));
@@ -197,6 +198,16 @@ public sealed class Purchase : Entity
             OpenedAt ??= clock.UtcNow;
             DepletedAt = null;
         }
+    }
+
+    /// <summary>Marks the bag "Paid in Excel" (DS-41) or clears it; a change bumps <see cref="Version"/>.</summary>
+    public void SetExcludedFromLedgerCredit(bool excluded)
+    {
+        if (ExcludedFromLedgerCredit == excluded)
+            return;
+
+        ExcludedFromLedgerCredit = excluded;
+        Version++;
     }
 
     /// <summary>Sets who paid for the bag (null = the recorder). Affects only future settlements.</summary>
@@ -339,8 +350,12 @@ public sealed class Purchase : Entity
         return Weight.FromGrams(restored);
     }
 
-    /// <summary>Reverse a prior draw (used when a consumption is edited or deleted).</summary>
-    public void Restore(Weight grams, IClock clock)
+    /// <summary>
+    /// Reverse a prior draw (used when a consumption is edited or deleted). A deleted write-off share
+    /// (<paramref name="writeOff"/>) also leaves the write-off counter (Z2, B25), so a later "Undo empty"
+    /// restores only what is still written off; a normal cup leaves that counter alone.
+    /// </summary>
+    public void Restore(Weight grams, IClock clock, bool writeOff = false)
     {
         ArgumentNullException.ThrowIfNull(grams);
 
@@ -350,7 +365,8 @@ public sealed class Purchase : Entity
         var restored = Math.Min(grams.Grams, ConsumedGrams);
         ConsumedGrams -= restored;
         Version++;
-        // Deleting one write-off cup by hand shrinks what is left to undo as a whole.
+        if (writeOff)
+            WrittenOffGrams = Math.Max(0m, WrittenOffGrams - restored);
         WrittenOffGrams = Math.Min(WrittenOffGrams, ConsumedGrams);
 
         if (Status == LotStatus.Empty && RemainingGrams.IsPositive)
@@ -361,6 +377,27 @@ public sealed class Purchase : Entity
             OpenedAt ??= clock.UtcNow;
             DepletedAt = null;
         }
+    }
+
+    /// <summary>
+    /// Voids <paramref name="grams"/> of phantom write-off shares (DS-42, J1): they leave the consumed and
+    /// written-off counters for <see cref="VoidedGrams"/>, so <see cref="RemainingGrams"/> and
+    /// <see cref="Status"/> stay as they are, nothing returns to stock and <see cref="UndoWriteOff"/> never
+    /// brings them back. At most the consumed grams are moved (J2). Returns the grams voided.
+    /// </summary>
+    public Weight VoidWriteOff(Weight grams)
+    {
+        ArgumentNullException.ThrowIfNull(grams);
+
+        var voided = Math.Min(Math.Max(0m, grams.Grams), ConsumedGrams);
+        if (voided == 0)
+            return Weight.Zero;
+
+        ConsumedGrams -= voided;
+        WrittenOffGrams = Math.Min(Math.Max(0m, WrittenOffGrams - voided), ConsumedGrams);
+        VoidedGrams += voided;
+        Version++;
+        return Weight.FromGrams(voided);
     }
 
     public Money CostPerGram => Cost.Divide(Quantity.Grams);

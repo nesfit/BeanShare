@@ -92,6 +92,27 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
             });
         }
 
+        // Voided phantom write-off grams (DS-42): gone like a discard and billed to nobody.
+        foreach (var p in purchases.Where(p => p.VoidedGrams > 0))
+        {
+            movements.Add(new Movement
+            {
+                Timestamp = p.DepletedAt ?? p.CreatedAt,
+                Kind = "Discard",
+                Product = p.Product.DisplayName,
+                ProductType = p.Product.Type.ToString(),
+                Bag = string.IsNullOrEmpty(p.Label) ? "—" : p.Label,
+                Delta = -p.VoidedGrams,
+                UserId = Guid.Empty,
+                CostAmount = Math.Round(p.UnitCostPerGram * p.VoidedGrams, 2),
+                CostCurrency = p.Cost.Currency.Code,
+                Note = "Voided phantom write-off — not billed",
+                Key = ProductKey(p.Product),
+                ProductName = p.Product.Name,
+                ProductBrand = p.Product.Brand,
+            });
+        }
+
         foreach (var c in cups)
         {
             var bag = c.StockLotId.HasValue && labelByLot.TryGetValue(c.StockLotId.Value, out var lbl) && !string.IsNullOrEmpty(lbl)

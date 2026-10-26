@@ -137,7 +137,7 @@ public sealed class PlaceholderTests
         _world.Space.PromoteMember(id, _world.Clock);
 
         var result = await new UpdateLedgerSettingsHandler(
-                _world.SpaceRepository, _world.SettlementRepository, _world.UserService, _world.UserRepository, _world.BillingPeriodRepository)
+                _world.SpaceRepository, _world.SettlementRepository, _world.UserService, _world.UserRepository, _world.BillingPeriodRepository, _world.CoffeeStockRepository)
             .Handle(new UpdateLedgerSettingsCommand(_world.Space.Id.Value, id.Value, null), default);
 
         result.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.ValidationError);

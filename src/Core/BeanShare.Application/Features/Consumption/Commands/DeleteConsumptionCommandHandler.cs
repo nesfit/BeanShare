@@ -56,9 +56,10 @@ public sealed class DeleteConsumptionCommandHandler
             try
             {
                 // Give the grams back to the exact bag the cup drew from (product-level fallback
-                // for legacy entries never stamped with a bag).
+                // for legacy entries never stamped with a bag). A write-off share also leaves the bag's
+                // write-off counter, so a later "Undo empty" restores only what is still written off (Z2, B25).
                 if (entry.StockLotId.HasValue)
-                    coffeeStock.RestoreStockToLot(entry.StockLotId.Value, entry.Quantity, _clock);
+                    coffeeStock.RestoreStockToLot(entry.StockLotId.Value, entry.Quantity, _clock, writeOff: entry.IsWriteOff);
                 else
                     coffeeStock.RestoreStock(entry.Product, entry.Quantity, _clock);
                 await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);

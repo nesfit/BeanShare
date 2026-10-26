@@ -136,9 +136,9 @@ public sealed class CoffeeStock : AggregateRoot
         if (purchase == null)
             throw new InvalidOperationException($"Purchase {purchaseId} not found");
 
-        if (purchase.ConsumedGrams > 0)
+        if (purchase.ConsumedGrams + purchase.VoidedGrams > 0)
             throw new StockDomainException(
-                $"Cannot delete bag '{purchase.Label}' — {purchase.ConsumedGrams}g has already been consumed from it. Empty it (bill the drinkers) or discard it (bill nobody) instead.");
+                $"Cannot delete bag '{purchase.Label}' — {purchase.ConsumedGrams + purchase.VoidedGrams}g has already been consumed from it. Empty it (bill the drinkers) or discard it (bill nobody) instead.");
 
         _purchases.Remove(purchase);
         UpdatedAt = clock.UtcNow;
@@ -206,13 +206,36 @@ public sealed class CoffeeStock : AggregateRoot
         UpdatedAt = clock.UtcNow;
     }
 
-    /// <summary>Reverse a draw against a specific bag (used to undo a consumption edit/delete).</summary>
-    public void RestoreStockToLot(Guid lotId, Weight quantity, IClock clock)
+    /// <summary>
+    /// Reverse a draw against a specific bag (used to undo a consumption edit/delete). A write-off share
+    /// passes <paramref name="writeOff"/>, so the bag's write-off counter follows (Z2, B25).
+    /// </summary>
+    public void RestoreStockToLot(Guid lotId, Weight quantity, IClock clock, bool writeOff = false)
     {
         var lot = _purchases.FirstOrDefault(p => p.Id == lotId)
             ?? throw new StockDomainException($"Bag {lotId} not found");
 
-        lot.Restore(quantity, clock);
+        lot.Restore(quantity, clock, writeOff);
+        UpdatedAt = clock.UtcNow;
+    }
+
+    /// <summary>Voids phantom write-off grams on a bag without returning them to stock (DS-42).</summary>
+    public Weight VoidWriteOffOnLot(Guid lotId, Weight quantity, IClock clock)
+    {
+        var lot = _purchases.FirstOrDefault(p => p.Id == lotId)
+            ?? throw new StockDomainException($"Bag {lotId} not found");
+
+        var voided = lot.VoidWriteOff(quantity);
+        UpdatedAt = clock.UtcNow;
+        return voided;
+    }
+
+    public void SetPurchaseExcludedFromLedgerCredit(Guid purchaseId, bool excluded, IClock clock)
+    {
+        var purchase = _purchases.FirstOrDefault(p => p.Id == purchaseId)
+            ?? throw new StockDomainException($"Bag {purchaseId} not found");
+
+        purchase.SetExcludedFromLedgerCredit(excluded);
         UpdatedAt = clock.UtcNow;
     }
 

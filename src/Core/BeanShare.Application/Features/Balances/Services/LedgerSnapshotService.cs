@@ -16,13 +16,18 @@ namespace BeanShare.Application.Features.Balances.Services;
 /// The inputs a ledger calculation used, and its result. <see cref="Cups"/> and <see cref="Entries"/>
 /// are what a generation stamps; <see cref="PreviousSettlement"/> is the one it carries forward.
 /// </summary>
+/// <param name="FallbackRateMissing">
+/// Some cup is priced by the fallback rate, but the fallback set has no grams or no cost, so those cups
+/// cost nothing (H5).
+/// </param>
 public sealed record LedgerSnapshot(
     LedgerCalculation Calculation,
     IReadOnlyList<ConsumptionEntry> Cups,
     IReadOnlyList<BalanceEntry> Entries,
     SettlementAggregate? PreviousSettlement,
     IReadOnlyDictionary<UserId, decimal> CarriedIn,
-    CoffeeStockAggregate? Stock);
+    CoffeeStockAggregate? Stock,
+    bool FallbackRateMissing = false);
 
 /// <summary>
 /// Loads everything a ledger calculation needs and runs <see cref="SettlementLedgerCalculator"/>. Generation,
@@ -100,16 +105,22 @@ public sealed class LedgerSnapshotService
         var stock = await _coffeeStockRepository.GetBySpaceIdAsync(space.Id, cancellationToken);
         var currency = space.Currency;
 
+        // "Paid in Excel" bags earn no BeanShare credit and stay out of the fallback price (DS-41).
         var purchases = stock?.Purchases ?? [];
+        var paidInExcel = purchases.Where(p => p.ExcludedFromLedgerCredit).Select(p => p.Id).ToHashSet();
         var bagPayers = purchases.ToDictionary(p => p.Id, p => p.EffectivePayer);
         var fallbackPurchases = purchases
-            .Where(p => p.Cost.Currency.Code == currency.Code && p.PurchasedAt <= pricedAsOf)
+            .Where(p => !p.ExcludedFromLedgerCredit && p.Cost.Currency.Code == currency.Code && p.PurchasedAt <= pricedAsOf)
             .Select(p => new LedgerPurchase(p.EffectivePayer, p.Cost.Amount, p.Quantity.Grams))
             .ToList();
 
         var ledgerCups = cups
             .Select(c =>
             {
+                // A cup stamped to a flagged bag is priced as a fallback cup; the cup itself is unchanged.
+                if (c.StockLotId is { } flaggedLot && paidInExcel.Contains(flaggedLot))
+                    return new LedgerCup(c.UserId, c.Quantity.Grams, null, null);
+
                 var stamped = c.CostAmount.HasValue && c.CostCurrency == currency.Code ? c.CostAmount : null;
                 UserId? payer = stamped.HasValue && c.StockLotId is { } lotId && bagPayers.TryGetValue(lotId, out var bagPayer)
                     ? bagPayer
@@ -140,6 +151,9 @@ public sealed class LedgerSnapshotService
             currency.DecimalPlaces,
             mergedInto));
 
-        return new LedgerSnapshot(calculation, cups, entries, previous, carriedIn, stock);
+        var fallbackRateMissing = ledgerCups.Any(c => c.StampedCost is null)
+            && (fallbackPurchases.Sum(p => p.Grams) <= 0 || fallbackPurchases.Sum(p => p.Cost) <= 0);
+
+        return new LedgerSnapshot(calculation, cups, entries, previous, carriedIn, stock, fallbackRateMissing);
     }
 }
