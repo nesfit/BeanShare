@@ -129,6 +129,7 @@ public sealed class UpdateConsumptionCommandHandler
             ConsumedAt = entry.ConsumedAt,
             CreatedAt = entry.CreatedAt,
             CanEdit = true,
+            CanDelete = true,
             PresetId = entry.PresetId?.Value,
             PresetName = entry.PresetName
         };

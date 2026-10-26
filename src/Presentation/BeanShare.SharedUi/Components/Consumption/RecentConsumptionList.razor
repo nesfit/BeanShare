@@ -86,6 +86,9 @@
                                     <button type="button" class="bs-btn-icon" style="color: var(--bs-text-subtle);" title="Edit" aria-label="Edit" @onclick="() => StartEdit(log)">
                                         <span class="material-symbols-outlined" style="font-size: 1rem;">edit</span>
                                     </button>
+                                }
+                                @if (log.CanDelete)
+                                {
                                     <button type="button" class="bs-btn-icon" style="color: var(--bs-error, #dc3545);" title="Delete" aria-label="Delete" @onclick="() => ConfirmDelete(log)">
                                         <span class="material-symbols-outlined" style="font-size: 1rem;">delete</span>
                                     </button>
@@ -167,6 +170,7 @@
             ConsumedAt = editConsumedAt,
             CreatedAt = log.CreatedAt,
             CanEdit = log.CanEdit,
+            CanDelete = log.CanDelete,
             PresetId = log.PresetId,
             PresetName = log.PresetName
         };

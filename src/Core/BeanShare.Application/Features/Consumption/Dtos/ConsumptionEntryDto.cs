@@ -21,4 +21,7 @@ public sealed class ConsumptionEntryDto
     // Per-bag cost stamped at log time (null for legacy/unattributed cups).
     public decimal? CostAmount { get; init; }
     public string? CostCurrency { get; init; }
+
+    // CanEdit is false for a write-off share, which can only be deleted.
+    public bool CanDelete { get; init; }
 }

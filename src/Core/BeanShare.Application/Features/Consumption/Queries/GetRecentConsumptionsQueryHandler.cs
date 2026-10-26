@@ -77,6 +77,12 @@ public sealed class GetRecentConsumptionsQueryHandler
             .Select(bp => bp.Id)
             .ToHashSet();
 
+        // A cup can change while its period is Draft or Open. Cups before the ledger start are never billed, so
+        // they cannot be changed either (B22).
+        bool MayChange(ConsumptionEntry e) =>
+            !(space.LedgerStartDate is { } ledgerStart && e.ConsumedAt < ledgerStart)
+            && (e.BillingPeriodId == null || editablePeriodIds.Contains(e.BillingPeriodId.Value));
+
         var recentEntries = recentRaw
             .Select(e => new ConsumptionEntryDto
             {
@@ -95,9 +101,9 @@ public sealed class GetRecentConsumptionsQueryHandler
                 PresetName = e.PresetName,
                 CostAmount = e.Cost?.Amount,
                 CostCurrency = e.Cost?.Currency.Code,
-                // Cups before the ledger start are never billed, so they cannot be edited either (B22).
-                CanEdit = !(space.LedgerStartDate is { } ledgerStart && e.ConsumedAt < ledgerStart)
-                    && (e.BillingPeriodId == null || editablePeriodIds.Contains(e.BillingPeriodId.Value))
+                // A write-off share can only be deleted; the edit command refuses it (H8).
+                CanEdit = MayChange(e) && !e.IsWriteOff,
+                CanDelete = MayChange(e)
             })
             .ToList();
 
