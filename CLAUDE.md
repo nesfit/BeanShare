@@ -142,7 +142,8 @@ A member's **Net** is positive when the space owes the member.
   fixed with a dated Correction entry against the treasurer.
 - **Ordering:** settlements go in date order (`SETTLEMENT_ORDER`); a new live period cannot start on or before
   the last settled End. Imported historical periods never take part in ordering.
-- **`LedgerStartDate` (C):** cups before C are never billed by the ledger; C must be ≤ today and after every
+- **`LedgerStartDate` (C):** cups before C are never billed by the ledger; the server refuses deleting a cup dated before C
+  and re-dating a cup across C, in either direction (`BEFORE_LEDGER_START`); C must be ≤ today and after every
   imported historical period, and it is locked after the first ledger settlement (`LEDGER_START_LOCKED`).
   Entries included in a settlement are locked (`ENTRY_LOCKED`).
 - **Legacy settlements** (made before the ledger) keep their old model and their frozen "Paid"; their open lines
