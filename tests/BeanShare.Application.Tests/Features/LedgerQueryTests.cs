@@ -96,13 +96,13 @@ public sealed class LedgerQueryTests
         var result = await handler.Handle(new GetSpaceLedgerQuery(_spaceId.Value, Kind: "cup"), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.Entries.ToDictionary(e => e.ConsumptionEntryId!.Value, e => e.CanEdit).Should().Equal(
-            new Dictionary<Guid, bool>
+        result.Value.Entries.ToDictionary(e => e.ConsumptionEntryId!.Value, e => (e.CanEdit, e.CanDelete)).Should().Equal(
+            new Dictionary<Guid, (bool, bool)>
             {
-                [inSettled.Id.Value] = false,
-                [inClosed.Id.Value] = false,
-                [inOpen.Id.Value] = true,
-                [unstamped.Id.Value] = true,
+                [inSettled.Id.Value] = (false, false),
+                [inClosed.Id.Value] = (false, false),
+                [inOpen.Id.Value] = (true, true),
+                [unstamped.Id.Value] = (true, true),
             });
     }
 
@@ -118,16 +118,45 @@ public sealed class LedgerQueryTests
         var handler = CreateHandler(stock, [before, after], [], ledgerStart: _clock.UtcNow.AddDays(-10));
         var result = await handler.Handle(new GetSpaceLedgerQuery(_spaceId.Value, Kind: "cup"), CancellationToken.None);
 
-        result.Value.Entries.Single(e => e.ConsumptionEntryId == before.Id.Value).CanEdit.Should().BeFalse();
-        result.Value.Entries.Single(e => e.ConsumptionEntryId == after.Id.Value).CanEdit.Should().BeTrue();
+        result.Value.Entries.Single(e => e.ConsumptionEntryId == before.Id.Value).Should().Match<LedgerEntryDto>(e => !e.CanEdit && !e.CanDelete);
+        result.Value.Entries.Single(e => e.ConsumptionEntryId == after.Id.Value).Should().Match<LedgerEntryDto>(e => e.CanEdit && e.CanDelete);
     }
 
-    private ConsumptionEntry Cup(int grams, DateTime at, Guid lotId, decimal cost, BillingPeriodId? period = null)
+    [Fact]
+    public async Task Ledger_AWriteOffShare_CanBeDeletedButNotEdited()
+    {
+        var stock = CoffeeStock.Create(_spaceId, _clock);
+        stock.AddPurchase(_product, Weight.FromGrams(1000), Money.Create(20m, "USD"), "Store", _admin, _clock.UtcNow.AddDays(-30), _clock);
+        var bag = stock.Purchases.First().Id;
+
+        var open = BillingPeriod.Create(_spaceId, "Open", _clock.UtcNow.AddDays(-30), null, _admin, _clock);
+        open.Open(_admin, _clock);
+        var closed = BillingPeriod.Create(_spaceId, "Closed", _clock.UtcNow.AddDays(-60), _clock.UtcNow.AddDays(-31), _admin, _clock);
+        closed.Open(_admin, _clock);
+        closed.Close(_admin, _clock);
+
+        var cup = Cup(10, _clock.UtcNow.AddDays(-3), bag, 0.2m, open.Id);
+        var share = Cup(40, _clock.UtcNow.AddDays(-2), bag, 0.8m, open.Id, writeOff: true);
+        var frozenShare = Cup(40, _clock.UtcNow.AddDays(-40), bag, 0.8m, closed.Id, writeOff: true);
+
+        var handler = CreateHandler(stock, [cup, share, frozenShare], [open, closed]);
+        var result = await handler.Handle(new GetSpaceLedgerQuery(_spaceId.Value, Kind: "cup"), CancellationToken.None);
+
+        result.Value.Entries.ToDictionary(e => e.ConsumptionEntryId!.Value, e => (e.CanEdit, e.CanDelete)).Should().Equal(
+            new Dictionary<Guid, (bool, bool)>
+            {
+                [cup.Id.Value] = (true, true),
+                [share.Id.Value] = (false, true),
+                [frozenShare.Id.Value] = (false, false),
+            });
+    }
+
+    private ConsumptionEntry Cup(int grams, DateTime at, Guid lotId, decimal cost, BillingPeriodId? period = null, bool writeOff = false)
     {
         var cup = ConsumptionEntry.Create(
             _spaceId, _admin, CoffeeProduct.Create(_product.Name, _product.Brand, _product.Type),
             Weight.FromGrams(grams), at, _clock,
-            stockLotId: lotId, cost: Money.Create(cost, "USD"), unitCostPerGram: 0.02m);
+            stockLotId: lotId, cost: Money.Create(cost, "USD"), unitCostPerGram: 0.02m, isWriteOff: writeOff);
         if (period is { } stamped)
             cup.AssignToBillingPeriod(stamped);
         return cup;

@@ -164,14 +164,20 @@ else
                                 <td style="padding: 0.5rem 0.75rem; text-align: right; font-variant-numeric: tabular-nums;">@(e.CostAmount.HasValue ? MoneyIn(e.CostAmount.Value, e.CostCurrency) : "—")</td>
                                 <td style="padding: 0.5rem 0.75rem; color: var(--bs-text-subtle);">@e.Note</td>
                                 <td style="padding: 0.5rem 0.5rem; text-align: right; white-space: nowrap;">
-                                    @if (e.Kind == "Cup" && e.CanEdit && e.ConsumptionEntryId.HasValue)
+                                    @if (e.Kind == "Cup" && e.ConsumptionEntryId.HasValue)
                                     {
-                                        <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Edit cup" title="Edit" @onclick="@(() => OpenEdit(e))">
-                                            <span class="material-symbols-outlined" style="font-size: 1rem;">edit</span>
-                                        </button>
-                                        <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Delete cup" title="Delete" @onclick="@(() => RequestDelete(e))">
-                                            <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--bs-error);">delete</span>
-                                        </button>
+                                        @if (e.CanEdit)
+                                        {
+                                            <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Edit cup" title="Edit" @onclick="@(() => OpenEdit(e))">
+                                                <span class="material-symbols-outlined" style="font-size: 1rem;">edit</span>
+                                            </button>
+                                        }
+                                        @if (e.CanDelete)
+                                        {
+                                            <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Delete cup" title="Delete" @onclick="@(() => RequestDelete(e))">
+                                                <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--bs-error);">delete</span>
+                                            </button>
+                                        }
                                     }
                                 </td>
                             </tr>

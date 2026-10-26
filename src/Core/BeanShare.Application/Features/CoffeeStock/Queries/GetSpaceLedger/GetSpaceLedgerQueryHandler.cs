@@ -126,6 +126,9 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
 
         foreach (var c in cups)
         {
+            var mayChange = (c.UserId == currentUser || isAdmin)
+                && !(space.LedgerStartDate is { } ledgerStart && c.ConsumedAt < ledgerStart)
+                && (c.BillingPeriodId == null || editablePeriodIds.Contains(c.BillingPeriodId.Value));
             var bag = c.StockLotId.HasValue && labelByLot.TryGetValue(c.StockLotId.Value, out var lbl) && !string.IsNullOrEmpty(lbl)
                 ? lbl
                 : "—";
@@ -143,9 +146,9 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
                 Note = c.PresetName,
                 Key = ProductKey(c.Product),
                 EntryId = c.Id.Value,
-                CanEdit = (c.UserId == currentUser || isAdmin)
-                    && !(space.LedgerStartDate is { } ledgerStart && c.ConsumedAt < ledgerStart)
-                    && (c.BillingPeriodId == null || editablePeriodIds.Contains(c.BillingPeriodId.Value)),
+                // A write-off share can only be deleted; the edit command refuses it (H8).
+                CanEdit = mayChange && !c.IsWriteOff,
+                CanDelete = mayChange,
                 ProductName = c.Product.Name,
                 ProductBrand = c.Product.Brand,
             });
@@ -220,7 +223,7 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
         var entries = pageItems.Select(m => new LedgerEntryDto(
             m.Timestamp, m.Kind, m.Product, m.ProductType, m.Bag, m.Delta, m.Balance,
             m.UserId, userNames.GetValueOrDefault(m.UserId, "Unknown"),
-            m.CostAmount, m.CostCurrency, m.Note, m.EntryId, m.CanEdit, m.ProductName, m.ProductBrand)).ToList();
+            m.CostAmount, m.CostCurrency, m.Note, m.EntryId, m.CanEdit, m.ProductName, m.ProductBrand, m.CanDelete)).ToList();
 
         return Result<LedgerPageDto>.Success(new LedgerPageDto(totalCount, query.Page, query.PageSize, entries, totals));
     }
@@ -261,6 +264,7 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
         public (string, string, CoffeeType) Key { get; init; }
         public Guid? EntryId { get; init; }
         public bool CanEdit { get; init; }
+        public bool CanDelete { get; init; }
         public string ProductName { get; init; } = "";
         public string ProductBrand { get; init; } = "";
     }

@@ -38,7 +38,8 @@ public sealed record LedgerEntryDto(
     Guid? ConsumptionEntryId = null,
     bool CanEdit = false,
     string ProductName = "",
-    string ProductBrand = "");
+    string ProductBrand = "",
+    bool CanDelete = false);         // CanEdit is false for a write-off share, which can only be deleted
 
 public sealed record LedgerTotalsDto(
     decimal PurchasedGrams,
