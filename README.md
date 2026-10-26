@@ -7,7 +7,10 @@ BeanShare is a Clean Architecture information system for managing office coffee 
 - **Multi-User Spaces**: Create and manage multiple coffee-sharing spaces
 - **Stock Management**: Track coffee purchases and inventory levels
 - **Consumption Tracking**: Log individual coffee consumption with presets
-- **Automated Settlements**: Generate fair cost-sharing reports using weighted average costing
+- **Running Balances**: Every member has a running balance (cups at their bag's price, credit for the bags they paid for, balance entries, and what was carried from the last settlement)
+- **Treasurer Settlements**: Settlements go through one treasurer; open lines carry into the next settlement, and corrections are balance entries
+- **Placeholder Members**: Members without an account, who can later link their login or be merged into another member
+- **Excel History**: Import the old spreadsheet's periods, cups and purchases as statistics, and cut over from it to BeanShare
 - **Multi-Currency Support**: Handle purchases and settlements in different currencies with automatic exchange rate updates
 - **Authentication**: Support for Keycloak OIDC, JWT tokens, and OAuth providers
 - **Cross-Platform**: Web application (Blazor Server) and mobile app (.NET MAUI)
@@ -92,16 +95,16 @@ BeanShare/
 
 ### Using Mock Services (No Database Required)
 
-For quick testing without setting up PostgreSQL:
+For quick testing of the API without PostgreSQL or Keycloak:
 
 ```json
 {
-  "UseMockServices": true,
+  "UseInMemoryDatabase": true,
   "UseMockAuthentication": true
 }
 ```
 
-Add these to `appsettings.Development.json` and run the application.
+Add these to `appsettings.Development.json` and run the API. Mock authentication trusts the `X-Test-UserId` header, so the API accepts it only in the Development or Testing environment (or with `AllowMockAuthentication=true`). The in-memory database is not transactional: after a 409 a command may have saved part of its changes.
 
 ### Nix / NixOS
 
@@ -275,6 +278,9 @@ dotnet test
 
 # Run specific test project
 dotnet test tests/BeanShare.Application.Tests
+
+# Integration and E2E tests start PostgreSQL through Testcontainers and need Docker
+dotnet test tests/BeanShare.Tests.Integration
 
 # Run with coverage
 dotnet test --collect:"XPlat Code Coverage"

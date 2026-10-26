@@ -31,7 +31,7 @@ This starts three containers:
 |-----------|------|---------|
 | `beanshare-postgres-dev` | 5432 | PostgreSQL database |
 | `beanshare-keycloak-dev` | 8080 | Keycloak authentication |
-| `beanshare-postgres-test` | 5433 | PostgreSQL for integration tests |
+| `beanshare-postgres-test` | 5433 | Spare PostgreSQL (the integration tests do not use it; they start their own through Testcontainers) |
 
 Keycloak auto-imports the `beanshare` realm on startup with:
 - 3 OAuth clients (`beanshare-api`, `beanshare-web`, `beanshare-mobile`)
@@ -131,15 +131,37 @@ dotnet build -f net10.0-windows10.0.19041.0 -c Release
 ## Running Tests
 
 ```bash
-# All tests
-dotnet test
+# Docker-free gate (what every commit must pass): build, then the three Docker-free suites
+nix develop -c dotnet build BeanShare.slnf
+nix develop -c dotnet test tests/BeanShare.Application.Tests
+nix develop -c dotnet test tests/BeanShare.Tests.Unit
+nix develop -c dotnet test tests/BeanShare.Infrastructure.Tests \
+  --filter "FullyQualifiedName!~BeanShare.Infrastructure.Tests.DbContextTests&FullyQualifiedName!~BeanShare.Infrastructure.Tests.Repositories"
 
-# Unit tests only
-dotnet test tests/BeanShare.Tests.Unit
+# Integration tests: they start PostgreSQL through Testcontainers (postgres:15-alpine), so Docker must run
+nix develop -c dotnet test tests/BeanShare.Tests.Integration
 
-# Integration tests (requires beanshare-postgres-test on port 5433)
-dotnet test tests/BeanShare.Tests.Integration
+# The opening-balance E2E scenario only (Docker)
+nix develop -c dotnet test tests/BeanShare.Tests.Integration \
+  --filter "FullyQualifiedName~OpeningBalanceE2ETests" -nodeReuse:false -p:UseSharedCompilation=false
 ```
+
+- The Docker-free Infrastructure filter keeps the InMemory classes (`InMemory/*`: concurrency races with a save
+  barrier, which assert only the outcome, because EF InMemory is not atomic) and the pure classes (`Cutover/*`,
+  `Identity/*`, `Services/*`). The PostgreSQL variants of the races, which also assert the end state, live in
+  `BeanShare.Tests.Integration/Concurrency`.
+- A few Integration classes need no container and can run anywhere: `ResultMappingTests`,
+  `MockAuthenticationGuardTests` and `OpeningBalanceScenarioTests`.
+- Under the Integration mock authentication, `IUserContext` follows the `X-Test-UserId` header, while
+  `ICurrentPrincipalAccessor` returns the `MockAuthenticationHandler` principal (user `2222…`). A test of a
+  principal-based path, such as the pending placeholder link, must build its own principal (the E2E calls
+  `IUserSynchronizationService` directly with one).
+- Every command and authorized request needs an existing, active, non-placeholder user row. The fixtures seed
+  users `11111111-1111-1111-1111-111111111111` (`test@coffeespace.local`) and
+  `22222222-2222-2222-2222-222222222222` (`second@test.com`); call `EnsureUserAsync(id, email)` for
+  any other `X-Test-UserId`.
+- Endpoints with a request DTO expect a JSON body even when every field comes from the route; send `{}` (or the
+  route values) rather than no body, or FastEndpoints answers 415.
 
 ---
 

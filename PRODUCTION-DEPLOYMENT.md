@@ -91,6 +91,7 @@ BeanShare reads the following claims from ID tokens and access tokens:
 |-------|---------|
 | `sub` | User identifier (required) |
 | `email` | User email |
+| `email_verified` | Whether the provider verified the email. Matching a login to an existing user or a placeholder by email needs it (see `Authentication__RequireVerifiedEmailForLinking`) |
 | `name` | Display name (falls back to `preferred_username`) |
 | `preferred_username` | Username |
 | `picture` | Avatar URL (optional) |
@@ -232,6 +233,10 @@ When the web app runs behind nginx, preserve the original host and port so ASP.N
 | `Email__SmtpPassword` | API | SMTP password | - |
 | `IncludeDemoData` | API, Web | Seed demo spaces/users/coffee data on startup | `false` |
 | `UploadsRootPath` | API, Web | Shared filesystem path for uploaded avatars | OS temp directory |
+| `Authentication__RequireVerifiedEmailForLinking` | API, Web | Match a login to an existing account by email only when the provider marks it verified. Placeholders always need a verified email, whatever this says | `true` |
+| `TZ` | Web | Time zone of the web service. On a UTC host set `Europe/Prague`, so "today" in the dialogs and every local time shown is Prague time | host time zone |
+
+**Never set `UseMockAuthentication` in production.** It trusts a request header for the user id. The API refuses to start with it outside the Development and Testing environments, unless `AllowMockAuthentication=true` is set as well; that is meant only for a local dry run on a copy of the database (see the cutover runbook).
 
 ---
 
@@ -412,6 +417,240 @@ Equivalent NixOS module setup:
   };
 }
 ```
+
+---
+
+## Upgrading to the Money Ledger
+
+The release with running balances, placeholders and the history import changes the schema (migrations
+`AddBalanceLedger` and `AddHistoryAndPlaceholders`). Treat them as **forward-only**: their `Down` would drop
+the new columns and tables, and with them every balance entry, ledger line field and imported history. An older
+build cannot run on the new schema; to go back, restore the backup from step 1.
+
+1. **Back up the database** (`pg_dump --format=custom`) before deploying.
+2. **Deploy the API and the web together.** Both apply pending migrations at startup and share the schema.
+3. At startup the ledger back-fill runs once and is idempotent: cups that legacy settlements (or Settled periods
+   without a settlement) already billed are stamped to those periods, and the "Paid" of legacy settlement lines
+   is frozen. Check the startup log for both migrations and the back-fill counts.
+4. Nothing is billed by the new ledger until a space has a treasurer and a ledger start date. Spaces that keep
+   using the spreadsheet until a planned cutover follow the runbook below.
+
+---
+
+## Cutover from the Excel Sheet (Runbook)
+
+This runbook moves a space that settled money in a spreadsheet to BeanShare's money ledger. Production already
+holds real bags and cups, and no settlements.
+
+### The facts
+
+- BeanShare has been used since about May 2026, and tally paper #3 was kept in parallel with it.
+- **C**, the ledger start date, is the first day of tally paper #3, which is the BeanShare start. Read the exact
+  date from paper 3 and check it against the earliest live cup in BeanShare.
+- The **final Excel round** covers papers 1 + 2, from 11.08.2025 to C − 1.
+- **Paper 3 is never part of Excel money.** BeanShare bills its cups, because they are dated on or after C.
+
+### What the stock data looks like
+
+- **Phantom grams.** BeanShare never saw the grams drunk before C. On 2026-07-24 the lot back-fill poured each
+  product's logged grams into its bags oldest first, each bag to its full size. So the pre-C grams surface as a
+  phantom in **later** bags of the same product. That phantom was then billed by a later bag's "Mark empty" (a
+  write-off), or before 07-24 by a product-level split; or it still shows in a bag; or it was discarded.
+- **A product's phantom = Σ g_pre over its bags opened before C + Σ Q (full size) over its Paid-in-Excel bags**,
+  whichever bags BeanShare later showed or wrote those grams off on. A Paid-in-Excel bag is the product's oldest,
+  so the back-fill or a later draw usually emptied it, and all of its grams surface elsewhere.
+- **Cups with no bag.** Cups from C to 2026-07-24 have no bag.
+- **The simple route.** The treasurer is the sole bag payer, so attributing those cups to bags would only change
+  the per-cup price, never who is credited. BeanShare prices bag-less cups at the average of the bags **not**
+  marked Paid in Excel. Phantom billing is voided before the first settlement, and the Excel shares are computed
+  by hand.
+
+### Dry run on a copy of production first
+
+Run the whole cutover — steps 2–11 and the branch steps — on a restored copy of the production database. Touch
+production only when the copy's result matches the Excel expectation.
+
+- **R1, copy.** On the production host, record the server version with `SELECT version();` and take a dump with
+  the read-only access: `pg_dump --format=custom --no-owner --file beanshare-<date>.dump <database>`. Copy it over
+  SSH to the operator's machine. It holds personal data: keep it local, and delete it at R7.
+- **R2, restore.** Start a **separate throwaway** PostgreSQL of production's major version — not the development
+  database from `docker compose`, and not a fixed version (a dump from a newer `pg_dump` cannot be read by an
+  older `pg_restore`):
+  ```bash
+  docker run --rm -d --name bs-dryrun -e POSTGRES_PASSWORD=<pw> -p 5434:5432 postgres:<major>
+  docker exec bs-dryrun createdb -U postgres beanshare_dryrun
+  docker exec -i bs-dryrun pg_restore -U postgres -d beanshare_dryrun --no-owner --no-privileges < beanshare-<date>.dump
+  ```
+- **R3, run the new API against it.** Use the new build with these settings:
+  - `ConnectionStrings__DefaultConnection=Host=localhost;Port=5434;Database=beanshare_dryrun;Username=postgres;Password=<pw>`
+  - `ASPNETCORE_ENVIRONMENT=Production` and `IncludeDemoData=false`, so no demo data is seeded
+  - `UseOidc=false`, `UseMockAuthentication=true` and `AllowMockAuthentication=true` (the API refuses mock
+    authentication in Production without the explicit allow)
+  - Startup applies both migrations and the back-fills to the copy, which also tests them on real data; check the
+    log for both migrations and the back-fill counts.
+  - Every request carries `X-Test-UserId: <the treasurer's UserId in the copy>`. Mock authentication is for this
+    local copy only; never on production.
+  - Do not call "send emails".
+  - The web UI is optional; it needs an OIDC login whose email matches an admin in the copy.
+- **R4, rehearse.** Through the API, do steps 2–11 (settings, dates, flags, voids, Corrections, placeholders,
+  opening paste, history paste) and the branch steps. Then preview and generate the first settlement on the copy.
+- **R5, compare.** The copy must satisfy all of these; anything over a few cents is investigated:
+  - For every person, the copy's first-settlement Net (or the running balance) equals the Excel-computed
+    expectation, in Net's sign (positive = the space owes the person): **expected Net = the final Excel round's
+    balance (positive = owed to them) + the credit for their bags' coffee drunk since C − their cups since C ×
+    the expected price.**
+  - ΣNet = 0, and the treasurer's total matches.
+  - Step 8 holds for every product.
+  - The settlement preview's `FallbackRateMissing` is false.
+  - The grams voided per product equal that product's phantom (see "What the stock data looks like"), apart from
+    the partly phantom event.
+- **R6, record and repeat.** Record the inputs that produced the match: C, the flags, the voided row ids, the
+  Corrections and the paste texts. If anything was corrected, restore a fresh copy and repeat from R2, because a dry
+  run must succeed from a clean restore. Production then replays exactly these inputs, after a fresh backup. Do it
+  soon after the dump, with no stock edits in between; otherwise take a new dump and recheck the lists.
+- **R7, clean up.** `docker stop bs-dryrun` (the container is removed) and delete the dump.
+
+### Steps common to both branches
+
+1. Back up the database, then deploy the API and the web together.
+2. As admin, open **Balances → Ledger settings**. Set the treasurer (a space admin) and C, which must be ≤ today.
+   The confirm dialog shows how many existing cups before C will never be billed. With C at the BeanShare start
+   this should be about 0, and any such cup must be on paper 2.
+3. **Read-only production check.** Before anything is changed, collect:
+   - the production PostgreSQL major version (`SELECT version();`), for the dry run;
+   - the live periods that start before C, in any state; these choose branch A or B below;
+   - every live period in state Closed, whatever its dates, because step 6 reopens them;
+   - the web host's time zone. If it is UTC, set `TZ=Europe/Prague` for the web service, so that "today" in the
+     dialogs and every local time shown is Prague time. No code change is needed;
+   - every purchase, per product, whether bought before or after C: size, cost, payer, status and counters;
+   - the real purchase date of each bag that was on the shelf at C. Shelf bags were entered with their entry time
+     as the purchase date;
+   - every write-off row since C, per product: per-bag shares (`IsWriteOff`), and product-level split rows. Split
+     rows have no bag and are not `IsWriteOff`; they show up as one row per member with the same timestamp, made
+     by the old "split remaining stock" before 07-24. **Balances → Cutover from Excel → Phantom rows** lists both
+     kinds, grouped by event;
+   - the number and grams of bag-less cups on or after C, per product;
+   - the identity setup: the identity provider and its brokers; whether self-registration is open; whether email
+     verification is required; and whether any broker has "Trust Email" on.
+     - If any source can assert `email_verified` without verifying, the identity provider's admin fixes that first.
+     - Until then, step 9 creates placeholders without an email, and the admin links them by merge.
+4. **Fix purchase dates.** Where a bag's purchase date is its entry time rather than the real date, correct it in
+   the stock grid (edit purchase). The flag (step 5) and the average price both read this date.
+5. **Classify every bag bought before C**, using paper 2, the shelf and the purchase list:
+
+   | Class | Final Excel round | BeanShare |
+   |---|---|---|
+   | Finished before C | Its full price, as an Excel purchase | Mark it **Paid in Excel** (Balances → Cutover from Excel → Bags paid in Excel). It gets no BeanShare credit: it is out of the average price, and any cup stamped to it is priced at the average price. |
+   | Opened before C, with coffee left at C | **Excel share = K × g_pre / Q**, computed by hand, clamped to [0, K] (K = its price, Q = its size). g_pre comes from the paper-2 cups of that product since the day the bag was opened, or from its weighed remainder at C. Never use BeanShare's counters. | Unchanged, and in the average price. Its phantom shows up in a later bag (step 6). |
+   | Unopened at C | Nothing | Unchanged |
+
+   While a bag is flagged, C cannot be moved onto or before its purchase date or cleared, and its date cannot be
+   moved to C or later; unflag it first, and correct the opening entry that holds its price.
+6. **Remove phantom billing.**
+   - **First, reopen every Closed live period** from step 3 that holds such rows. None has a settlement, so Reopen
+     is allowed. Close them again after step 8.
+   - Then, for each product, take its phantom from "What the stock data looks like" and walk the write-offs since C
+     from step 3, oldest first. **Void** them in **Balances → Cutover from Excel → Phantom rows**:
+     - **An event that is entirely phantom:** void all its rows, whether per-bag shares or product-level split rows.
+       Nothing returns to stock, and no bag revives. Voiding cannot be undone, and "Undo empty" never brings voided
+       grams back.
+     - **The one event that is only partly phantom:** void it too. Then re-bill its real part with Correction
+       entries: each of its drinkers −(their share of the real grams × the price per gram), counterparty = the
+       payer (the treasurer). The price is that bag's for a share, and the product's for a split row, as in step 7.
+     - Never **delete** these rows instead: deleting a share returns its grams to its bag, and deleting a split row
+       returns them into the bag in use, so the phantom is billed again later.
+   - **Phantom that still shows** (never written off):
+     - On a bag that is physically empty: **Discard** it. This is unbilled. Do not press "Undo empty" afterwards.
+     - On a bag still in use: write down the remaining phantom **per product**, not per bag. If that bag is later
+       marked empty, void its write-off and re-bill the real part ("Afterwards"). If it instead empties by cups,
+       BeanShare keeps drawing until it reaches 0 and the phantom moves on to the product's **next** bag: void up to
+       the recorded grams from the product's next write-offs, on whichever bag they land.
+   - **Fallback, only if a settlement already billed the rows:** refund the phantom part with Corrections: the
+     drinker +X, counterparty = the payer.
+     - X = grams × the bag's price, for a share on a bag that is not Paid in Excel.
+     - X = grams × the average price of the settlement that billed it (Σ cost / Σ grams over the unflagged
+       space-currency bags bought by its period's End), for a split row or a share on a Paid-in-Excel bag.
+7. **Missing paper-3 cups.** Compare paper 3 per person with BeanShare's cups from C on.
+   - **A kept write-off, or a step-6 re-bill, already billed the grams:** add nothing to the total. If that
+     write-off billed another drinker, move the amount with one Correction: the billed drinker +X, counterparty =
+     the paper-3 drinker.
+   - **Otherwise:** add a Correction entry: the drinker −(grams × that product's price per gram), counterparty =
+     the treasurer, dated the paper-3 day, note "paper 3".
+   - Do not back-log a cup: it would draw today's bag.
+8. **Per-product check.** For each product, in grams: Σ Q of its bags = its phantom + its BeanShare cups ≥ C after
+   step 6 (kept write-offs included) + the grams re-billed by step-6 Corrections + **real** discards + what is still
+   on the shelf. Real discards are spills and stale coffee only: not step 6's phantom discards, and **not voided
+   grams, which the bag counters and the stock ledger also show as discarded**. A gap bigger than a few cups means
+   unlogged cups or a missed phantom; investigate it, never book it.
+9. **Add placeholders** (Members → Add placeholder), either directly or from the paste previews ("create unknown
+   members as placeholders").
+   - Before a person's first login, fill in their email as their identity provider knows it, unless step 3 found
+     the identity provider untrustworthy.
+   - The safe default stays: `Authentication__RequireVerifiedEmailForLinking` is on, and an unverified person sees
+     "verify your email". The admin can instead clear the placeholder's email, let the person sign in (this
+     creates a new account), and then **merge** the placeholder into it (Members → Merge).
+10. **Bulk-paste the opening balances** (Balances → Paste) from the final Excel round, which includes the step-5
+    Excel shares and the full price of every Paid-in-Excel bag. Use counterparty = treasurer, effective date = C,
+    note "Excel cutoff". The preview shows the entry sum and the treasurer's resulting total. Reconcile it against
+    the sheet before saving (the known gap of +3 957.91 from the final-round analysis).
+11. **Paste the history** (Billing periods → Import history) converted from the spreadsheet, up to and including
+    the final round (papers 1 + 2) as the last historical period. Every historical End must be before C, and paper
+    3 is not history. Overlap with live periods is allowed. Check the preview totals against the sheet.
+
+### Worked example
+
+The treasurer T paid three bags of one product, each 1000 g for 600.00 (0.60 per g).
+
+- **X**, bought 03-15, was finished before C and is Paid in Excel.
+- **Y**, bought 04-15, was opened on paper 2: 250 g were drunk before C and 750 g after.
+- **Z**, bought 06-01, gave 250 g before 07-24 and 750 g after.
+- In BeanShare: the 1000 g logged before 07-24 have no bag, and the back-fill counted them all on X. After 07-24
+  the draws opened Y and stamped Z's 750 g to it, so Y showed 250 g and Z 1000 g. In August "Mark empty" wrote off
+  both bags: 1250 g.
+
+| Step | Action | Money |
+|---|---|---|
+| 5 | X Paid in Excel; Y opened before C, g_pre = 250 | Excel: X 600.00 + Y 600.00 × 250 / 1000 = 150.00, so **750.00** to T |
+| 6 | Phantom = 250 + 1000 = 1250 g = all the write-offs: **void** them. Y and Z stay Empty. | Nothing is billed for them |
+| 8 | 3000 = 1250 (phantom) + 1750 (cups ≥ C) + 0 (re-billed) + 0 (real discards; the 1250 voided grams are not counted) + 0 (shelf) | — |
+| First settlement | 1000 g without a bag at the average price (Y + Z: 1200.00 / 2000 g = 0.60) = 600.00; 750 g stamped to Y = 450.00 | The drinkers pay **1050.00** for 1750 g. T is credited 1050.00, so T gets 750.00 + 1050.00 = **1800.00** = X + Y + Z. |
+
+`CutoverRunbookTests` replays this example (and its variants) on the real back-fill, stock and calculator.
+
+### Choosing the branch
+
+The first list from step 3 decides. No live period starts before C → branch A; some do → branch B.
+
+**Branch A — no live period starts before C**
+
+12. Create the first period starting at C. The first settlement includes the opening balances.
+
+**Branch B — live periods starting before C exist**
+
+Order matters. The history import may overlap live periods that already exist, but a live period created
+afterwards is still checked against history. So leave the pre-C live periods as they are, and create every new
+live period at C or later.
+
+12. Delete Draft periods that start before C (they would otherwise block later settlements).
+13. Settle the pre-C Open/Closed periods in date order. Close the Open ones first.
+    - A period that ends before C settles **empty**, because its cups are before C and the entries are dated C. It
+      completes immediately.
+    - A period that spans C becomes the first real settlement: its cups on or after C are billed, and the opening
+      entries (dated C) are included.
+14. Create later periods as usual. A period cannot start on or before the last settled End.
+
+### Afterwards
+
+- There are no partial payments. A partial payment, or a mistaken confirmation, is fixed with a dated Correction
+  entry against the treasurer.
+- If BeanShare later bills more phantom grams (for example a later "Mark empty" of a bag that was in use at the
+  cutover, or the next bag of that product), void that write-off before the next generation while its period is
+  open, up to the product's recorded remaining phantom, and re-bill its real part, as in step 6. Once it is
+  settled, refund it with the step-6 fallback formula.
+- Cup history keeps the stamped price of a cup on a Paid-in-Excel bag, while the settlement bills it at the
+  average price.
+- Settlement emails reach only members with something to read or do (consumption, a non-zero Net, or the
+  treasurer with transfers). Everyone can still see the full settlement on the web.
 
 ---
 
