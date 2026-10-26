@@ -8,5 +8,8 @@
         public required DateTime JoinedAt { get; init; }
 
         public string UserName { get; init; } = "Unknown User";
+
+        /// <summary>A member without an account (D21); shown with a "no login" badge.</summary>
+        public bool IsPlaceholder { get; init; }
     }
 }

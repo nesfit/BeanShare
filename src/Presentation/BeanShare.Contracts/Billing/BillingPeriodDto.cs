@@ -18,7 +18,8 @@ public record BillingPeriodDto(
     int ConsumptionCount,
     decimal TotalCoffeeGrams,
     decimal? EstimatedCost,
-    string Currency
+    string Currency,
+    bool IsHistorical = false
 )
 {
     public string FormattedDateRange { get; init; } = string.Empty;
@@ -33,7 +34,8 @@ public record BillingPeriodSummaryDto(
     string State,
     int DaysRemaining,
     int ConsumptionCount,
-    decimal TotalCoffeeGrams
+    decimal TotalCoffeeGrams,
+    bool IsHistorical = false
 )
 {
     public string FormattedDateRange { get; init; } = string.Empty;

@@ -16,6 +16,7 @@ public sealed class SplitRemainingStockCommandHandler : IRequestHandler<SplitRem
     private readonly IUserService _userService;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public SplitRemainingStockCommandHandler(
         ICoffeeStockRepository coffeeStockRepository,
@@ -23,8 +24,10 @@ public sealed class SplitRemainingStockCommandHandler : IRequestHandler<SplitRem
         ISpaceRepository spaceRepository,
         IUserService userService,
         IUserContext userContext,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _coffeeStockRepository = coffeeStockRepository;
         _consumptionRepository = consumptionRepository;
         _spaceRepository = spaceRepository;
@@ -71,13 +74,15 @@ public sealed class SplitRemainingStockCommandHandler : IRequestHandler<SplitRem
 
         var allConsumptions = await _consumptionRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
 
-        // Only current members share a write-off, renormalised over them (DS-34).
-        var productConsumptions = allConsumptions
-            .Where(c => c.Product.Name == product.Name && c.Product.Brand == product.Brand && c.Product.Type == product.Type)
-            .Where(c => space.HasMember(c.UserId))
-            .ToList();
+        // Only current, non-merged members share a write-off, renormalised over them (DS-34).
+        var productConsumptions = await WriteOffParticipants.ShareableCupsAsync(
+            space,
+            allConsumptions.Where(c => c.Product.Name == product.Name && c.Product.Brand == product.Brand && c.Product.Type == product.Type),
+            _userRepository,
+            cancellationToken);
 
-        var memberIds = space.Members.Select(m => m.UserId).ToList();
+        // The equal-split fallback leaves placeholders out too (DS-33).
+        var memberIds = await WriteOffParticipants.EqualSplitMembersAsync(space, _userRepository, cancellationToken);
         var users = await _userService.GetByIdsAsync(memberIds, cancellationToken);
         var userLookup = users.ToDictionary(u => u.Id, u => u.Name);
 

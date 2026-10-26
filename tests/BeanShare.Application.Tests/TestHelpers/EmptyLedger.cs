@@ -31,6 +31,7 @@ public static class EmptyLedger
             settlements ?? Substitute.For<ISettlementRepository>(),
             Substitute.For<ICoffeeStockRepository>(),
             periods,
-            clock);
+            clock,
+            TestUsers.ActiveRepository());
     }
 }

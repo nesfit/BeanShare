@@ -36,7 +36,7 @@ public class CoffeeStockCommandTests
         coffeeStockRepository.GetBySpaceIdAsync(spaceId, Arg.Any<CancellationToken>())
             .Returns((CoffeeStock?)null);
 
-        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepository, spaceRepository, userContext, clock, mapper);
+        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepository, spaceRepository, userContext, clock, mapper, TestUsers.ActiveRepository());
 
         var command = new AddStockPurchaseCommand(
             spaceId.Value,
@@ -77,7 +77,7 @@ public class CoffeeStockCommandTests
         spaceRepository.GetSingleBySpecAsync(Arg.Any<SpaceByIdSpecification>(), Arg.Any<CancellationToken>())
             .Returns(space);
 
-        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepository, spaceRepository, userContext, clock, mapper);
+        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepository, spaceRepository, userContext, clock, mapper, TestUsers.ActiveRepository());
 
         var command = new AddStockPurchaseCommand(
             spaceId.Value,
@@ -114,7 +114,7 @@ public class CoffeeStockCommandTests
         spaceRepository.GetSingleBySpecAsync(Arg.Any<SpaceByIdSpecification>(), Arg.Any<CancellationToken>())
             .Returns((Domain.Aggregates.Space.Space?)null);
 
-        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepository, spaceRepository, userContext, clock, mapper);
+        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepository, spaceRepository, userContext, clock, mapper, TestUsers.ActiveRepository());
 
         var command = new AddStockPurchaseCommand(
             invalidSpaceId,
@@ -156,7 +156,7 @@ public class CoffeeStockCommandTests
         coffeeStockRepository.GetBySpaceIdAsync(spaceId, Arg.Any<CancellationToken>())
             .Returns(existingStock);
 
-        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepository, spaceRepository, userContext, clock, mapper);
+        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepository, spaceRepository, userContext, clock, mapper, TestUsers.ActiveRepository());
 
         var command = new AddStockPurchaseCommand(
             spaceId.Value,
@@ -199,7 +199,7 @@ public class CoffeeStockCommandTests
         coffeeStockRepository.GetBySpaceIdAsync(spaceId, Arg.Any<CancellationToken>())
             .Returns((CoffeeStock?)null);
 
-        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepository, spaceRepository, userContext, clock, mapper);
+        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepository, spaceRepository, userContext, clock, mapper, TestUsers.ActiveRepository());
 
         var command = new AddStockPurchaseCommand(
             spaceId.Value,

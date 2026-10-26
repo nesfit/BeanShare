@@ -119,6 +119,15 @@ public sealed class PurchaseConfiguration : IEntityTypeConfiguration<Purchase>
             .HasDefaultValue(0m)
             .IsRequired();
 
+        builder.Property(p => p.VoidedGrams)
+            .HasColumnType("decimal(10,1)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(p => p.ExcludedFromLedgerCredit)
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.Ignore(p => p.EmptiedByAdminGrams);
         builder.Ignore(p => p.WriteOffUndoDeadline);
 

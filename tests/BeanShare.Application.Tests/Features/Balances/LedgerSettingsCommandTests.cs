@@ -51,7 +51,7 @@ public sealed class LedgerSettingsCommandTests
             .Returns(ci => ci.Arg<IEnumerable<UserId>>().Select(id => User.CreateWithIdAndPassword(id.Value, $"{id}@example.org", id.ToString(), "hash", Now)).ToList());
     }
 
-    private UpdateLedgerSettingsHandler CreateHandler() => new(_spaceRepository, _settlementRepository, _userService);
+    private UpdateLedgerSettingsHandler CreateHandler() => new(_spaceRepository, _settlementRepository, _userService, TestUsers.ActiveRepository(), Substitute.For<IBillingPeriodRepository>());
 
     [Fact]
     public async Task SetTreasurer_ToAnAdmin_SucceedsAndBumpsLedgerVersion()
@@ -162,7 +162,7 @@ public sealed class LedgerSettingsCommandTests
     {
         _space.SetTreasurer(_secondAdmin);
         _settlementRepository.GetBySpaceIdAsync(_space.Id, Arg.Any<CancellationToken>()).Returns(new List<BeanShare.Domain.Aggregates.Settlement.Settlement>());
-        var handler = new RemoveMemberCommandHandler(_spaceRepository, _settlementRepository, EmptyLedger.SnapshotService(_clock), _userContext, Substitute.For<IMapper>(), _clock);
+        var handler = new RemoveMemberCommandHandler(_spaceRepository, _settlementRepository, EmptyLedger.SnapshotService(_clock), _userContext, Substitute.For<IMapper>(), _clock, TestUsers.ActiveRepository());
 
         var result = await handler.Handle(new RemoveMemberCommand(_space.Id.Value, _secondAdmin.Value), default);
 
@@ -175,7 +175,7 @@ public sealed class LedgerSettingsCommandTests
     {
         var before = _space.LedgerVersion;
         _settlementRepository.GetBySpaceIdAsync(_space.Id, Arg.Any<CancellationToken>()).Returns(new List<BeanShare.Domain.Aggregates.Settlement.Settlement>());
-        var handler = new RemoveMemberCommandHandler(_spaceRepository, _settlementRepository, EmptyLedger.SnapshotService(_clock), _userContext, Substitute.For<IMapper>(), _clock);
+        var handler = new RemoveMemberCommandHandler(_spaceRepository, _settlementRepository, EmptyLedger.SnapshotService(_clock), _userContext, Substitute.For<IMapper>(), _clock, TestUsers.ActiveRepository());
 
         var result = await handler.Handle(new RemoveMemberCommand(_space.Id.Value, _member.Value), default);
 
@@ -189,7 +189,7 @@ public sealed class LedgerSettingsCommandTests
         var before = _space.LedgerVersion;
         _userContext.CurrentUserId.Returns(_member);
         _settlementRepository.GetBySpaceIdAsync(_space.Id, Arg.Any<CancellationToken>()).Returns(new List<BeanShare.Domain.Aggregates.Settlement.Settlement>());
-        var handler = new LeaveSpaceCommandHandler(_spaceRepository, _settlementRepository, EmptyLedger.SnapshotService(_clock), _userContext, _clock);
+        var handler = new LeaveSpaceCommandHandler(_spaceRepository, _settlementRepository, EmptyLedger.SnapshotService(_clock), _userContext, _clock, TestUsers.ActiveRepository());
 
         var result = await handler.Handle(new LeaveSpaceCommand(_space.Id.Value), default);
 
@@ -204,7 +204,7 @@ public sealed class LedgerSettingsCommandTests
         await _entryRepository.AddAsync(Arg.Do<BalanceEntry>(e => stored = e), Arg.Any<CancellationToken>());
 
         var v0 = _space.LedgerVersion;
-        var created = await new CreateBalanceEntryHandler(_spaceRepository, _entryRepository, _userService, _userContext, _clock)
+        var created = await new CreateBalanceEntryHandler(_spaceRepository, _entryRepository, _userService, _userContext, _clock, TestUsers.ActiveRepository())
             .Handle(new CreateBalanceEntryCommand(_space.Id.Value, _member.Value, -538m, Now, "Excel cutoff"), default);
         created.IsSuccess.Should().BeTrue();
         _space.LedgerVersion.Should().BeGreaterThan(v0);
@@ -212,7 +212,7 @@ public sealed class LedgerSettingsCommandTests
         _entryRepository.GetByIdAsync(stored!.Id, Arg.Any<CancellationToken>()).Returns(stored);
 
         var v1 = _space.LedgerVersion;
-        var updated = await new UpdateBalanceEntryHandler(_spaceRepository, _entryRepository, _userService, _userContext, _clock)
+        var updated = await new UpdateBalanceEntryHandler(_spaceRepository, _entryRepository, _userService, _userContext, _clock, TestUsers.ActiveRepository())
             .Handle(new UpdateBalanceEntryCommand(_space.Id.Value, stored.Id.Value, _member.Value, _admin.Value, -500m, Now, "fixed", BalanceEntryKind.Opening), default);
         updated.IsSuccess.Should().BeTrue();
         _space.LedgerVersion.Should().BeGreaterThan(v1);
@@ -233,7 +233,7 @@ public sealed class LedgerSettingsCommandTests
         entry.MarkIncluded(SettlementId.New());
         _entryRepository.GetByIdAsync(entry.Id, Arg.Any<CancellationToken>()).Returns(entry);
 
-        var updated = await new UpdateBalanceEntryHandler(_spaceRepository, _entryRepository, _userService, _userContext, _clock)
+        var updated = await new UpdateBalanceEntryHandler(_spaceRepository, _entryRepository, _userService, _userContext, _clock, TestUsers.ActiveRepository())
             .Handle(new UpdateBalanceEntryCommand(_space.Id.Value, entry.Id.Value, _member.Value, _admin.Value, -1m, Now, "x", BalanceEntryKind.Opening), default);
         var deleted = await new DeleteBalanceEntryHandler(_spaceRepository, _entryRepository)
             .Handle(new DeleteBalanceEntryCommand(_space.Id.Value, entry.Id.Value), default);
@@ -246,7 +246,7 @@ public sealed class LedgerSettingsCommandTests
     [Fact]
     public async Task CreateEntry_ForANonMember_Fails()
     {
-        var result = await new CreateBalanceEntryHandler(_spaceRepository, _entryRepository, _userService, _userContext, _clock)
+        var result = await new CreateBalanceEntryHandler(_spaceRepository, _entryRepository, _userService, _userContext, _clock, TestUsers.ActiveRepository())
             .Handle(new CreateBalanceEntryCommand(_space.Id.Value, Guid.NewGuid(), -538m, Now, "Excel cutoff"), default);
 
         result.IsFailure.Should().BeTrue();

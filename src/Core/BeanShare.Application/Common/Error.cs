@@ -76,6 +76,15 @@ public readonly record struct Error(string Code, string Message)
         public const string BeforeLedgerStart = "BEFORE_LEDGER_START";
         public const string MemberHasBalance = "MEMBER_HAS_BALANCE";
         public const string PeriodNotDeletable = "PERIOD_NOT_DELETABLE";
+
+        // Placeholders, account linking and history
+        public const string NotPlaceholder = "NOT_PLACEHOLDER";
+        public const string LineMerged = "LINE_MERGED";
+        public const string MemberMerged = "MEMBER_MERGED";
+        public const string EmailNotVerified = "EMAIL_NOT_VERIFIED";
+        public const string SyncFailed = "SYNC_FAILED";
+        public const string PlaceholderLinkPending = "PLACEHOLDER_LINK_PENDING";
+        public const string HistoryImportInvalid = "HISTORY_IMPORT_INVALID";
     }
 
     public static Error SpaceNotFound(Guid spaceId) =>
@@ -244,4 +253,25 @@ public readonly record struct Error(string Code, string Message)
 
     public static Error PeriodNotDeletable(string state) =>
         new(Codes.PeriodNotDeletable, $"Only a draft billing period can be deleted (this one is {state})");
+
+    public static Error NotPlaceholder() =>
+        new(Codes.NotPlaceholder, "This member is not a placeholder");
+
+    public static Error LineMerged(string targetName) =>
+        new(Codes.LineMerged, $"This placeholder was merged; its balance is settled on {targetName}'s line");
+
+    public static Error MemberMerged() =>
+        new(Codes.MemberMerged, "This placeholder was merged into another member and can no longer be used");
+
+    public static Error EmailNotVerified() =>
+        new(Codes.EmailNotVerified, "Your email address is not verified with the sign-in provider; verify it and sign in again");
+
+    public static Error SyncFailed() =>
+        new(Codes.SyncFailed, "Your account could not be set up; please try again later");
+
+    public static Error PlaceholderLinkPending() =>
+        new(Codes.PlaceholderLinkPending, "A space admin created a member for your email; accept or decline the link first");
+
+    public static Error HistoryImportInvalid(string message) =>
+        new(Codes.HistoryImportInvalid, message);
 }

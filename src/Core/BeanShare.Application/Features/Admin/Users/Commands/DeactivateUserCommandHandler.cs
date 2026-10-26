@@ -1,5 +1,6 @@
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Common;
+using BeanShare.Application.Services;
 using BeanShare.Domain.Common;
 using MediatR;
 
@@ -10,13 +11,16 @@ public sealed class DeactivateUserCommandHandler : IRequestHandler<DeactivateUse
     private readonly IUserContext _userContext;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
+    private readonly IUserService _userService;
 
     public DeactivateUserCommandHandler(
         IUserRepository userRepository,
         IUserContext userContext,
         IUnitOfWork unitOfWork,
-        IClock clock)
+        IClock clock,
+        IUserService userService)
     {
+        _userService = userService;
         _userRepository = userRepository;
         _userContext = userContext;
         _unitOfWork = unitOfWork;
@@ -48,6 +52,7 @@ public sealed class DeactivateUserCommandHandler : IRequestHandler<DeactivateUse
 
         await _userRepository.UpdateAsync(user, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        _userService.Evict(user.Id, user.Email);
 
         return Result.Success();
     }

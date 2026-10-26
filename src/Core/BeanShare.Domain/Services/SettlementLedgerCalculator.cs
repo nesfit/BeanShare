@@ -12,13 +12,17 @@ public sealed record LedgerPurchase(UserId Payer, decimal Cost, decimal Grams);
 
 public sealed record LedgerEntry(UserId UserId, UserId CounterpartyUserId, decimal Amount);
 
+/// <param name="MergedInto">
+/// Merged placeholders and their targets (DS-32): each one's Net is swept to its target as the last step.
+/// </param>
 public sealed record LedgerCalculationInput(
     IReadOnlyList<LedgerCup> Cups,
     IReadOnlyList<LedgerPurchase> FallbackPurchases,
     IReadOnlyList<LedgerEntry> Entries,
     IReadOnlyDictionary<UserId, decimal> CarriedIn,
     UserId? Treasurer,
-    int Decimals);
+    int Decimals,
+    IReadOnlyDictionary<UserId, UserId>? MergedInto = null);
 
 /// <param name="UnassignedRounding">
 /// The rounding residual when no treasurer is set to carry it, so ΣNet + UnassignedRounding = 0; otherwise 0.
@@ -112,6 +116,8 @@ public static class SettlementLedgerCalculator
         if (lines.Count > 0 && input.Treasurer is { } t && lines.All(l => l.UserId != t))
             lines.Add(new LedgerLineSnapshot(t, 0m, null, 0m, 0m, 0m, 0m, 0m));
 
+        lines = SweepMerged(lines, input.MergedInto);
+
         return new LedgerCalculation(lines, rate, input.Treasurer is null ? residual : 0m);
     }
 
@@ -126,6 +132,37 @@ public static class SettlementLedgerCalculator
                 ? new LedgerTransfer(l.UserId, treasurer, -l.Net)
                 : new LedgerTransfer(treasurer, l.UserId, l.Net))
             .ToList();
+
+    /// <summary>
+    /// DS-32 (V1): a merged user's whole pre-sweep Net moves to its target inside the same calculation, so
+    /// its line nets to 0 and ΣNet is unchanged. The target gets a line when it has none.
+    /// </summary>
+    private static List<LedgerLineSnapshot> SweepMerged(List<LedgerLineSnapshot> lines, IReadOnlyDictionary<UserId, UserId>? mergedInto)
+    {
+        if (mergedInto is not { Count: > 0 })
+            return lines;
+
+        var moved = new Dictionary<UserId, decimal>();
+        foreach (var line in lines)
+        {
+            if (mergedInto.TryGetValue(line.UserId, out var target) && line.Net != 0)
+            {
+                Add(moved, line.UserId, -line.Net);
+                Add(moved, target, line.Net);
+            }
+        }
+
+        if (moved.Count == 0)
+            return lines;
+
+        var swept = lines
+            .Select(l => moved.TryGetValue(l.UserId, out var amount) ? l with { MergeTransfer = amount } : l)
+            .ToList();
+        foreach (var (user, amount) in moved.Where(m => swept.All(l => l.UserId != m.Key)))
+            swept.Add(new LedgerLineSnapshot(user, 0m, null, 0m, 0m, 0m, 0m, 0m, amount));
+
+        return swept;
+    }
 
     private static void Add(Dictionary<UserId, decimal> totals, UserId userId, decimal amount) =>
         totals[userId] = totals.GetValueOrDefault(userId) + amount;

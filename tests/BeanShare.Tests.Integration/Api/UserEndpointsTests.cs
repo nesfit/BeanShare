@@ -41,8 +41,8 @@ public sealed class UserEndpointsTests : IClassFixture<PostgreSqlFixture>
 
         var response = await _client.PutAsJsonAsync("/api/me/profile", request);
 
-        // Returns 400 if user has not been synced to local DB yet (USER_NOT_FOUND)
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent, HttpStatusCode.BadRequest);
+        // The fixture seeds user 1111…, so the profile exists (U2).
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent);
     }
 
     [Fact]
@@ -52,20 +52,19 @@ public sealed class UserEndpointsTests : IClassFixture<PostgreSqlFixture>
 
         var response = await _client.PutAsJsonAsync("/api/me/preferred-currency", request);
 
-        // Returns 400 if user has not been synced to local DB yet (USER_NOT_FOUND)
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent, HttpStatusCode.BadRequest);
+        // The fixture seeds user 1111…, so the profile exists (U2).
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent);
     }
 
     [Fact]
-    public async Task SyncUser_WithMockAuth_ShouldThrowDueToMissingClaims()
+    public async Task SyncUser_WithMockAuth_IsRefusedWithSyncFailed()
     {
-        // MockAuthenticationHandler uses ClaimTypes.Email (full URI) but UserSynchronizationService
-        // expects OIDC-style "email" or "preferred_username" claims. This is expected to fail
-        // in the mock test environment since proper OIDC claims are not available.
-        var act = async () => await _client.PostAsync("/api/users/sync", null);
+        // The mock principal has no OIDC "email" claim, so sync cannot match or create anyone: the endpoint
+        // refuses with 403 SYNC_FAILED instead of throwing (DS-30).
+        var response = await _client.PostAsync("/api/users/sync", null);
 
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Email claim not found*");
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("SYNC_FAILED");
     }
 
     [Fact]

@@ -155,6 +155,12 @@ if (useOidc)
             },
             OnTokenValidated = async context =>
             {
+                // Only sync may mark a pending placeholder link; drop any such claim the IdP sent (X6).
+                if (context.Principal != null)
+                {
+                    OidcClaimFilter.RemoveLinkPending(context.Principal);
+                }
+
                 // Extract roles from multiple OIDC claim formats for provider compatibility
                 if (context.Principal != null)
                 {
@@ -200,50 +206,39 @@ if (useOidc)
                     .GetService<BeanShare.Application.Services.IUserSynchronizationService>();
                 if (syncService != null && context.Principal != null)
                 {
+                    BeanShare.Application.Services.UserSyncOutcome outcome;
                     try
                     {
-                        await syncService.SyncFromClaimsAsync(context.Principal);
+                        outcome = await syncService.SyncFromClaimsAsync(context.Principal);
                     }
                     catch (Exception ex)
                     {
+                        // A failed sync refuses the sign-in; it never issues a cookie (DS-30, U8).
                         var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
                         logger.LogError(ex, "Failed to sync user from OIDC claims");
+                        outcome = new BeanShare.Application.Services.UserSyncOutcome.Refused(BeanShare.Application.Common.Error.Codes.SyncFailed);
+                    }
+
+                    if (outcome is BeanShare.Application.Services.UserSyncOutcome.Refused refused)
+                    {
+                        context.HandleResponse();
+                        context.Response.Redirect($"/account/sign-in-problem?code={Uri.EscapeDataString(refused.Code)}");
+                        return;
+                    }
+
+                    if (outcome is BeanShare.Application.Services.UserSyncOutcome.PlaceholderLinkPending
+                        && context.Principal.Identity is ClaimsIdentity pendingIdentity)
+                    {
+                        pendingIdentity.AddClaim(new Claim(BeanShare.Application.Services.OidcClaims.LinkPending, "true"));
                     }
                 }
 
-                // Strip non-essential claims from the ID token before the auth ticket is
-                // written to the cookie. Keeping only what the application actually reads
-                // prevents the cookie from chunking into multiple browser cookies (which
-                // causes "400 Request Header Or Cookie Too Large" behind nginx).
-                //
-                // Removed claim types and why they are safe to remove:
-                //   iss, aud, exp, iat, nbf, jti  – JWT validation fields; already consumed by the handler
-                //   nonce, auth_time, acr, amr, sid, at_hash, c_hash, azp, session_state
-                //                                  – OIDC protocol fields; not used after validation
-                //   realm_access                   – Keycloak JSON blob; roles already expanded above
-                //   roles, groups                  – raw claim strings; already expanded into ClaimTypes.Role
-                //   given_name, family_name, locale, zoneinfo, updated_at, picture,
-                //   website, phone_number, email_verified
-                //                                  – extended profile fields not read by this application
+                // Strip non-essential claims before the auth ticket is written to the cookie, so the cookie
+                // does not chunk ("400 Request Header Or Cookie Too Large" behind nginx). The kept set,
+                // including email_verified and the pending-link claim, is OidcClaimFilter.EssentialClaimTypes.
                 if (context.Principal?.Identity is ClaimsIdentity idToClean)
                 {
-                    var essentialClaimTypes = new HashSet<string>(StringComparer.Ordinal)
-                    {
-                        "sub",
-                        ClaimTypes.NameIdentifier,
-                        "email",
-                        "preferred_username",
-                        "name",
-                        "identity_provider",
-                        ClaimTypes.Role,
-                    };
-
-                    foreach (var claim in idToClean.Claims
-                        .Where(c => !essentialClaimTypes.Contains(c.Type))
-                        .ToList())
-                    {
-                        idToClean.RemoveClaim(claim);
-                    }
+                    OidcClaimFilter.KeepEssential(idToClean);
                 }
             }
         };
@@ -258,6 +253,7 @@ else
     builder.Services.AddIdentityInfrastructure(builder.Configuration);
     builder.Services.AddScoped<BeanShare.Application.Abstractions.IUserContext, BeanShare.BlazorWeb.Services.HttpUserContext>();
 }
+builder.Services.AddCurrentPrincipalAccessor(builder.Configuration);
 
 builder.Services.AddCascadingAuthenticationState();
 
@@ -299,6 +295,20 @@ app.UseStatusCodePagesWithReExecute("/not-found");
 app.UseAuthentication();
 app.UseAuthorization();
 
+// A session waiting for its placeholder link may only see the link page, the problem page and logout (DS-31).
+app.Use(async (context, next) =>
+{
+    if (context.User.Identity?.IsAuthenticated == true
+        && BeanShare.Application.Services.OidcClaims.HasLinkPending(context.User)
+        && !IsAllowedWhileLinkPending(context.Request.Path))
+    {
+        context.Response.Redirect("/account/link");
+        return;
+    }
+
+    await next();
+});
+
 var includeWebDemoData = app.Environment.IsDevelopment()
     || app.Configuration.GetValue<bool>("IncludeDemoData");
 await app.Services.InitializeBeanShareDatabaseAsync(includeWebDemoData);
@@ -325,6 +335,16 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+static bool IsAllowedWhileLinkPending(PathString path) =>
+    path.StartsWithSegments("/account/link")
+    || path.StartsWithSegments("/account/sign-in-problem")
+    || path.StartsWithSegments("/account/logout")
+    || path.StartsWithSegments("/logout")
+    || path.StartsWithSegments("/_blazor")
+    || path.StartsWithSegments("/_framework")
+    || path.StartsWithSegments("/_content")
+    || Path.HasExtension(path.Value);
 
 static string ResolvePublicBaseUrl(IServiceProvider services, string? configuredValue, string developmentFallback)
 {

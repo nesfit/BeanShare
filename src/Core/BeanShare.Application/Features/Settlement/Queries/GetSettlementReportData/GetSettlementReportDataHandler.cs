@@ -89,7 +89,7 @@ public sealed class GetSettlementReportDataHandler : IRequestHandler<GetSettleme
         {
             userLookup.TryGetValue(line.UserId, out var user);
             var userName = user?.Name ?? $"User {line.UserId.Value}";
-            var userEmail = user?.Email ?? "";
+            var userEmail = user?.PublicEmail ?? "";
 
             var consumptionPercentage = totalCoffeeGrams > 0
                 ? (line.TotalCoffeeGrams / totalCoffeeGrams) * 100
@@ -118,7 +118,9 @@ public sealed class GetSettlementReportDataHandler : IRequestHandler<GetSettleme
                 line.NetAmount,
                 line.Resolution?.ToString(),
                 TransferText(settlement, line, treasurerName),
-                settlement.IsTreasurerLine(line)
+                settlement.IsTreasurerLine(line),
+                line.MergeTransferAmount ?? 0m,
+                user?.MergedIntoUserId is { } mergedInto && userLookup.TryGetValue(mergedInto, out var target) ? target.Name : null
             ));
         }
 

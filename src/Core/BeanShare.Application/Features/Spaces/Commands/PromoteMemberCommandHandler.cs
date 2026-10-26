@@ -14,12 +14,15 @@ public sealed class PromoteMemberCommandHandler : IRequestHandler<PromoteMemberC
     private readonly ISpaceRepository _spaceRepository;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public PromoteMemberCommandHandler(
         ISpaceRepository spaceRepository,
         IUserContext userContext,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _spaceRepository = spaceRepository;
         _userContext = userContext;
         _clock = clock;
@@ -48,6 +51,11 @@ public sealed class PromoteMemberCommandHandler : IRequestHandler<PromoteMemberC
         if (targetMember == null)
         {
             return Result<MembershipDto>.Failure(Error.MemberNotFound(request.UserId, request.SpaceId));
+        }
+
+        if ((await _userRepository.GetAccessStatusAsync(targetUserId, cancellationToken))?.IsPlaceholder == true)
+        {
+            return Result<MembershipDto>.Failure(Error.CannotPromoteMember("a placeholder has no account and cannot be an admin"));
         }
 
         try

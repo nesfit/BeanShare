@@ -35,7 +35,10 @@ else
                       IsLastAdmin="@(member.Role == "Admin" && AdminCount == 1)"
                       OnPromote="HandlePromote"
                       OnDemote="HandleDemote"
-                      OnRemove="HandleRemove" />
+                      OnRemove="HandleRemove"
+                      IsPlaceholder="@member.IsPlaceholder"
+                      OnEditPlaceholder="OnEditPlaceholder"
+                      OnMergePlaceholder="OnMergePlaceholder" />
         }
     </div>
 
@@ -85,6 +88,14 @@ else
 
     [Parameter]
     public EventCallback OnLeaveSpace { get; set; }
+
+    /// <summary>Optional (null hides the action): edit a placeholder's name or email.</summary>
+    [Parameter]
+    public EventCallback<string> OnEditPlaceholder { get; set; }
+
+    /// <summary>Optional (null hides the action): merge a placeholder into a member (DS-32).</summary>
+    [Parameter]
+    public EventCallback<string> OnMergePlaceholder { get; set; }
 
     private int AdminCount => Members?.Count(m => m.Role == "Admin") ?? 0;
 

@@ -16,14 +16,17 @@ public sealed class LeaveSpaceCommandHandler : IRequestHandler<LeaveSpaceCommand
     private readonly LedgerSnapshotService _ledgerSnapshotService;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public LeaveSpaceCommandHandler(
         ISpaceRepository spaceRepository,
         ISettlementRepository settlementRepository,
         LedgerSnapshotService ledgerSnapshotService,
         IUserContext userContext,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _spaceRepository = spaceRepository;
         _settlementRepository = settlementRepository;
         _ledgerSnapshotService = ledgerSnapshotService;
@@ -56,7 +59,7 @@ public sealed class LeaveSpaceCommandHandler : IRequestHandler<LeaveSpaceCommand
                 "leave this space as an admin. Please transfer admin rights first or ask another admin to remove you"));
         }
 
-        if (await MemberDepartureGuard.CheckAsync(space, currentUserId, _settlementRepository, _ledgerSnapshotService, cancellationToken) is { } departureError)
+        if (await MemberDepartureGuard.CheckAsync(space, currentUserId, _settlementRepository, _ledgerSnapshotService, _userRepository, cancellationToken) is { } departureError)
         {
             return Result<LeaveSpaceResult>.Failure(departureError);
         }

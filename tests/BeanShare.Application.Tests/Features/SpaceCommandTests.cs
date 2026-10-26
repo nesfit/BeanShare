@@ -89,7 +89,7 @@ public class SpaceCommandTests
 
         spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(space);
 
-        var handler = new PromoteMemberCommandHandler(spaceRepository, userContext, clock);
+        var handler = new PromoteMemberCommandHandler(spaceRepository, userContext, clock, TestUsers.ActiveRepository());
         var command = new PromoteMemberCommand(spaceId.Value, memberId.Value);
 
         var result = await handler.Handle(command, default);
@@ -122,7 +122,7 @@ public class SpaceCommandTests
 
         spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(space);
 
-        var handler = new PromoteMemberCommandHandler(spaceRepository, userContext, clock);
+        var handler = new PromoteMemberCommandHandler(spaceRepository, userContext, clock, TestUsers.ActiveRepository());
         var command = new PromoteMemberCommand(spaceId.Value, memberId.Value);
 
         var result = await handler.Handle(command, default);
@@ -151,7 +151,7 @@ public class SpaceCommandTests
 
         spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(space);
 
-        var handler = new PromoteMemberCommandHandler(spaceRepository, userContext, clock);
+        var handler = new PromoteMemberCommandHandler(spaceRepository, userContext, clock, TestUsers.ActiveRepository());
         var command = new PromoteMemberCommand(spaceId.Value, nonMemberId.Value);
 
         var result = await handler.Handle(command, default);
@@ -182,7 +182,7 @@ public class SpaceCommandTests
 
         spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(space);
 
-        var handler = new PromoteMemberCommandHandler(spaceRepository, userContext, clock);
+        var handler = new PromoteMemberCommandHandler(spaceRepository, userContext, clock, TestUsers.ActiveRepository());
         var command = new PromoteMemberCommand(spaceId.Value, targetAdminId.Value);
 
         var result = await handler.Handle(command, default);
@@ -305,7 +305,7 @@ public class SpaceCommandTests
         spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(space);
         settlementRepository.GetBySpaceIdAsync(spaceId, default).Returns(new List<Domain.Aggregates.Settlement.Settlement>());
 
-        var handler = new RemoveMemberCommandHandler(spaceRepository, settlementRepository, EmptyLedger.SnapshotService(clock), userContext, mapper, clock);
+        var handler = new RemoveMemberCommandHandler(spaceRepository, settlementRepository, EmptyLedger.SnapshotService(clock), userContext, mapper, clock, TestUsers.ActiveRepository());
         var command = new RemoveMemberCommand(spaceId.Value, memberId.Value);
 
         var result = await handler.Handle(command, default);
@@ -337,7 +337,7 @@ public class SpaceCommandTests
         spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(space);
         settlementRepository.GetBySpaceIdAsync(spaceId, default).Returns(new List<Domain.Aggregates.Settlement.Settlement>());
 
-        var handler = new RemoveMemberCommandHandler(spaceRepository, settlementRepository, EmptyLedger.SnapshotService(clock), userContext, mapper, clock);
+        var handler = new RemoveMemberCommandHandler(spaceRepository, settlementRepository, EmptyLedger.SnapshotService(clock), userContext, mapper, clock, TestUsers.ActiveRepository());
         var command = new RemoveMemberCommand(spaceId.Value, adminId.Value);
 
         var result = await handler.Handle(command, default);
@@ -372,7 +372,7 @@ public class SpaceCommandTests
         spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(space);
         settlementRepository.GetBySpaceIdAsync(spaceId, default).Returns(new List<Domain.Aggregates.Settlement.Settlement>());
 
-        var handler = new RemoveMemberCommandHandler(spaceRepository, settlementRepository, EmptyLedger.SnapshotService(clock), userContext, mapper, clock);
+        var handler = new RemoveMemberCommandHandler(spaceRepository, settlementRepository, EmptyLedger.SnapshotService(clock), userContext, mapper, clock, TestUsers.ActiveRepository());
         var command = new RemoveMemberCommand(spaceId.Value, otherMemberId.Value);
 
         var result = await handler.Handle(command, default);

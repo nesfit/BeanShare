@@ -20,6 +20,7 @@ public sealed class GetSettlementPreviewHandler : IRequestHandler<GetSettlementP
     private readonly LedgerSnapshotService _ledgerSnapshotService;
     private readonly IUserService _userService;
     private readonly IUserContext _userContext;
+    private readonly IUserRepository _userRepository;
 
     public GetSettlementPreviewHandler(
         ISettlementRepository settlementRepository,
@@ -27,8 +28,10 @@ public sealed class GetSettlementPreviewHandler : IRequestHandler<GetSettlementP
         ISpaceRepository spaceRepository,
         LedgerSnapshotService ledgerSnapshotService,
         IUserService userService,
-        IUserContext userContext)
+        IUserContext userContext,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _settlementRepository = settlementRepository;
         _billingPeriodRepository = billingPeriodRepository;
         _spaceRepository = spaceRepository;
@@ -52,7 +55,7 @@ public sealed class GetSettlementPreviewHandler : IRequestHandler<GetSettlementP
             return Result<SettlementPreviewDto>.Failure(Error.InsufficientSpacePrivileges("preview settlements"));
 
         var spacePeriods = await _billingPeriodRepository.GetBySpaceIdAsync(space.Id, cancellationToken);
-        if (await SettlementGuards.CheckAsync(space, period, spacePeriods, _userService, cancellationToken) is { } guardError)
+        if (await SettlementGuards.CheckAsync(space, period, spacePeriods, _userRepository, cancellationToken) is { } guardError)
             return Result<SettlementPreviewDto>.Failure(guardError);
 
         if (await _settlementRepository.GetByBillingPeriodIdAsync(periodId, cancellationToken) is not null)
@@ -71,7 +74,7 @@ public sealed class GetSettlementPreviewHandler : IRequestHandler<GetSettlementP
             .Select(l => new SettlementLineDto(
                 l.UserId.Value,
                 NameOf(l.UserId),
-                users.TryGetValue(l.UserId, out var user) ? user.Email : string.Empty,
+                users.TryGetValue(l.UserId, out var user) ? user.PublicEmail : string.Empty,
                 l.CoffeeGrams,
                 l.MilkMl ?? 0,
                 l.Cost,
@@ -89,7 +92,9 @@ public sealed class GetSettlementPreviewHandler : IRequestHandler<GetSettlementP
                 l.Rounding,
                 Domain.Enums.LineResolution.Open.ToString(),
                 null,
-                l.UserId == treasurerId))
+                l.UserId == treasurerId,
+                l.MergeTransfer,
+                user?.MergedIntoUserId is { } mergedInto ? NameOf(mergedInto) : null))
             .OrderBy(l => l.NetBalance)
             .ThenBy(l => l.UserName)
             .ToList();

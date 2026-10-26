@@ -49,6 +49,18 @@ public sealed class Purchase : Entity
     /// </summary>
     public decimal DiscardedGrams { get; private set; }
 
+    /// <summary>
+    /// Grams of phantom write-off rows an admin voided (DS-42, J1): gone like a discard, billed to nobody, and
+    /// never brought back by <see cref="UndoWriteOff"/>.
+    /// </summary>
+    public decimal VoidedGrams { get; private set; }
+
+    /// <summary>
+    /// "Paid in Excel" (DS-41): the bag was settled in the old spreadsheet, so it earns no BeanShare credit and
+    /// is left out of the fallback price.
+    /// </summary>
+    public bool ExcludedFromLedgerCredit { get; private set; }
+
     /// <summary>How long after an admin empties a bag the write-off can still be undone.</summary>
     public static readonly TimeSpan WriteOffUndoWindow = TimeSpan.FromHours(24);
 

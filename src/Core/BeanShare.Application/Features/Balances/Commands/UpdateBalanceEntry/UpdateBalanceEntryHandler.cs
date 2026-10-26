@@ -18,14 +18,17 @@ public sealed class UpdateBalanceEntryHandler : IRequestHandler<UpdateBalanceEnt
     private readonly IUserService _userService;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public UpdateBalanceEntryHandler(
         ISpaceRepository spaceRepository,
         IBalanceEntryRepository balanceEntryRepository,
         IUserService userService,
         IUserContext userContext,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _spaceRepository = spaceRepository;
         _balanceEntryRepository = balanceEntryRepository;
         _userService = userService;
@@ -54,6 +57,10 @@ public sealed class UpdateBalanceEntryHandler : IRequestHandler<UpdateBalanceEnt
             if (!space.HasMember(party))
                 return Result<BalanceEntryDto>.Failure(Error.MemberNotFound(party.Value, command.SpaceId));
         }
+
+        // An entry naming a merged user can still be deleted, but not edited (W5).
+        if (await _userRepository.AnyMergedAsync(new[] { entry.UserId, entry.CounterpartyUserId, userId, counterpartyId }, cancellationToken))
+            return Result<BalanceEntryDto>.Failure(Error.MemberMerged());
 
         var validationError = BalanceEntry.GetValidationError(
             userId, counterpartyId, command.Amount, space.Currency, command.EffectiveDate,

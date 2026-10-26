@@ -29,6 +29,7 @@ public sealed partial class ScopedSenderRegistrationTests
         services.AddTransient<IRequestHandler<PingQuery, string>, PingHandler>();
         services.AddScoped(_ => Substitute.For<IUserContext>());
         services.AddScoped(_ => Substitute.For<ISpaceRepository>());
+        services.AddScoped(_ => Substitute.For<IUserRepository>());
         services.AddScoped(_ => Substitute.For<IUnitOfWork>());
         services.AddScoped(_ => Substitute.For<IDomainEventDispatcher>());
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

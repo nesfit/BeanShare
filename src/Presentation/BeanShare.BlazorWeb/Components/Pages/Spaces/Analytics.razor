@@ -41,6 +41,38 @@
 
     <SpaceAnalytics Analytics="@spaceAnalytics"
                    IsLoading="@isLoading" />
+
+    @if (history is { Periods.Count: > 0 })
+    {
+        <div class="bs-card" style="padding: 1.5rem; margin-top: 1.5rem;">
+            <h3 style="margin: 0 0 0.25rem 0; font-size: 1.05rem; font-weight: 600;">History</h3>
+            <p class="bs-text-subtle" style="margin: 0 0 1rem 0; font-size: 0.8125rem;">
+                @history.Periods.Count imported period(s) up to @history.HistoryEnd?.ToString("yyyy-MM-dd"), plus cups logged in BeanShare since.
+            </p>
+            <div class="bs-flex bs-gap-4" style="flex-wrap: wrap; align-items: flex-start;">
+                <div style="flex: 1; min-width: 16rem;">
+                    <div class="bs-text-subtle" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem;">ALL-TIME CUPS</div>
+                    @foreach (var member in history.MemberCups)
+                    {
+                        <div class="bs-flex bs-justify-between" style="padding: 0.25rem 0; border-top: 1px solid var(--bs-border); font-size: 0.875rem;">
+                            <span>@member.UserName</span>
+                            <span style="font-weight: 600;" title="@($"{member.HistoricalCups} from the spreadsheet, {member.LiveCups} in BeanShare")">@member.TotalCups</span>
+                        </div>
+                    }
+                </div>
+                <div style="flex: 1; min-width: 12rem;">
+                    <div class="bs-text-subtle" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem;">COFFEE BOUGHT PER YEAR</div>
+                    @foreach (var year in history.Years)
+                    {
+                        <div class="bs-flex bs-justify-between" style="padding: 0.25rem 0; border-top: 1px solid var(--bs-border); font-size: 0.875rem;">
+                            <span>@year.Year</span>
+                            <span style="font-weight: 600;">@year.Cost.ToString("0.00") @history.Currency</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 <Toast IsVisible="@showToast" IsError="true" Title="Error" Message="@toastMessage" OnClose="@(() => showToast = false)" />
@@ -50,6 +82,7 @@
     public string SpaceId { get; set; } = "";
 
     private SpaceAnalyticsDto? spaceAnalytics;
+    private BeanShare.Application.Features.History.Dtos.SpaceHistoryDto? history;
     private bool isLoading = true;
     private int rangeDays = 30;
 
@@ -61,6 +94,8 @@
         if (!string.IsNullOrEmpty(SpaceId))
         {
             await LoadAnalytics();
+            var historyResult = await Mediator.Send(new BeanShare.Application.Features.History.Queries.GetSpaceHistory.GetSpaceHistoryQuery(Guid.Parse(SpaceId)));
+            history = historyResult.IsSuccess ? historyResult.Value : null;
         }
     }
 

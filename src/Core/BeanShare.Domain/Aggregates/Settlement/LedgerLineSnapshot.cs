@@ -4,7 +4,7 @@ namespace BeanShare.Domain.Aggregates.Settlement;
 
 /// <summary>
 /// The amounts of one member's ledger settlement line, all rounded to the currency's decimals.
-/// Net = Credit − Cost + CarriedIn + Adjustments + Rounding; positive means the member is owed.
+/// Net = Credit − Cost + CarriedIn + Adjustments + Rounding + MergeTransfer; positive means the member is owed.
 /// </summary>
 public sealed record LedgerLineSnapshot(
     UserId UserId,
@@ -14,7 +14,8 @@ public sealed record LedgerLineSnapshot(
     decimal Credit,
     decimal CarriedIn,
     decimal Adjustments,
-    decimal Rounding)
+    decimal Rounding,
+    decimal MergeTransfer = 0m)
 {
-    public decimal Net => Credit - Cost + CarriedIn + Adjustments + Rounding;
+    public decimal Net => Credit - Cost + CarriedIn + Adjustments + Rounding + MergeTransfer;
 }

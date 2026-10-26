@@ -29,6 +29,13 @@ public static partial class BalancePasteEvaluator
     {
         public bool IsValid => Errors.Count == 0 && Rows.Count > 0 && Rows.All(r => r.IsValid);
         public decimal Total => Rows.Where(r => r.IsValid).Sum(r => r.Amount ?? 0m);
+
+        /// <summary>The distinct member texts that become placeholders on commit (DS-17), in first-seen order.</summary>
+        public IReadOnlyList<string> PlaceholdersToCreate => Rows
+            .Where(r => r.IsNewPlaceholder)
+            .Select(r => r.MemberText.Trim())
+            .DistinctBy(t => t.ToLowerInvariant())
+            .ToList();
     }
 
     /// <summary>Batch defaults: counterparty = the caller, date = the ledger start date, else today.</summary>
@@ -48,7 +55,8 @@ public static partial class BalancePasteEvaluator
             space.Currency,
             space.LedgerStartDate);
 
-    public static Evaluation Evaluate(string? text, Batch batch, MemberResolver members, IClock clock)
+    /// <param name="createPlaceholders">An unknown member becomes a placeholder instead of an error (DS-17).</param>
+    public static Evaluation Evaluate(string? text, Batch batch, MemberResolver members, IClock clock, bool createPlaceholders = false)
     {
         var errors = new List<string>();
         var rows = new List<BalancePasteRowDto>();
@@ -83,8 +91,16 @@ public static partial class BalancePasteEvaluator
 
             var memberText = cells[0];
             var match = members.Resolve(memberText);
-            if (match.Error is not null)
+            var isNewPlaceholder = createPlaceholders && match.IsUnknown;
+            if (isNewPlaceholder)
+            {
+                warnings.Add($"A placeholder member will be created for '{memberText.Trim()}'");
+                match = new MemberMatch(PlaceholderIdFor(memberText), memberText.Trim(), null);
+            }
+            else if (match.Error is not null)
+            {
                 rowErrors.Add(match.Error);
+            }
 
             decimal? amount = null;
             if (cells.Length >= 2)
@@ -109,7 +125,8 @@ public static partial class BalancePasteEvaluator
                     warnings.Add($"{match.Name} appears more than once");
             }
 
-            rows.Add(new BalancePasteRowDto(number, memberText, match.UserId?.Value, match.Name, amount, note, rowErrors, warnings));
+            rows.Add(new BalancePasteRowDto(
+                number, memberText, isNewPlaceholder ? null : match.UserId?.Value, match.Name, amount, note, rowErrors, warnings, isNewPlaceholder));
         }
 
         return new Evaluation(rows, errors);
@@ -124,6 +141,13 @@ public static partial class BalancePasteEvaluator
 
         return decimal.TryParse(value.Replace(',', '.'), NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
             CultureInfo.InvariantCulture, out amount);
+    }
+
+    /// <summary>A stable stand-in id per new placeholder text, so validation and duplicate warnings work before it exists.</summary>
+    private static UserId PlaceholderIdFor(string text)
+    {
+        var bytes = System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(text.Trim().ToLowerInvariant()));
+        return new UserId(new Guid(bytes));
     }
 
     private static string[] SplitCells(string line) => line.Split(';').Select(c => c.Trim()).ToArray();

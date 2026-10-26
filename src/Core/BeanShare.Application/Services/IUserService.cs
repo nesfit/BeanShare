@@ -48,4 +48,10 @@ public interface IUserService
     /// Add a new user to the database
     /// </summary>
     Task AddAsync(User user, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Drops the cached copies of a user (by id and by each given email), after a claim, decline, merge or
+    /// placeholder edit changed the row behind the cache.
+    /// </summary>
+    void Evict(UserId userId, params string[] emails);
 }

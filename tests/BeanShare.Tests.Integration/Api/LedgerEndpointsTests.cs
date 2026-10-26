@@ -2,12 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using BeanShare.Application.Features.Balances.Dtos;
 using BeanShare.Contracts.Spaces;
-using BeanShare.Domain.Entities;
-using BeanShare.Infrastructure.Persistence;
 using BeanShare.Tests.Integration.Extensions;
 using BeanShare.Tests.Integration.Fixtures;
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace BeanShare.Tests.Integration.Api;
 
@@ -97,7 +94,7 @@ public sealed class LedgerEndpointsTests : IClassFixture<PostgreSqlFixture>
     public async Task Paste_PreviewAndCommit_ReturnOkAndCreated()
     {
         var (spaceId, inviteCode) = await CreateSpaceAsync("Ledger Paste");
-        var member = await JoinAsync(inviteCode, withProfile: true);
+        var member = await JoinAsync(inviteCode);
         var request = new { Text = $"{EmailOf(member)};-12.50;Excel", BatchNote = "cutover" };
         var unknown = new { Text = "nobody@test.com;-12.50;Excel" };
 
@@ -165,17 +162,11 @@ public sealed class LedgerEndpointsTests : IClassFixture<PostgreSqlFixture>
         return (created!.SpaceId, created.InviteCode);
     }
 
-    /// <param name="withProfile">Also store the user's profile row, so a paste can match them by email.</param>
-    private async Task<Guid> JoinAsync(string inviteCode, bool withProfile = false)
+    /// <summary>A new user (with the profile row every command needs, DS-30) joins the space.</summary>
+    private async Task<Guid> JoinAsync(string inviteCode)
     {
         var userId = Guid.NewGuid();
-        if (withProfile)
-        {
-            using var scope = _fixture.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<BeanShareDbContext>();
-            db.Users.Add(User.CreateWithIdAndPassword(userId, EmailOf(userId), $"Member {userId:N}", "hash", DateTime.UtcNow));
-            await db.SaveChangesAsync();
-        }
+        await _fixture.EnsureUserAsync(userId, EmailOf(userId));
 
         _client.WithTestUser(userId, EmailOf(userId));
         var response = await _client.PostAsJsonAsync("/api/spaces/join", new JoinSpaceRequest { InviteCode = inviteCode });

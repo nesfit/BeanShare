@@ -25,6 +25,9 @@ public sealed class SettlementLine : Entity
     public decimal? CarriedInAmount { get; private set; }
     public decimal? AdjustmentsAmount { get; private set; }
     public decimal? RoundingAmount { get; private set; }
+
+    /// <summary>The merge sweep (DS-32): −pre-sweep Net on a merged placeholder, +that on its target.</summary>
+    public decimal? MergeTransferAmount { get; private set; }
     public decimal? NetAmount { get; private set; }
     public LineResolution? Resolution { get; private set; }
 
@@ -86,6 +89,7 @@ public sealed class SettlementLine : Entity
         line.CarriedInAmount = snapshot.CarriedIn;
         line.AdjustmentsAmount = snapshot.Adjustments;
         line.RoundingAmount = snapshot.Rounding;
+        line.MergeTransferAmount = snapshot.MergeTransfer;
         line.NetAmount = snapshot.Net;
         line.Resolution = LineResolution.Open;
         line.CarriedFromSettlementId = carriedFromSettlementId;

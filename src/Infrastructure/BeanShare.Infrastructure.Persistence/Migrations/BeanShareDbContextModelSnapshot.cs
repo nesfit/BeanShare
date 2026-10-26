@@ -45,6 +45,14 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("HistoryImportId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsHistorical")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -74,6 +82,8 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("HistoryImportId");
 
                     b.HasIndex("SpaceId");
 
@@ -132,6 +142,11 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .HasColumnType("decimal(10,1)")
                         .HasDefaultValue(0m);
 
+                    b.Property<bool>("ExcludedFromLedgerCredit")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Label")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -167,6 +182,11 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("integer");
 
+                    b.Property<decimal>("VoidedGrams")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(10,1)")
+                        .HasDefaultValue(0m);
+
                     b.Property<decimal>("WrittenOffGrams")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("decimal(10,1)")
@@ -185,6 +205,32 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                     b.HasIndex("CoffeeStockId", "PurchasedAt");
 
                     b.ToTable("Purchases", (string)null);
+                });
+
+            modelBuilder.Entity("BeanShare.Domain.Aggregates.History.HistoryImport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ImportedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ImportedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("SpaceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SpaceId");
+
+                    b.ToTable("HistoryImports", (string)null);
                 });
 
             modelBuilder.Entity("BeanShare.Domain.Aggregates.Ledger.BalanceEntry", b =>
@@ -742,8 +788,16 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("IsPlaceholder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<DateTime>("LastLoginAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("MergedIntoUserId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -945,6 +999,90 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("BeanShare.Domain.Aggregates.History.HistoryImport", b =>
+                {
+                    b.OwnsMany("BeanShare.Domain.Aggregates.History.HistoricalCupCount", "CupCounts", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("BillingPeriodId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<int>("Cups")
+                                .HasColumnType("integer");
+
+                            b1.Property<Guid>("HistoryImportId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("UserId")
+                                .HasColumnType("uuid");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("HistoryImportId");
+
+                            b1.HasIndex("BillingPeriodId", "UserId")
+                                .IsUnique();
+
+                            b1.ToTable("HistoricalCupCounts", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("HistoryImportId");
+                        });
+
+                    b.OwnsMany("BeanShare.Domain.Aggregates.History.HistoricalPurchase", "Purchases", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("BillingPeriodId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal>("Cost")
+                                .HasPrecision(18, 4)
+                                .HasColumnType("numeric(18,4)");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character varying(3)");
+
+                            b1.Property<string>("Description")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)");
+
+                            b1.Property<decimal?>("Grams")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("numeric(18,2)");
+
+                            b1.Property<Guid>("HistoryImportId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid?>("PaidByUserId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<DateTime?>("PurchasedAt")
+                                .HasColumnType("date");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("BillingPeriodId");
+
+                            b1.HasIndex("HistoryImportId");
+
+                            b1.ToTable("HistoricalPurchases", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("HistoryImportId");
+                        });
+
+                    b.Navigation("CupCounts");
+
+                    b.Navigation("Purchases");
+                });
+
             modelBuilder.Entity("BeanShare.Domain.Aggregates.Settlement.Settlement", b =>
                 {
                     b.OwnsMany("BeanShare.Domain.Aggregates.Settlement.SettlementLine", "Lines", b1 =>
@@ -985,6 +1123,10 @@ namespace BeanShare.Infrastructure.Persistence.Migrations
                                 .HasColumnType("uuid");
 
                             b1.Property<decimal?>("LegacyAmountPaid")
+                                .HasPrecision(18, 4)
+                                .HasColumnType("numeric(18,4)");
+
+                            b1.Property<decimal?>("MergeTransferAmount")
                                 .HasPrecision(18, 4)
                                 .HasColumnType("numeric(18,4)");
 

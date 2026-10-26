@@ -29,13 +29,13 @@ public sealed class MemberRemovalGuardTests
 
     private Task<Result<MemberActionDto>> RemoveAsync(UserId member) =>
         new RemoveMemberCommandHandler(_world.SpaceRepository, _world.SettlementRepository, _world.SnapshotService,
-            _world.UserContext, Substitute.For<IMapper>(), _world.Clock).Handle(new RemoveMemberCommand(_world.Space.Id.Value, member.Value), default);
+            _world.UserContext, Substitute.For<IMapper>(), _world.Clock, TestUsers.ActiveRepository()).Handle(new RemoveMemberCommand(_world.Space.Id.Value, member.Value), default);
 
     private Task<Result<LeaveSpaceResult>> LeaveAsync(UserId member)
     {
         _world.Actor = member;
         return new LeaveSpaceCommandHandler(_world.SpaceRepository, _world.SettlementRepository, _world.SnapshotService,
-            _world.UserContext, _world.Clock).Handle(new LeaveSpaceCommand(_world.Space.Id.Value), default);
+            _world.UserContext, _world.Clock, TestUsers.ActiveRepository()).Handle(new LeaveSpaceCommand(_world.Space.Id.Value), default);
     }
 
     [Fact]

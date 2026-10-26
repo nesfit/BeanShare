@@ -18,7 +18,9 @@ public sealed class ConfirmPaymentHandler(
     ISettlementRepository settlementRepository,
     ISpaceRepository spaceRepository,
     IUserContext userContext,
-    IClock clock) : IRequestHandler<ConfirmPaymentCommand, Result>
+    IClock clock,
+    IUserRepository userRepository,
+    BeanShare.Application.Services.IUserService userService) : IRequestHandler<ConfirmPaymentCommand, Result>
 {
     public async Task<Result> Handle(ConfirmPaymentCommand command, CancellationToken cancellationToken)
     {
@@ -42,6 +44,13 @@ public sealed class ConfirmPaymentHandler(
 
         if (line is null)
             return Result.Failure(Error.SettlementLineNotFound(command.MemberUserId));
+
+        // Uncached (V1): a merge done in the other head must count at once.
+        if ((await userRepository.GetAccessStatusAsync(memberUserId, cancellationToken))?.MergedIntoUserId is { } mergedInto)
+        {
+            var target = await userService.GetByIdAsync(mergedInto, cancellationToken);
+            return Result.Failure(Error.LineMerged(target?.Name ?? "the merged member"));
+        }
         if (line.IsCarried)
             return Result.Failure(new Error(Error.Codes.LineCarried,
                 $"This line was carried into settlement {line.CarriedToSettlementId}; confirm it there"));

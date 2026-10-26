@@ -37,4 +37,7 @@ public sealed record SpaceMember
     public required string Role { get; init; }
     public required DateTime JoinedAt { get; init; }
     public string UserName { get; init; } = "Unknown User";
+
+    // A member without an account (no login).
+    public bool IsPlaceholder { get; init; }
 }

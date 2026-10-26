@@ -149,6 +149,7 @@ public sealed class SettlementConfiguration : IEntityTypeConfiguration<Settlemen
             linesConfig.Property(l => l.CarriedInAmount).HasPrecision(18, 4);
             linesConfig.Property(l => l.AdjustmentsAmount).HasPrecision(18, 4);
             linesConfig.Property(l => l.RoundingAmount).HasPrecision(18, 4);
+            linesConfig.Property(l => l.MergeTransferAmount).HasPrecision(18, 4);
             linesConfig.Property(l => l.NetAmount).HasPrecision(18, 4);
             linesConfig.Property(l => l.CarriedOutAmount).HasPrecision(18, 4);
             linesConfig.Property(l => l.LegacyAmountPaid).HasPrecision(18, 4);

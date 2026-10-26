@@ -3,6 +3,7 @@ using BeanShare.Domain.Common;
 using BeanShare.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace BeanShare.Infrastructure.Persistence.Configurations;
 
@@ -70,6 +71,17 @@ public sealed class BillingPeriodConfiguration : IEntityTypeConfiguration<Billin
 
         builder.Property(bp => bp.Version)
             .IsConcurrencyToken();
+
+        builder.Property(bp => bp.IsHistorical)
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        builder.Property(bp => bp.HistoryImportId)
+            .HasConversion(new ValueConverter<HistoryImportId?, Guid?>(
+                id => id.HasValue ? id.Value.Value : (Guid?)null,
+                value => value.HasValue ? new HistoryImportId(value.Value) : (HistoryImportId?)null));
+
+        builder.HasIndex(bp => bp.HistoryImportId);
 
         builder.Ignore(bp => bp.DomainEvents);
 

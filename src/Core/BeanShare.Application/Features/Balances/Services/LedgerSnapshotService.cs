@@ -36,6 +36,7 @@ public sealed class LedgerSnapshotService
     private readonly ICoffeeStockRepository _coffeeStockRepository;
     private readonly IBillingPeriodRepository _billingPeriodRepository;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public LedgerSnapshotService(
         IConsumptionRepository consumptionRepository,
@@ -43,8 +44,10 @@ public sealed class LedgerSnapshotService
         ISettlementRepository settlementRepository,
         ICoffeeStockRepository coffeeStockRepository,
         IBillingPeriodRepository billingPeriodRepository,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _consumptionRepository = consumptionRepository;
         _balanceEntryRepository = balanceEntryRepository;
         _settlementRepository = settlementRepository;
@@ -73,7 +76,8 @@ public sealed class LedgerSnapshotService
     public async Task<LedgerSnapshot> RunningAsync(Space space, CancellationToken cancellationToken)
     {
         var periods = await _billingPeriodRepository.GetBySpaceIdAsync(space.Id, cancellationToken);
-        var settled = periods.Where(p => p.State == BillingState.Settled).ToList();
+        // Live periods only: imported history is statistics and must not move the watermark (B26).
+        var settled = periods.Where(p => p.State == BillingState.Settled && !p.IsHistorical).ToList();
         var settledPeriodIds = settled.Select(p => p.Id).ToHashSet();
         var settledThrough = settled.Select(p => (DateTime?)p.EndDate).Max();
 
@@ -115,13 +119,26 @@ public sealed class LedgerSnapshotService
             .ToList();
 
         var carriedIn = previous?.GetCarryOut() ?? new Dictionary<UserId, decimal>();
+        var ledgerEntries = entries.Select(e => new LedgerEntry(e.UserId, e.CounterpartyUserId, e.Amount)).ToList();
+
+        // Every user the calculation can touch, member or not (W1), read uncached (DS-30).
+        var inputUsers = carriedIn.Keys
+            .Concat(ledgerCups.Select(c => c.Drinker))
+            .Concat(ledgerCups.Where(c => c.Payer.HasValue).Select(c => c.Payer!.Value))
+            .Concat(ledgerEntries.SelectMany(e => new[] { e.UserId, e.CounterpartyUserId }))
+            .Concat(fallbackPurchases.Select(p => p.Payer))
+            .ToHashSet();
+        var mergedInto = await _userRepository.GetMergedMapAsync(inputUsers, cancellationToken)
+            ?? new Dictionary<UserId, UserId>();
+
         var calculation = SettlementLedgerCalculator.Calculate(new LedgerCalculationInput(
             ledgerCups,
             fallbackPurchases,
-            entries.Select(e => new LedgerEntry(e.UserId, e.CounterpartyUserId, e.Amount)).ToList(),
+            ledgerEntries,
             carriedIn,
             space.TreasurerUserId,
-            currency.DecimalPlaces));
+            currency.DecimalPlaces,
+            mergedInto));
 
         return new LedgerSnapshot(calculation, cups, entries, previous, carriedIn, stock);
     }

@@ -116,4 +116,47 @@ public sealed class UserRepository(BeanShareDbContext context) : IUserRepository
     {
         return await _context.Users.CountAsync(u => u.SystemRole == role, ct);
     }
+
+    public async Task<UserAccessStatus> GetAccessStatusAsync(UserId id, CancellationToken ct = default)
+    {
+        var row = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.Id == id)
+            .Select(u => new { u.IsActive, u.IsPlaceholder, u.MergedIntoUserId })
+            .FirstOrDefaultAsync(ct);
+
+        return row is null
+            ? UserAccessStatus.Missing
+            : new UserAccessStatus(true, row.IsActive, row.IsPlaceholder, row.MergedIntoUserId);
+    }
+
+    public async Task<IReadOnlyDictionary<UserId, UserId>> GetMergedMapAsync(IReadOnlyCollection<UserId> userIds, CancellationToken ct = default)
+    {
+        if (userIds.Count == 0)
+            return new Dictionary<UserId, UserId>();
+
+        // Few merged users exist; read them all and filter in memory (value-object ids do not translate
+        // to SQL IN lists here).
+        var merged = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.MergedIntoUserId != null)
+            .Select(u => new { u.Id, u.MergedIntoUserId })
+            .ToListAsync(ct);
+
+        var wanted = userIds.ToHashSet();
+        return merged
+            .Where(m => wanted.Contains(m.Id))
+            .ToDictionary(m => m.Id, m => m.MergedIntoUserId!.Value);
+    }
+
+    public async Task<User?> FindByEmailAsync(string email, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return null;
+
+        var lower = email.Trim().ToLowerInvariant();
+        return await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == lower, ct);
+    }
 }

@@ -17,13 +17,15 @@ public sealed class OidcClaimsTransformation : IClaimsTransformation
 {
     private readonly IUserService _userService;
     private readonly IMemoryCache _cache;
+    private readonly UserSyncSettings _settings;
 
     private sealed record CachedUserResult(Guid DbUserId, SystemRole SystemRole);
 
-    public OidcClaimsTransformation(IUserService userService, IMemoryCache cache)
+    public OidcClaimsTransformation(IUserService userService, IMemoryCache cache, UserSyncSettings? settings = null)
     {
         _userService = userService;
         _cache = cache;
+        _settings = settings ?? new UserSyncSettings();
     }
 
     public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
@@ -54,10 +56,17 @@ public sealed class OidcClaimsTransformation : IClaimsTransformation
 
         var userByProvider = await _userService.GetByProviderUserIdAsync(provider, sub);
 
-        var email = principal.FindFirst("email")?.Value;
+        // The email fallback needs a verified address (D24), never maps to a placeholder (DS-15) and never uses a
+        // sentinel address: claiming a placeholder happens only through sync and the person's acceptance.
+        var email = principal.FindFirst("email")?.Value?.Trim();
         User? userByEmail = null;
-        if (!string.IsNullOrEmpty(email))
-            userByEmail = await _userService.GetByEmailAsync(email);
+        if (userByProvider is null && !string.IsNullOrEmpty(email) && !User.IsSentinelEmail(email)
+            && (OidcClaims.IsEmailVerified(principal) || !_settings.RequireVerifiedEmailForLinking))
+        {
+            var candidate = await _userService.GetByEmailAsync(email);
+            if (candidate is { IsPlaceholder: false, IsMerged: false })
+                userByEmail = candidate;
+        }
 
         var user = userByProvider ?? userByEmail;
 
@@ -69,6 +78,9 @@ public sealed class OidcClaimsTransformation : IClaimsTransformation
 
         if (!string.Equals(sub, user.Id.Value.ToString(), StringComparison.Ordinal))
         {
+            // Keep the provider's subject for sync, which must find the account by it, not by the database id.
+            identity.AddClaim(new Claim(OidcClaims.ProviderSubject, sub, ClaimValueTypes.String, OidcClaims.LocalIssuer));
+
             var oldSub = identity.FindFirst("sub");
             if (oldSub is not null)
                 identity.RemoveClaim(oldSub);

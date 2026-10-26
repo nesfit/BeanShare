@@ -59,9 +59,12 @@ public sealed class GetSpaceBillingPeriodsHandler : IRequestHandler<GetSpaceBill
 
         foreach (var period in billingPeriods.OrderByDescending(p => p.StartDate))
         {
-            var periodConsumptions = consumptions
-                .Where(c => c.ConsumedAt >= period.StartDate && c.ConsumedAt <= period.EndDate)
-                .ToList();
+            // A historical period's cups live in its import (DS-16), never in the live consumption table.
+            var periodConsumptions = period.IsHistorical
+                ? []
+                : consumptions
+                    .Where(c => c.ConsumedAt >= period.StartDate && c.ConsumedAt <= period.EndDate)
+                    .ToList();
 
             var daysRemaining = period.State == BillingState.Open
                 ? Math.Max(0, (int)(period.EndDate - _clock.UtcNow).TotalDays)
@@ -75,7 +78,9 @@ public sealed class GetSpaceBillingPeriodsHandler : IRequestHandler<GetSpaceBill
                 period.State.ToString(),
                 daysRemaining,
                 periodConsumptions.Count,
-                periodConsumptions.Sum(c => c.Quantity.Grams)
+                periodConsumptions.Sum(c => c.Quantity.Grams),
+                period.IsHistorical,
+                period.HistoryImportId?.Value
             ));
         }
 

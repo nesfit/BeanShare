@@ -26,6 +26,7 @@ public sealed class MembershipChangedNotificationHandler(
             foreach (var member in space.Members)
             {
                 if (member.UserId == notification.UserId) continue;
+                if ((await userRepository.GetAccessStatusAsync(member.UserId, cancellationToken))?.IsPlaceholder == true) continue;
 
                 var n = Notification.Create(
                     member.UserId,
@@ -43,6 +44,7 @@ public sealed class MembershipChangedNotificationHandler(
             foreach (var member in space.Members.Where(m => m.Role == SpaceRole.Admin))
             {
                 if (member.UserId == notification.UserId) continue;
+                if ((await userRepository.GetAccessStatusAsync(member.UserId, cancellationToken))?.IsPlaceholder == true) continue;
 
                 var n = Notification.Create(
                     member.UserId,

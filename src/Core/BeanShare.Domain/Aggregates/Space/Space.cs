@@ -107,6 +107,24 @@ public sealed class Space : AggregateRoot
         ));
     }
     
+    /// <summary>Adds a placeholder as an ordinary member; the event tells handlers not to notify (F11).</summary>
+    public void AddPlaceholderMember(UserId userId, IClock clock)
+    {
+        if (HasMember(userId))
+            throw new SpaceDomainException("User is already a member of this space");
+
+        var joinedAt = clock.UtcNow;
+        _members.Add(SpaceMembership.Create(userId, SpaceRole.Member, joinedAt));
+
+        RaiseDomainEvent(new SpaceMembershipChanged(
+            Id,
+            userId,
+            MembershipChangeType.PlaceholderAdded,
+            SpaceRole.Member,
+            joinedAt
+        ));
+    }
+
     public void PromoteMember(UserId userId, IClock clock)
     {
         var member = GetMember(userId);

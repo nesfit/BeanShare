@@ -8,7 +8,8 @@ public sealed record BalancePasteRowDto(
     decimal? Amount,
     string Note,
     IReadOnlyList<string> Errors,
-    IReadOnlyList<string> Warnings)
+    IReadOnlyList<string> Warnings,
+    bool IsNewPlaceholder = false)
 {
     public bool IsValid => Errors.Count == 0;
 }
@@ -29,7 +30,8 @@ public sealed record BalancePastePreviewDto(
     DateTime EffectiveDate,
     string Kind,
     decimal CounterpartyBalance,
-    decimal CounterpartyResultingBalance)
+    decimal CounterpartyResultingBalance,
+    IReadOnlyList<string>? PlaceholdersToCreate = null)
 {
     public bool CanCommit => Errors.Count == 0 && ErrorRowCount == 0 && Rows.Count > 0;
 }

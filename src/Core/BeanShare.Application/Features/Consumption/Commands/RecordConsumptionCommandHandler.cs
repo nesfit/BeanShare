@@ -16,14 +16,17 @@ public sealed class RecordConsumptionCommandHandler : IRequestHandler<RecordCons
     private readonly ISpaceRepository _spaceRepository;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public RecordConsumptionCommandHandler(
         ICoffeeStockRepository coffeeStockRepository,
         IConsumptionRepository consumptionRepository,
         ISpaceRepository spaceRepository,
         IUserContext userContext,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _coffeeStockRepository = coffeeStockRepository;
         _consumptionRepository = consumptionRepository;
         _spaceRepository = spaceRepository;
@@ -46,6 +49,8 @@ public sealed class RecordConsumptionCommandHandler : IRequestHandler<RecordCons
             var forUser = new UserId(request.ForUserId.Value);
             if (!space.HasMember(forUser))
                 return Result<ConsumptionEntryDto>.Failure(Error.MemberNotFound(request.ForUserId.Value, request.SpaceId));
+            if (await _userRepository.IsMergedAsync(forUser, cancellationToken))
+                return Result<ConsumptionEntryDto>.Failure(Error.MemberMerged());
 
             targetUserId = forUser;
         }

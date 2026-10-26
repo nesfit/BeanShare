@@ -8,7 +8,8 @@ namespace BeanShare.Application.Features.Spaces.Commands;
 
 /// <summary>
 /// Who may not leave or be removed (design §3.4): the treasurer, a member with an unconfirmed legacy line,
-/// the payer of a bag that still holds coffee, and anyone whose running balance is not zero.
+/// the payer of a bag that still holds coffee, anyone whose running balance is not zero, and a merged
+/// placeholder.
 /// </summary>
 internal static class MemberDepartureGuard
 {
@@ -17,8 +18,13 @@ internal static class MemberDepartureGuard
         UserId member,
         ISettlementRepository settlementRepository,
         LedgerSnapshotService ledgerSnapshotService,
+        IUserRepository userRepository,
         CancellationToken cancellationToken)
     {
+        // A merged placeholder stays a hidden member for later sweeps (W1); read uncached.
+        if (await userRepository.IsMergedAsync(member, cancellationToken))
+            return Error.MemberMerged();
+
         if (space.IsTreasurer(member))
             return Error.MemberHasBalance("The treasurer cannot leave or be removed; choose another treasurer first");
 

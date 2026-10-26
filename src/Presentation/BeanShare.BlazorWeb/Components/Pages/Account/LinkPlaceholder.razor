@@ -1,0 +1,82 @@
+@page "/account/link"
+@layout BeanShare.BlazorWeb.Components.Layout.AccountLayout
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@using BeanShare.Application.Common
+@using BeanShare.Application.Features.Users.Queries.GetPendingPlaceholderLink
+@inject IScopedSender Mediator
+
+<PageTitle>Link your account - BeanShare</PageTitle>
+
+<div class="bs-login-container">
+    <div class="bs-login-card">
+        @if (Status == "changed")
+        {
+            <div class="bs-login-header">
+                <h1 class="bs-login-title">Changed meanwhile</h1>
+                <p class="bs-login-subtitle">The member created for you was changed by an admin in the meantime. Please sign in again.</p>
+            </div>
+            <form method="post" action="/account/logout">
+                <AntiforgeryToken />
+                <button type="submit" class="bs-btn bs-btn-primary bs-w-full">Sign in again</button>
+            </form>
+        }
+        else if (link is null)
+        {
+            <div class="bs-login-header">
+                <h1 class="bs-login-title">Nothing to link</h1>
+                <p class="bs-login-subtitle">There is no member waiting for your account. Please sign in again.</p>
+            </div>
+            <form method="post" action="/account/logout">
+                <AntiforgeryToken />
+                <button type="submit" class="bs-btn bs-btn-primary bs-w-full">Sign in again</button>
+            </form>
+        }
+        else
+        {
+            <div class="bs-login-header">
+                <h1 class="bs-login-title">Is this you?</h1>
+                <p class="bs-login-subtitle">
+                    A space admin added <strong>@link.PlaceholderName</strong> (@link.Email) before you had an account.
+                    Accept to take over this member, its history and its balance. Decline to start with a new, empty account.
+                </p>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                @foreach (var space in link.Spaces)
+                {
+                    <div class="bs-flex bs-items-center bs-justify-between" style="padding: 0.5rem 0; border-bottom: 1px solid var(--bs-border);">
+                        <span>@space.SpaceName</span>
+                        <span style="font-weight: 600;">@Balance(space)</span>
+                    </div>
+                }
+            </div>
+
+            <form method="post" action="/account/link/resolve" class="bs-flex bs-flex-col" style="gap: 0.5rem;">
+                <AntiforgeryToken />
+                <button type="submit" name="accept" value="true" class="bs-btn bs-btn-primary bs-w-full">Accept: this is me</button>
+                <button type="submit" name="accept" value="false" class="bs-btn bs-btn-secondary bs-w-full">Decline: not me</button>
+            </form>
+        }
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "status")]
+    public string? Status { get; set; }
+
+    private PendingPlaceholderLinkDto? link;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Status != "changed")
+            link = await Mediator.Send(new GetPendingPlaceholderLinkQuery());
+    }
+
+    private static string Balance(PendingPlaceholderSpaceDto space)
+    {
+        var amount = $"{Math.Abs(space.Balance):0.00} {space.Currency}";
+        if (space.Balance == 0)
+            return "square";
+        return space.Balance < 0 ? $"owes {amount}" : $"is owed {amount}";
+    }
+}

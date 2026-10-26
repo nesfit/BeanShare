@@ -170,6 +170,13 @@ public sealed class UserService : IUserService
         _cache.Remove(emailCacheKey);
     }
 
+    public void Evict(UserId userId, params string[] emails)
+    {
+        _cache.Remove($"{UserCacheKeyPrefix}{userId.Value}");
+        foreach (var email in emails.Where(e => !string.IsNullOrWhiteSpace(e)))
+            _cache.Remove($"{UserCacheKeyPrefix}email_{email.Trim().ToLowerInvariant()}");
+    }
+
     public async Task AddAsync(User user, CancellationToken cancellationToken = default)
     {
         await _context.Users.AddAsync(user, cancellationToken);

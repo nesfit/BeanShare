@@ -1,3 +1,4 @@
+using BeanShare.Application.Tests.TestHelpers;
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Common;
 using BeanShare.Application.Features.CoffeeStock.Commands;
@@ -93,7 +94,7 @@ public sealed class BagCommandTests
         var added = new List<ConsumptionEntry>();
         consumptionRepo.AddAsync(Arg.Do<ConsumptionEntry>(added.Add), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
-        var handler = new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, _clock);
+        var handler = new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, _clock, TestUsers.ActiveRepository());
 
         var result = await handler.Handle(new MarkBagEmptyCommand(_spaceId.Value, bag.Id), CancellationToken.None);
 
@@ -129,7 +130,7 @@ public sealed class BagCommandTests
         var added = new List<ConsumptionEntry>();
         consumptionRepo.AddAsync(Arg.Do<ConsumptionEntry>(added.Add), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
-        var handler = new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, _clock);
+        var handler = new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, _clock, TestUsers.ActiveRepository());
 
         var result = await handler.Handle(new MarkBagEmptyCommand(_spaceId.Value, bag.Id), CancellationToken.None);
 
@@ -153,7 +154,7 @@ public sealed class BagCommandTests
         var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
         var consumptionRepo = new InMemoryConsumptions();
 
-        var empty = new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, clock);
+        var empty = new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, clock, TestUsers.ActiveRepository());
         (await empty.Handle(new MarkBagEmptyCommand(_spaceId.Value, bag.Id), CancellationToken.None)).IsSuccess.Should().BeTrue();
         bag.IsEmpty.Should().BeTrue();
         bag.WrittenOffGrams.Should().Be(1000m);
@@ -192,7 +193,7 @@ public sealed class BagCommandTests
         var realCup = Cup(_admin, 100, bag.Id);
         consumptionRepo.Entries.Add(realCup);
 
-        var empty = new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, clock);
+        var empty = new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, clock, TestUsers.ActiveRepository());
         (await empty.Handle(new MarkBagEmptyCommand(_spaceId.Value, bag.Id), CancellationToken.None)).IsSuccess.Should().BeTrue();
         bag.WrittenOffGrams.Should().Be(900m);
 
@@ -217,7 +218,7 @@ public sealed class BagCommandTests
         var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
         var consumptionRepo = new InMemoryConsumptions();
 
-        var empty = new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, clock);
+        var empty = new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, clock, TestUsers.ActiveRepository());
         (await empty.Handle(new MarkBagEmptyCommand(_spaceId.Value, bag.Id), CancellationToken.None)).IsSuccess.Should().BeTrue();
 
         clock.Advance(Purchase.WriteOffUndoWindow + TimeSpan.FromMinutes(1));
@@ -265,7 +266,7 @@ public sealed class BagCommandTests
         var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
         var consumptionRepo = new InMemoryConsumptions();
 
-        var empty = new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, _clock);
+        var empty = new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, _clock, TestUsers.ActiveRepository());
         (await empty.Handle(new MarkBagEmptyCommand(_spaceId.Value, bag.Id), CancellationToken.None)).IsSuccess.Should().BeTrue();
 
         userContext.CurrentUserId.Returns(_memberB); // not admin
@@ -374,7 +375,7 @@ public sealed class BagCommandTests
         var space = CreateSpace();
         var stock = CoffeeStock.Create(_spaceId, _clock);
         var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
-        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepo, spaceRepo, userContext, _clock, Substitute.For<MapsterMapper.IMapper>());
+        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepo, spaceRepo, userContext, _clock, Substitute.For<MapsterMapper.IMapper>(), TestUsers.ActiveRepository());
 
         var result = await handler.Handle(new AddStockPurchaseCommand(
             _spaceId.Value, _product.Name, _product.Brand, "Filter", 1000, 20m, "USD", "Store",
@@ -391,7 +392,7 @@ public sealed class BagCommandTests
         var space = CreateSpace();
         var stock = CoffeeStock.Create(_spaceId, _clock);
         var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
-        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepo, spaceRepo, userContext, _clock, Substitute.For<MapsterMapper.IMapper>());
+        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepo, spaceRepo, userContext, _clock, Substitute.For<MapsterMapper.IMapper>(), TestUsers.ActiveRepository());
 
         var result = await handler.Handle(new AddStockPurchaseCommand(
             _spaceId.Value, _product.Name, _product.Brand, "Filter", 1000, 20m, "USD", "Store", _clock.UtcNow.AddDays(-1)), CancellationToken.None);
@@ -406,7 +407,7 @@ public sealed class BagCommandTests
         var space = CreateSpace();
         var stock = CoffeeStock.Create(_spaceId, _clock);
         var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
-        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepo, spaceRepo, userContext, _clock, Substitute.For<MapsterMapper.IMapper>());
+        var handler = new AddStockPurchaseCommandHandler(coffeeStockRepo, spaceRepo, userContext, _clock, Substitute.For<MapsterMapper.IMapper>(), TestUsers.ActiveRepository());
 
         var result = await handler.Handle(new AddStockPurchaseCommand(
             _spaceId.Value, _product.Name, _product.Brand, "Filter", 1000, 20m, "USD", "Store",
@@ -425,7 +426,7 @@ public sealed class BagCommandTests
         var bag = stock.Purchases.Single();
         var versionBefore = bag.Version;
         var (coffeeStockRepo, spaceRepo, userContext) = Mocks(space, stock);
-        var handler = new UpdateStockPurchaseCommandHandler(coffeeStockRepo, spaceRepo, userContext, _clock);
+        var handler = new UpdateStockPurchaseCommandHandler(coffeeStockRepo, spaceRepo, userContext, _clock, TestUsers.ActiveRepository());
 
         var result = await handler.Handle(new UpdateStockPurchaseCommand(
             _spaceId.Value, bag.Id, 1000, 20m, bag.PurchasedAt, PaidByUserId: _memberB.Value), CancellationToken.None);
@@ -453,7 +454,7 @@ public sealed class BagCommandTests
         var added = new List<ConsumptionEntry>();
         consumptionRepo.AddAsync(Arg.Do<ConsumptionEntry>(added.Add), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
 
-        var result = await new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, _clock)
+        var result = await new MarkBagEmptyCommandHandler(coffeeStockRepo, consumptionRepo, spaceRepo, userContext, _clock, TestUsers.ActiveRepository())
             .Handle(new MarkBagEmptyCommand(_spaceId.Value, bag.Id), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -479,7 +480,7 @@ public sealed class BagCommandTests
         var userService = Substitute.For<Application.Services.IUserService>();
         userService.GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>()).Returns(new List<User>());
 
-        var result = await new SplitRemainingStockCommandHandler(coffeeStockRepo, consumptions, spaceRepo, userService, userContext, _clock)
+        var result = await new SplitRemainingStockCommandHandler(coffeeStockRepo, consumptions, spaceRepo, userService, userContext, _clock, TestUsers.ActiveRepository())
             .Handle(new SplitRemainingStockCommand(_spaceId.Value, stock.StockLevels.Single().Id), CancellationToken.None);
 
         // 200 g left over two bags, split 25:75 between the current members: admin 50 g, B 150 g.
@@ -577,5 +578,22 @@ public sealed class BagCommandTests
         var userContext = Substitute.For<IUserContext>();
         userContext.CurrentUserId.Returns(_admin);
         return (coffeeStockRepo, spaceRepo, userContext);
+    }
+    // T-STK-01, C4 part (DS-33): the equal split leaves placeholders out.
+    [Fact]
+    public async Task MarkBagEmpty_WithNoConsumptionHistory_SplitsEquallyAmongPeopleWithAccounts()
+    {
+        var world = new LedgerWorld("CZK");
+        var alice = world.AddMember("Alice");
+        world.AddPlaceholder("Old Pete");
+        var bag = world.AddBag(1000m, 500m, world.Clock.UtcNow.AddDays(-1));
+
+        var result = await new MarkBagEmptyCommandHandler(
+                world.CoffeeStockRepository, world.ConsumptionRepository, world.SpaceRepository, world.UserContext, world.Clock, world.UserRepository)
+            .Handle(new MarkBagEmptyCommand(world.Space.Id.Value, bag.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        world.Cups.Select(c => c.UserId).Should().BeEquivalentTo(new[] { world.Admin, alice });
+        world.Cups.Sum(c => c.Quantity.Grams).Should().Be(1000m);
     }
 }

@@ -1,3 +1,4 @@
+using BeanShare.Application.Tests.TestHelpers;
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Features.Consumption.Commands;
 using BeanShare.Domain.Aggregates.CoffeeStock;
@@ -24,7 +25,7 @@ public sealed class ConsumptionCommandTests
         _spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Domain.Aggregates.Space.Space>>(), Arg.Any<CancellationToken>())
             .Returns(ci => Domain.Aggregates.Space.Space.Create(SpaceId.New(), "Lab", Currency.USD, UserId.New(), new InviteCode("CAFE23"), _clock));
 
-        _handler = new RecordConsumptionCommandHandler(_coffeeStockRepository, _consumptionRepository, _spaceRepository, _userContext, _clock);
+        _handler = new RecordConsumptionCommandHandler(_coffeeStockRepository, _consumptionRepository, _spaceRepository, _userContext, _clock, TestUsers.ActiveRepository());
     }
 
     [Fact]

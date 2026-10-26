@@ -17,6 +17,7 @@ public sealed class RecordConsumptionFromPresetCommandHandler : IRequestHandler<
     private readonly IConsumptionRepository _consumptionRepository;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public RecordConsumptionFromPresetCommandHandler(
         IPresetRecipeRepository presetRepository,
@@ -24,8 +25,10 @@ public sealed class RecordConsumptionFromPresetCommandHandler : IRequestHandler<
         ICoffeeStockRepository coffeeStockRepository,
         IConsumptionRepository consumptionRepository,
         IUserContext userContext,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _presetRepository = presetRepository;
         _spaceRepository = spaceRepository;
         _coffeeStockRepository = coffeeStockRepository;
@@ -81,6 +84,11 @@ public sealed class RecordConsumptionFromPresetCommandHandler : IRequestHandler<
         if (space.LedgerStartDate is { } ledgerStart && consumedAt < ledgerStart)
         {
             return Result<ConsumptionEntryDto>.Failure(Error.BeforeLedgerStart(ledgerStart));
+        }
+
+        if (request.ForUserId.HasValue && await _userRepository.IsMergedAsync(userId, cancellationToken))
+        {
+            return Result<ConsumptionEntryDto>.Failure(Error.MemberMerged());
         }
 
         var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(spaceId, cancellationToken);

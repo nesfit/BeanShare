@@ -33,6 +33,7 @@ builder.Services.AddExchangeRates(builder.Configuration);
 builder.Services.AddCommunicationServices(builder.Configuration);
 
 builder.Services.AddScoped<BeanShare.Application.Services.IUserSynchronizationService, BeanShare.Application.Services.UserSynchronizationService>();
+builder.Services.AddCurrentPrincipalAccessor(builder.Configuration);
 
 var useMockAuthentication = builder.Configuration.GetValue<bool>("UseMockAuthentication", false);
 

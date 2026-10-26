@@ -16,5 +16,6 @@ public sealed record PreviewBalanceEntriesPasteQuery(
     string? BatchNote = null,
     Guid? CounterpartyUserId = null,
     DateTime? EffectiveDate = null,
-    BalanceEntryKind Kind = BalanceEntryKind.Opening
+    BalanceEntryKind Kind = BalanceEntryKind.Opening,
+    bool CreateMissingPlaceholders = false
 ) : IAuthorize, IQuery<Result<BalancePastePreviewDto>>;

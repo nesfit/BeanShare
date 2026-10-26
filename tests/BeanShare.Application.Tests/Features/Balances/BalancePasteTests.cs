@@ -47,10 +47,10 @@ public sealed class BalancePasteTests
     }
 
     private PreviewBalanceEntriesPasteHandler CreatePreviewHandler() =>
-        new(_spaceRepository, EmptyLedger.SnapshotService(_clock), _userService, _userContext, _clock);
+        new(_spaceRepository, EmptyLedger.SnapshotService(_clock), _userService, _userContext, _clock, TestUsers.ActiveRepository());
 
     private CommitBalanceEntriesPasteHandler CreateCommitHandler() =>
-        new(_spaceRepository, _entryRepository, _userService, _userContext, _clock);
+        new(_spaceRepository, _entryRepository, _userService, _userContext, _clock, TestUsers.ActiveRepository());
 
     [Theory]
     [InlineData("120,00", 120.00)]
@@ -209,5 +209,64 @@ public sealed class BalancePasteTests
         _space.LedgerVersion.Should().Be(versionBefore + 1);
         result.Value.Should().HaveCount(2);
         result.Value[0].ViewerAmount.Should().Be(538m, "the treasurer sees the mirrored amount");
+    }
+    // T-DOM-05 (C4 part, DS-17): an unknown member can become a placeholder, inside the same all-or-nothing save.
+    private IUserRepository PlaceholderAwareRepository() =>
+        TestUsers.RepositoryOver(new[] { _honza, _alice, _bob }.ToDictionary(u => u.Id));
+
+    [Fact]
+    public async Task Preview_OffersPlaceholders_ForUnknownMembers_OnlyWhenAsked()
+    {
+        const string text = "Carol;-20\nnew@example.org;10\nBob;5";
+        var repository = PlaceholderAwareRepository();
+        var handler = new PreviewBalanceEntriesPasteHandler(_spaceRepository, EmptyLedger.SnapshotService(_clock), _userService, _userContext, _clock, repository);
+
+        var refused = await handler.Handle(new PreviewBalanceEntriesPasteQuery(_space.Id.Value, text, BatchNote: "x"), default);
+        refused.Value.CanCommit.Should().BeFalse();
+        refused.Value.ErrorRowCount.Should().Be(2);
+
+        var offered = await handler.Handle(new PreviewBalanceEntriesPasteQuery(_space.Id.Value, text, BatchNote: "x", CreateMissingPlaceholders: true), default);
+        offered.Value.CanCommit.Should().BeTrue();
+        offered.Value.PlaceholdersToCreate.Should().Equal("Carol", "new@example.org");
+        offered.Value.Rows.Select(r => r.IsNewPlaceholder).Should().Equal(true, true, false);
+        offered.Value.Total.Should().Be(-5m);
+        _space.Members.Should().HaveCount(3, "a preview creates nothing");
+    }
+
+    [Fact]
+    public async Task Commit_CreatesThePlaceholders_AndTheirEntries()
+    {
+        var added = new List<BalanceEntry>();
+        await _entryRepository.AddAsync(Arg.Do<BalanceEntry>(added.Add), Arg.Any<CancellationToken>());
+        var repository = PlaceholderAwareRepository();
+        var handler = new CommitBalanceEntriesPasteHandler(_spaceRepository, _entryRepository, _userService, _userContext, _clock, repository);
+
+        var result = await handler.Handle(new CommitBalanceEntriesPasteCommand(
+            _space.Id.Value, "Carol;-20\nNew@Example.org;10", BatchNote: "x", CreateMissingPlaceholders: true), default);
+
+        result.IsSuccess.Should().BeTrue();
+        _space.Members.Should().HaveCount(5);
+        var carol = await repository.FindByEmailAsync(User.SentinelEmailFor(added[0].UserId));
+        carol!.Name.Should().Be("Carol");
+        carol.IsPlaceholder.Should().BeTrue();
+        var byEmail = await repository.FindByEmailAsync("new@example.org");
+        byEmail!.IsPlaceholder.Should().BeTrue();
+        byEmail.Name.Should().Be("New", "the local part as pasted names it");
+        added.Select(e => e.UserId).Should().Equal(carol.Id, byEmail.Id);
+    }
+
+    [Fact]
+    public async Task Commit_WithAnInvalidRow_CreatesNoPlaceholder()
+    {
+        var repository = PlaceholderAwareRepository();
+        var handler = new CommitBalanceEntriesPasteHandler(_spaceRepository, _entryRepository, _userService, _userContext, _clock, repository);
+
+        var result = await handler.Handle(new CommitBalanceEntriesPasteCommand(
+            _space.Id.Value, "Carol;-20\nBob;abc", BatchNote: "x", CreateMissingPlaceholders: true), default);
+
+        result.IsFailure.Should().BeTrue();
+        _space.Members.Should().HaveCount(3);
+        await repository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
+        await _entryRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
 }

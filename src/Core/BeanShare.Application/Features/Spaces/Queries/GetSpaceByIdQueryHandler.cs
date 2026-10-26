@@ -14,13 +14,16 @@ public sealed class GetSpaceByIdQueryHandler : IRequestHandler<GetSpaceByIdQuery
     private readonly IUserContext _userContext;
     private readonly IUserService _userService;
     private readonly IMapper _mapper;
+    private readonly IUserRepository _userRepository;
 
     public GetSpaceByIdQueryHandler(
         ISpaceRepository spaceRepository,
         IUserContext userContext,
         IUserService userService,
-        IMapper mapper)
+        IMapper mapper,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _spaceRepository = spaceRepository;
         _userContext = userContext;
         _userService = userService;
@@ -52,7 +55,7 @@ public sealed class GetSpaceByIdQueryHandler : IRequestHandler<GetSpaceByIdQuery
         {
             if (userLookup.TryGetValue(m.UserId, out var user))
             {
-                return m with { Email = user.Email, UserName = user.Name };
+                return m with { Email = user.PublicEmail, UserName = user.Name, IsPlaceholder = user.IsPlaceholder };
             }
             // Fallback: use the current user's email if this is the current user
             if (m.UserId == _userContext.CurrentUserId.Value)
@@ -64,6 +67,10 @@ public sealed class GetSpaceByIdQueryHandler : IRequestHandler<GetSpaceByIdQuery
             return m;
         }).ToList();
 
-        return Result<SpaceDto>.Success(spaceDto with { Members = enrichedMembers });
+        // Merged placeholders stay members for later sweeps but are hidden everywhere (DS-32); read uncached.
+        var merged = await _userRepository.GetMergedMapAsync(userIds, cancellationToken);
+        var visibleMembers = enrichedMembers.Where(m => !merged.ContainsKey(new UserId(m.UserId))).ToList();
+
+        return Result<SpaceDto>.Success(spaceDto with { Members = visibleMembers, MemberCount = visibleMembers.Count });
     }
 }

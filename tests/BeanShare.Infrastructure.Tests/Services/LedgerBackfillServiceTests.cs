@@ -71,6 +71,30 @@ public sealed class LedgerBackfillServiceTests
         secondRun.Should().BeEquivalentTo(firstRun);
     }
 
+    // Rev8 (B26): imported history has no settlement by design, and step 2 must not give it live cups.
+    [Fact]
+    public async Task Run_SkipsAHistoricalSettledPeriodWithoutASettlement()
+    {
+        _clock.Set(new DateTime(2026, 1, 20, 0, 0, 0, DateTimeKind.Utc));
+        var cup = Cup(_member, new DateTime(2026, 1, 10, 9, 0, 0, DateTimeKind.Utc));
+        _clock.Set(new DateTime(2026, 1, 25, 0, 0, 0, DateTimeKind.Utc));
+        var historical = BillingPeriod.CreateHistorical(_spaceId, "Imported January", new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 1, 31, 0, 0, 0, DateTimeKind.Utc), HistoryImportId.New(), _admin, _clock);
+
+        await using (var db = new BeanShareDbContext(_options))
+        {
+            db.BillingPeriods.Add(historical);
+            db.Consumptions.Add(cup);
+            await db.SaveChangesAsync();
+        }
+
+        await RunBackfillAsync();
+
+        await using var check = new BeanShareDbContext(_options);
+        (await check.Consumptions.AsNoTracking().SingleAsync()).BillingPeriodId.Should().BeNull();
+    }
+
+
     private async Task RunBackfillAsync()
     {
         await using var db = new BeanShareDbContext(_options);

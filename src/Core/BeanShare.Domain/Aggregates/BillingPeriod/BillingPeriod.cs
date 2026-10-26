@@ -25,6 +25,11 @@ public sealed class BillingPeriod : AggregateRoot
     /// <summary>Concurrency token, bumped by every state transition.</summary>
     public int Version { get; private set; }
 
+    /// <summary>Imported from the Excel history (DS-16): statistics only, never money, never reopened.</summary>
+    public bool IsHistorical { get; private set; }
+
+    public HistoryImportId? HistoryImportId { get; private set; }
+
     public static readonly DateTime OpenEndedSentinel = new(9999, 12, 31, 23, 59, 59, DateTimeKind.Utc);
 
     public bool IsOpenEnded => EndDate >= OpenEndedSentinel.Date;
@@ -82,6 +87,45 @@ public sealed class BillingPeriod : AggregateRoot
         ));
 
         return billingPeriod;
+    }
+
+    /// <summary>
+    /// A period of the Excel history, created directly as Settled. Unlike <see cref="Create"/> a single day
+    /// (start = end) is allowed (N6). It raises no events, so importing notifies nobody.
+    /// </summary>
+    public static BillingPeriod CreateHistorical(
+        SpaceId spaceId,
+        string name,
+        DateTime startDate,
+        DateTime endDate,
+        HistoryImportId importId,
+        UserId importedBy,
+        IClock clock)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(clock);
+
+        if (endDate.Date < startDate.Date)
+            throw new ArgumentException("End date must not be before start date");
+
+        var now = clock.UtcNow;
+        return new BillingPeriod
+        {
+            Id = new BillingPeriodId(Guid.NewGuid()),
+            SpaceId = spaceId,
+            Name = name,
+            StartDate = DateTime.SpecifyKind(startDate.Date, DateTimeKind.Utc),
+            EndDate = DateTime.SpecifyKind(endDate.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc),
+            State = BillingState.Settled,
+            CreatedAt = now,
+            CreatedBy = importedBy,
+            ClosedAt = now,
+            ClosedBy = importedBy,
+            SettledAt = now,
+            SettledBy = importedBy,
+            IsHistorical = true,
+            HistoryImportId = importId
+        };
     }
 
     public void Open(UserId userId, IClock clock)

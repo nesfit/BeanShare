@@ -189,6 +189,9 @@ public sealed class Settlement : AggregateRoot
         return _lines.Any(l => l.UserId == userId);
     }
 
+    /// <summary>Bumps the token so a racing confirm or generation conflicts (a placeholder merge, DS-32 U6).</summary>
+    public void BumpVersion() => Version++;
+
     public bool IsTreasurerLine(SettlementLine line) => IsLedger && line.UserId == TreasurerUserId;
 
     /// <summary>

@@ -15,14 +15,17 @@ public sealed class AddStockPurchaseCommandHandler : IRequestHandler<AddStockPur
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
     private readonly IMapper _mapper;
+    private readonly IUserRepository _userRepository;
 
     public AddStockPurchaseCommandHandler(
         ICoffeeStockRepository coffeeStockRepository,
         ISpaceRepository spaceRepository,
         IUserContext userContext,
         IClock clock,
-        IMapper mapper)
+        IMapper mapper,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _coffeeStockRepository = coffeeStockRepository;
         _spaceRepository = spaceRepository;
         _userContext = userContext;
@@ -51,6 +54,11 @@ public sealed class AddStockPurchaseCommandHandler : IRequestHandler<AddStockPur
         if (paidBy is { } payer && !space.HasMember(payer))
         {
             return Result<StockPurchaseDto>.Failure(Error.MemberNotFound(payer.Value, command.SpaceId));
+        }
+
+        if (paidBy is { } mergedCandidate && await _userRepository.IsMergedAsync(mergedCandidate, cancellationToken))
+        {
+            return Result<StockPurchaseDto>.Failure(Error.MemberMerged());
         }
 
         if (!string.Equals(space.Currency.Code, command.CostCurrency, StringComparison.OrdinalIgnoreCase))

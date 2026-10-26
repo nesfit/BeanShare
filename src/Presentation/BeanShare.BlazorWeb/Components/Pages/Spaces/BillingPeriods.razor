@@ -6,11 +6,17 @@
 @using BeanShare.Application.Features.Billing.Commands.CreateBillingPeriod
 @using BeanShare.Application.Features.Billing.Commands.DeleteBillingPeriod
 @using BeanShare.Application.Features.Billing.Dtos
+@using BeanShare.Application.Features.History.Dtos
+@using BeanShare.Application.Features.History.Queries.PreviewHistoryImport
+@using BeanShare.Application.Features.History.Queries.GetSpaceHistory
+@using BeanShare.Application.Features.History.Commands.CommitHistoryImport
+@using BeanShare.Application.Features.History.Commands.DeleteHistoryImport
 @using BeanShare.SharedUi.Components.Billing
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 @inject IScopedSender Mediator
 @inject NavigationManager Navigation
+@inject BeanShare.Application.Abstractions.IUserContext UserContext
 
 <PageTitle>Billing Periods - BeanShare</PageTitle>
 
@@ -55,6 +61,13 @@
                 <span class="material-symbols-outlined">add_circle</span>
                 Create Billing Period
             </button>
+            @if (isAdmin)
+            {
+                <button class="bs-btn bs-btn-secondary" @onclick="OpenImport">
+                    <span class="material-symbols-outlined">history</span>
+                    Import history
+                </button>
+            }
         </div>
 
         <div class="bs-flex bs-items-center bs-gap-4" style="flex-wrap: wrap; margin-bottom: 1.25rem; font-size: 0.75rem; color: var(--bs-text-subtle);">
@@ -77,7 +90,11 @@
                             </p>
                         </div>
                         <div class="bs-flex bs-items-center" style="gap: 0.5rem;">
-                            @if (period.State == "Draft")
+                            @if (period.IsHistorical)
+                            {
+                                <span class="bs-badge bs-badge-secondary" title="Imported from the old spreadsheet; statistics only">Historical</span>
+                            }
+                            @if (period.State == "Draft" && isAdmin)
                             {
                                 <button class="bs-btn bs-btn-sm bs-btn-ghost" aria-label="Delete draft period" title="Delete draft"
                                         @onclick="@(() => RequestDelete(period))" @onclick:stopPropagation="true">
@@ -129,6 +146,102 @@
                OnConfirm="ConfirmDelete"
                OnCancel="@(() => showDeleteConfirm = false)" />
 
+@if (showImportModal)
+{
+    <div class="bs-modal-backdrop" @onclick="CloseImport">
+        <div class="bs-modal" style="max-width: 48rem;" @onclick:stopPropagation="true" @ontouchend:stopPropagation="true">
+            <div class="bs-modal-header">
+                <h3 class="bs-modal-title">Import history</h3>
+            </div>
+            <div class="bs-flex bs-flex-col" style="gap: 1rem;">
+                <p class="bs-text-subtle" style="font-size: 0.8125rem; margin: 0;">
+                    Statistics only: imported periods never change balances, and they must end before the ledger start date.
+                </p>
+                <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                    <label for="historyCups" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Cups: period;start;end;member;cups (dates yyyy-MM-dd)</label>
+                    <textarea id="historyCups" class="bs-input" rows="6" style="font-family: monospace;" maxlength="@MaxPasteLength" @bind="historyCups" @bind:after="InvalidateImportPreview"></textarea>
+                </div>
+                <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                    <label for="historyPurchases" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Purchases (optional): period;date;paidBy;description;grams;cost</label>
+                    <textarea id="historyPurchases" class="bs-input" rows="4" style="font-family: monospace;" maxlength="@MaxPasteLength" @bind="historyPurchases" @bind:after="InvalidateImportPreview"></textarea>
+                </div>
+                <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                    <label for="historyNote" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Note (optional)</label>
+                    <input id="historyNote" type="text" class="bs-input" maxlength="500" @bind="historyNote" />
+                </div>
+                <label class="bs-flex bs-items-center" style="gap: 0.5rem; font-size: 0.875rem;">
+                    <input type="checkbox" @bind="historyCreatePlaceholders" @bind:after="InvalidateImportPreview" />
+                    Create unknown members as placeholders
+                </label>
+
+                @if (importPreview != null)
+                {
+                    @foreach (var error in importPreview.Errors)
+                    {
+                        <div style="color: var(--bs-error);">@error</div>
+                    }
+                    @foreach (var row in importPreview.RowErrors)
+                    {
+                        <div style="color: var(--bs-error); font-size: 0.8125rem;">@row.Block line @row.LineNumber: @string.Join("; ", row.Errors)</div>
+                    }
+                    <p style="margin: 0; font-size: 0.875rem;">
+                        @importPreview.Periods.Count period(s)@(importPreview.FirstStart is { } first ? $" from {first:yyyy-MM-dd} to {importPreview.LastEnd:yyyy-MM-dd}" : ""),
+                        @importPreview.TotalCups cups, @importPreview.TotalCost.ToString("0.00") @importPreview.Currency.
+                        @if (importPreview.PlaceholdersToCreate.Count > 0)
+                        {
+                            <br /><span>New placeholder members: @string.Join(", ", importPreview.PlaceholdersToCreate).</span>
+                        }
+                    </p>
+                    <div style="overflow-x: auto; max-height: 14rem;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.8125rem;">
+                            <thead>
+                                <tr style="color: var(--bs-text-subtle); text-align: left;">
+                                    <th style="padding: 0.25rem 0.5rem 0.25rem 0;">Period</th>
+                                    <th style="padding: 0.25rem 0.5rem;">Dates</th>
+                                    <th style="padding: 0.25rem 0.5rem; text-align: right;">Cups</th>
+                                    <th style="padding: 0.25rem 0; text-align: right;">Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in importPreview.Periods)
+                                {
+                                    <tr style="border-top: 1px solid var(--bs-border);">
+                                        <td style="padding: 0.25rem 0.5rem 0.25rem 0;">@p.Label</td>
+                                        <td style="padding: 0.25rem 0.5rem;">@p.StartDate.ToString("yyyy-MM-dd") – @p.EndDate.ToString("yyyy-MM-dd")</td>
+                                        <td style="padding: 0.25rem 0.5rem; text-align: right;">@p.Cups</td>
+                                        <td style="padding: 0.25rem 0; text-align: right;">@p.Cost.ToString("0.00")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @if (history is { Imports.Count: > 0 })
+                {
+                    <div>
+                        <div class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.25rem;">Earlier imports</div>
+                        @foreach (var imp in history.Imports)
+                        {
+                            <div class="bs-flex bs-items-center bs-justify-between" style="font-size: 0.8125rem; padding: 0.25rem 0; border-top: 1px solid var(--bs-border);">
+                                <span>@imp.ImportedAt.ToString("yyyy-MM-dd") by @imp.ImportedByName: @imp.PeriodCount period(s), @imp.Cups cups@(string.IsNullOrEmpty(imp.Note) ? "" : $" ({imp.Note})")</span>
+                                <button class="bs-btn bs-btn-sm bs-btn-ghost" title="Delete this import" @onclick="@(() => DeleteImport(imp.Id))" disabled="@isImporting">
+                                    <span class="material-symbols-outlined" style="font-size: 1rem; color: var(--bs-error);">delete</span>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="bs-hero-actions">
+                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="CommitImport" disabled="@(isImporting || importPreview?.CanCommit != true)">@(isImporting ? "Importing..." : "Import")</button>
+                <button type="button" class="bs-btn bs-btn-secondary" @onclick="PreviewImport" disabled="@(isImporting || string.IsNullOrWhiteSpace(historyCups))">Preview</button>
+                <button type="button" class="bs-btn bs-btn-quiet" @onclick="CloseImport">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
 <CreateBillingPeriodModal IsVisible="@showCreateModal"
                           OnSubmit="HandleCreateBillingPeriod"
                           OnCancel="@(() => showCreateModal = false)" />
@@ -153,7 +266,118 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadAdmin();
         await LoadBillingPeriods();
+    }
+
+    private bool isAdmin;
+
+    private async Task LoadAdmin()
+    {
+        var result = await Mediator.Send(new BeanShare.Application.Features.Spaces.Queries.GetSpaceByIdQuery(Guid.Parse(SpaceId)));
+        if (result.IsSuccess)
+            isAdmin = result.Value.Members.Any(m => m.UserId == UserContext.CurrentUserId.Value && m.Role == "Admin");
+    }
+
+    // ---- history import (D23, DS-16) ----
+
+    private const int MaxPasteLength = 250_000;
+    private bool showImportModal;
+    private string historyCups = "";
+    private string historyPurchases = "";
+    private string historyNote = "";
+    private bool historyCreatePlaceholders;
+    private bool isImporting;
+    private HistoryImportPreviewDto? importPreview;
+    private SpaceHistoryDto? history;
+
+    private async Task OpenImport()
+    {
+        historyCups = "";
+        historyPurchases = "";
+        historyNote = "";
+        historyCreatePlaceholders = false;
+        importPreview = null;
+        showImportModal = true;
+        await LoadHistory();
+    }
+
+    private void CloseImport() => showImportModal = false;
+
+    private void InvalidateImportPreview() => importPreview = null;
+
+    private async Task LoadHistory()
+    {
+        var result = await Mediator.Send(new GetSpaceHistoryQuery(Guid.Parse(SpaceId)));
+        history = result.IsSuccess ? result.Value : null;
+    }
+
+    private async Task PreviewImport()
+    {
+        isImporting = true;
+        try
+        {
+            var result = await Mediator.Send(new PreviewHistoryImportQuery(Guid.Parse(SpaceId), historyCups, historyPurchases, historyCreatePlaceholders));
+            if (result.IsSuccess)
+                importPreview = result.Value;
+            else
+                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
+        }
+        finally
+        {
+            isImporting = false;
+        }
+    }
+
+    private async Task CommitImport()
+    {
+        if (importPreview?.CanCommit != true)
+            return;
+
+        isImporting = true;
+        try
+        {
+            var result = await Mediator.Send(new CommitHistoryImportCommand(
+                Guid.Parse(SpaceId), historyCups, historyPurchases, historyNote, historyCreatePlaceholders));
+            if (result.IsSuccess)
+            {
+                showImportModal = false;
+                ShowToast(false, "Imported", $"{result.Value.PeriodCount} historical period(s) with {result.Value.TotalCups} cups imported.");
+                await LoadBillingPeriods();
+            }
+            else
+            {
+                importPreview = null;
+                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
+            }
+        }
+        finally
+        {
+            isImporting = false;
+        }
+    }
+
+    private async Task DeleteImport(Guid importId)
+    {
+        isImporting = true;
+        try
+        {
+            var result = await Mediator.Send(new DeleteHistoryImportCommand(Guid.Parse(SpaceId), importId));
+            if (result.IsSuccess)
+            {
+                ShowToast(false, "Deleted", "The history import was deleted.");
+                await LoadHistory();
+                await LoadBillingPeriods();
+            }
+            else
+            {
+                ShowToast(true, "Error", string.Join(", ", result.Errors.Select(e => e.Message)));
+            }
+        }
+        finally
+        {
+            isImporting = false;
+        }
     }
 
     private async Task LoadBillingPeriods()

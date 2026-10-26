@@ -74,7 +74,11 @@ public sealed class PostgreSqlFixture : WebApplicationFactory<Program>, IAsyncLi
         using var scope = Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<BeanShareDbContext>();
         await context.Database.MigrateAsync();
+        await FixtureUsers.SeedAsync(Services);
     }
+
+    /// <summary>A user row for an id other than the two seeded ones (e.g. the E2E's people).</summary>
+    public Task EnsureUserAsync(Guid id, string email) => FixtureUsers.EnsureUserAsync(Services, id, email);
 
     public new async Task DisposeAsync()
     {

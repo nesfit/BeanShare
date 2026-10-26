@@ -18,14 +18,17 @@ public sealed class CreateBalanceEntryHandler : IRequestHandler<CreateBalanceEnt
     private readonly IUserService _userService;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public CreateBalanceEntryHandler(
         ISpaceRepository spaceRepository,
         IBalanceEntryRepository balanceEntryRepository,
         IUserService userService,
         IUserContext userContext,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _spaceRepository = spaceRepository;
         _balanceEntryRepository = balanceEntryRepository;
         _userService = userService;
@@ -49,6 +52,9 @@ public sealed class CreateBalanceEntryHandler : IRequestHandler<CreateBalanceEnt
             if (!space.HasMember(party))
                 return Result<BalanceEntryDto>.Failure(Error.MemberNotFound(party.Value, command.SpaceId));
         }
+
+        if (await _userRepository.AnyMergedAsync(new[] { userId, counterpartyId }, cancellationToken))
+            return Result<BalanceEntryDto>.Failure(Error.MemberMerged());
 
         var validationError = BalanceEntry.GetValidationError(
             userId, counterpartyId, command.Amount, space.Currency, command.EffectiveDate,

@@ -52,7 +52,7 @@ public class SpaceQueryTests
         };
         mapper.Map<SpaceDto>(space).Returns(spaceDto);
 
-        var handler = new GetSpaceByIdQueryHandler(spaceRepository, userContext, userService, mapper);
+        var handler = new GetSpaceByIdQueryHandler(spaceRepository, userContext, userService, mapper, TestUsers.ActiveRepository());
         var query = new GetSpaceByIdQuery(spaceId);
 
         var result = await handler.Handle(query, default);
@@ -73,7 +73,7 @@ public class SpaceQueryTests
         var spaceId = SpaceId.New();
         spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns((Space?)null);
 
-        var handler = new GetSpaceByIdQueryHandler(spaceRepository, userContext, userService, mapper);
+        var handler = new GetSpaceByIdQueryHandler(spaceRepository, userContext, userService, mapper, TestUsers.ActiveRepository());
         var query = new GetSpaceByIdQuery(spaceId);
 
         var result = await handler.Handle(query, default);

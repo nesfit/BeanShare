@@ -44,9 +44,12 @@ public sealed class GetBillingPeriodByIdHandler : IRequestHandler<GetBillingPeri
 
         var consumptions = await _consumptionRepository.GetBySpaceIdAsync(billingPeriod.SpaceId, cancellationToken);
 
-        var periodConsumptions = consumptions
-            .Where(c => c.ConsumedAt >= billingPeriod.StartDate && c.ConsumedAt <= billingPeriod.EndDate)
-            .ToList();
+        // A historical period's cups live in its import (DS-16), never in the live consumption table.
+        var periodConsumptions = billingPeriod.IsHistorical
+            ? []
+            : consumptions
+                .Where(c => c.ConsumedAt >= billingPeriod.StartDate && c.ConsumedAt <= billingPeriod.EndDate)
+                .ToList();
 
         var consumptionCount = periodConsumptions.Count;
         var totalGrams = periodConsumptions.Sum(c => c.Quantity.Grams);
@@ -92,7 +95,9 @@ public sealed class GetBillingPeriodByIdHandler : IRequestHandler<GetBillingPeri
             consumptionCount,
             totalGrams,
             estimatedCost,
-            currency
+            currency,
+            billingPeriod.IsHistorical,
+            billingPeriod.HistoryImportId?.Value
         );
 
         return Result<BillingPeriodDto>.Success(dto);

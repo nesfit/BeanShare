@@ -15,13 +15,16 @@ public sealed class UpdateStockPurchaseCommandHandler
     private readonly ISpaceRepository _spaceRepository;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public UpdateStockPurchaseCommandHandler(
         ICoffeeStockRepository coffeeStockRepository,
         ISpaceRepository spaceRepository,
         IUserContext userContext,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _coffeeStockRepository = coffeeStockRepository;
         _spaceRepository = spaceRepository;
         _userContext = userContext;
@@ -47,6 +50,8 @@ public sealed class UpdateStockPurchaseCommandHandler
         UserId? paidBy = command.PaidByUserId is { } payerId ? new UserId(payerId) : null;
         if (paidBy is { } payer && !space.HasMember(payer))
             return Result<StockPurchaseDto>.Failure(Error.MemberNotFound(payer.Value, command.SpaceId));
+        if (paidBy is { } mergedCandidate && await _userRepository.IsMergedAsync(mergedCandidate, cancellationToken))
+            return Result<StockPurchaseDto>.Failure(Error.MemberMerged());
 
         var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
         if (coffeeStock == null)

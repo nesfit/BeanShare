@@ -18,14 +18,17 @@ public sealed class PreviewBalanceEntriesPasteHandler
     private readonly IUserService _userService;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public PreviewBalanceEntriesPasteHandler(
         ISpaceRepository spaceRepository,
         LedgerSnapshotService ledgerSnapshotService,
         IUserService userService,
         IUserContext userContext,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _ledgerSnapshotService = ledgerSnapshotService;
         _spaceRepository = spaceRepository;
         _userService = userService;
@@ -39,10 +42,10 @@ public sealed class PreviewBalanceEntriesPasteHandler
         if (space is null)
             return Result<BalancePastePreviewDto>.Failure(Error.SpaceNotFound(query.SpaceId));
 
-        var members = await MemberResolver.CreateAsync(space, _userService, cancellationToken);
+        var members = await MemberResolver.CreateAsync(space, _userService, _userRepository, cancellationToken);
         var batch = BalancePasteEvaluator.CreateBatch(
             space, _userContext.CurrentUserId, query.CounterpartyUserId, query.EffectiveDate, query.Kind, query.BatchNote, _clock);
-        var evaluation = BalancePasteEvaluator.Evaluate(query.Text, batch, members, _clock);
+        var evaluation = BalancePasteEvaluator.Evaluate(query.Text, batch, members, _clock, query.CreateMissingPlaceholders);
 
         // Each pasted row moves its amount off the counterparty, so its running balance changes by −Σ.
         var snapshot = await _ledgerSnapshotService.RunningAsync(space, cancellationToken);
@@ -60,6 +63,7 @@ public sealed class PreviewBalanceEntriesPasteHandler
             batch.EffectiveDate,
             batch.Kind.ToString(),
             counterpartyBalance,
-            counterpartyBalance - evaluation.Total));
+            counterpartyBalance - evaluation.Total,
+            evaluation.PlaceholdersToCreate));
     }
 }

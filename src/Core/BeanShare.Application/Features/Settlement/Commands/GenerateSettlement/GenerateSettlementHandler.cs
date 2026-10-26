@@ -24,6 +24,7 @@ public sealed class GenerateSettlementHandler : IRequestHandler<GenerateSettleme
     private readonly IUserContext _userContext;
     private readonly IUserService _userService;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public GenerateSettlementHandler(
         ISettlementRepository settlementRepository,
@@ -32,8 +33,10 @@ public sealed class GenerateSettlementHandler : IRequestHandler<GenerateSettleme
         LedgerSnapshotService ledgerSnapshotService,
         IUserContext userContext,
         IUserService userService,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _settlementRepository = settlementRepository;
         _billingPeriodRepository = billingPeriodRepository;
         _spaceRepository = spaceRepository;
@@ -73,7 +76,7 @@ public sealed class GenerateSettlementHandler : IRequestHandler<GenerateSettleme
         }
 
         var spacePeriods = await _billingPeriodRepository.GetBySpaceIdAsync(space.Id, cancellationToken);
-        if (await SettlementGuards.CheckAsync(space, billingPeriod, spacePeriods, _userService, cancellationToken) is { } guardError)
+        if (await SettlementGuards.CheckAsync(space, billingPeriod, spacePeriods, _userRepository, cancellationToken) is { } guardError)
         {
             return Result<SettlementDto>.Failure(guardError);
         }

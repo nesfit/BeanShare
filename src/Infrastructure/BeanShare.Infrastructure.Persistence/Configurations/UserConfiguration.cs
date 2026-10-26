@@ -3,6 +3,7 @@ using BeanShare.Domain.Entities;
 using BeanShare.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace BeanShare.Infrastructure.Persistence.Configurations;
 
@@ -70,6 +71,15 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.DeactivatedAt)
             .IsRequired(false);
+
+        builder.Property(u => u.IsPlaceholder)
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        builder.Property(u => u.MergedIntoUserId)
+            .HasConversion(new ValueConverter<UserId?, Guid?>(
+                id => id.HasValue ? id.Value.Value : (Guid?)null,
+                value => value.HasValue ? new UserId(value.Value) : (UserId?)null));
 
         builder.HasIndex(u => u.SystemRole)
             .HasDatabaseName("IX_Users_SystemRole");

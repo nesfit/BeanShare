@@ -19,6 +19,7 @@ public sealed class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCom
     private readonly IUserContext _userContext;
     private readonly IMapper _mapper;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public RemoveMemberCommandHandler(
         ISpaceRepository spaceRepository,
@@ -26,8 +27,10 @@ public sealed class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCom
         LedgerSnapshotService ledgerSnapshotService,
         IUserContext userContext,
         IMapper mapper,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _spaceRepository = spaceRepository;
         _settlementRepository = settlementRepository;
         _ledgerSnapshotService = ledgerSnapshotService;
@@ -69,7 +72,7 @@ public sealed class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCom
             return Result<MemberActionDto>.Failure(Error.CannotRemoveLastAdmin());
         }
 
-        if (await MemberDepartureGuard.CheckAsync(space, targetUserId, _settlementRepository, _ledgerSnapshotService, cancellationToken) is { } departureError)
+        if (await MemberDepartureGuard.CheckAsync(space, targetUserId, _settlementRepository, _ledgerSnapshotService, _userRepository, cancellationToken) is { } departureError)
         {
             return Result<MemberActionDto>.Failure(departureError);
         }

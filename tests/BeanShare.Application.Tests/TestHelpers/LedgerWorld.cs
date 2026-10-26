@@ -10,6 +10,7 @@ using BeanShare.Application.Features.Settlement.Queries.GetUnsettledSummary;
 using BeanShare.Application.Services;
 using BeanShare.Domain.Aggregates.BillingPeriod;
 using BeanShare.Domain.Aggregates.CoffeeStock;
+using BeanShare.Domain.Aggregates.History;
 using BeanShare.Domain.Aggregates.Ledger;
 using BeanShare.Domain.Aggregates.Space;
 using BeanShare.Domain.Common;
@@ -38,6 +39,7 @@ public sealed class LedgerWorld
         Admin = AddUser("Admin");
         Space = Space.Create(SpaceId.New(), "Kava", Currency.Create(currency), Admin, new InviteCode("KAVAXY"), Clock);
         Stock = CoffeeStock.Create(Space.Id, Clock);
+        UserRepository = TestUsers.RepositoryOver(_users);
         UserContext.CurrentUserId.Returns(_ => Actor);
         Actor = Admin;
         Wire();
@@ -52,6 +54,10 @@ public sealed class LedgerWorld
     public List<BalanceEntry> Entries { get; } = new();
     public List<BillingPeriod> Periods { get; } = new();
     public List<SettlementAggregate> Settlements { get; } = new();
+    public List<HistoryImport> Imports { get; } = new();
+    public List<Notification> Notifications { get; } = new();
+    public IHistoryImportRepository HistoryImportRepository { get; } = Substitute.For<IHistoryImportRepository>();
+    public INotificationRepository NotificationRepository { get; } = Substitute.For<INotificationRepository>();
 
     public ISpaceRepository SpaceRepository { get; } = Substitute.For<ISpaceRepository>();
     public IConsumptionRepository ConsumptionRepository { get; } = Substitute.For<IConsumptionRepository>();
@@ -62,23 +68,26 @@ public sealed class LedgerWorld
     public IUserService UserService { get; } = Substitute.For<IUserService>();
     public IUserContext UserContext { get; } = Substitute.For<IUserContext>();
 
+    /// <summary>Answers the uncached access and merge lookups from the same users as <see cref="UserService"/>.</summary>
+    public IUserRepository UserRepository { get; }
+
     public LedgerSnapshotService SnapshotService => new(
-        ConsumptionRepository, BalanceEntryRepository, SettlementRepository, CoffeeStockRepository, BillingPeriodRepository, Clock);
+        ConsumptionRepository, BalanceEntryRepository, SettlementRepository, CoffeeStockRepository, BillingPeriodRepository, Clock, UserRepository);
 
     public async Task<Result<SettlementDto>> GenerateAsync(BillingPeriod period)
     {
         var result = await new GenerateSettlementHandler(SettlementRepository, BillingPeriodRepository, SpaceRepository,
-            SnapshotService, UserContext, UserService, Clock).Handle(new GenerateSettlementCommand(period.Id.Value), default);
+            SnapshotService, UserContext, UserService, Clock, UserRepository).Handle(new GenerateSettlementCommand(period.Id.Value), default);
         Clock.Set(Clock.UtcNow.AddMinutes(1));
         return result;
     }
 
     public Task<Result<SettlementPreviewDto>> PreviewAsync(BillingPeriod period) =>
-        new GetSettlementPreviewHandler(SettlementRepository, BillingPeriodRepository, SpaceRepository, SnapshotService, UserService, UserContext)
+        new GetSettlementPreviewHandler(SettlementRepository, BillingPeriodRepository, SpaceRepository, SnapshotService, UserService, UserContext, UserRepository)
             .Handle(new GetSettlementPreviewQuery(period.Id.Value), default);
 
     public Task<Result> ConfirmAsync(SettlementAggregate settlement, UserId member) =>
-        new ConfirmPaymentHandler(SettlementRepository, SpaceRepository, UserContext, Clock)
+        new ConfirmPaymentHandler(SettlementRepository, SpaceRepository, UserContext, Clock, UserRepository, UserService)
             .Handle(new ConfirmPaymentCommand(settlement.Id.Value, member.Value), default);
 
     public Task<Result<SettlementDto>> GetSettlementAsync(SettlementAggregate settlement) =>
@@ -100,6 +109,22 @@ public sealed class LedgerWorld
         _users[user.Id] = user;
         return user.Id;
     }
+
+    /// <summary>A placeholder member (D21); without an email it gets the sentinel address.</summary>
+    public UserId AddPlaceholder(string name, string? email = null)
+    {
+        var user = User.CreatePlaceholder(name, email, Clock.UtcNow);
+        _users[user.Id] = user;
+        Space.AddPlaceholderMember(user.Id, Clock);
+        return user.Id;
+    }
+
+    public Task<Result> MergeAsync(UserId placeholder, UserId target) =>
+        new BeanShare.Application.Features.Spaces.Commands.MergePlaceholderCommandHandler(
+                SpaceRepository, UserRepository, UserService, CoffeeStockRepository, HistoryImportRepository,
+                SettlementRepository, NotificationRepository, UserContext, Clock,
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<BeanShare.Application.Features.Spaces.Commands.MergePlaceholderCommandHandler>.Instance)
+            .Handle(new BeanShare.Application.Features.Spaces.Commands.MergePlaceholderCommand(Space.Id.Value, placeholder.Value, target.Value), default);
 
     public UserId AddMember(string name, bool admin = false)
     {
@@ -172,6 +197,15 @@ public sealed class LedgerWorld
 
     private void Wire()
     {
+        HistoryImportRepository.GetBySpaceIdAsync(Arg.Any<SpaceId>(), Arg.Any<CancellationToken>())
+            .Returns(_ => (IReadOnlyList<HistoryImport>)Imports.ToList());
+        HistoryImportRepository.GetByIdAsync(Arg.Any<HistoryImportId>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Imports.FirstOrDefault(i => i.Id == ci.Arg<HistoryImportId>()));
+        HistoryImportRepository.AddAsync(Arg.Do<HistoryImport>(Imports.Add), Arg.Any<CancellationToken>());
+        HistoryImportRepository.When(r => r.Remove(Arg.Any<HistoryImport>())).Do(ci => Imports.Remove(ci.Arg<HistoryImport>()));
+        NotificationRepository.AddAsync(Arg.Do<Notification>(Notifications.Add), Arg.Any<CancellationToken>());
+        BillingPeriodRepository.AddAsync(Arg.Do<BillingPeriod>(Periods.Add), Arg.Any<CancellationToken>());
+
         SpaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), Arg.Any<CancellationToken>()).Returns(_ => Space);
         SpaceRepository.GetByIdAsync(Arg.Any<SpaceId>(), Arg.Any<CancellationToken>()).Returns(_ => Space);
 

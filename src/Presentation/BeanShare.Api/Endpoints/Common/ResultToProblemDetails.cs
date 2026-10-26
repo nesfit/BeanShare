@@ -110,6 +110,8 @@ public static class ResultExtensions
             Error.Codes.NotAdmin => (int)HttpStatusCode.Forbidden,
             Error.Codes.Forbidden => (int)HttpStatusCode.Forbidden,
             Error.Codes.InsufficientPrivileges => (int)HttpStatusCode.Forbidden,
+            Error.Codes.EmailNotVerified => (int)HttpStatusCode.Forbidden,
+            Error.Codes.SyncFailed => (int)HttpStatusCode.Forbidden,
 
             // 404 Not Found
             Error.Codes.SpaceNotFound => (int)HttpStatusCode.NotFound,
@@ -135,6 +137,8 @@ public static class ResultExtensions
             Error.Codes.CannotRemoveLastAdmin => (int)HttpStatusCode.Conflict,
             Error.Codes.UnpaidSettlements => (int)HttpStatusCode.Conflict,
             Error.Codes.ConcurrencyConflict => (int)HttpStatusCode.Conflict,
+            Error.Codes.PlaceholderLinkPending => (int)HttpStatusCode.Conflict,
+            Error.Codes.EmailInUse => (int)HttpStatusCode.Conflict,
 
             // 422 Unprocessable Entity (domain logic errors)
             Error.Codes.InvalidBillingPeriodState => (int)HttpStatusCode.UnprocessableEntity,
@@ -165,6 +169,10 @@ public static class ResultExtensions
             Error.Codes.BeforeLedgerStart => (int)HttpStatusCode.BadRequest,
             Error.Codes.MemberHasBalance => (int)HttpStatusCode.BadRequest,
             Error.Codes.PeriodNotDeletable => (int)HttpStatusCode.BadRequest,
+            Error.Codes.LineMerged => (int)HttpStatusCode.BadRequest,
+            Error.Codes.MemberMerged => (int)HttpStatusCode.BadRequest,
+            Error.Codes.NotPlaceholder => (int)HttpStatusCode.BadRequest,
+            Error.Codes.HistoryImportInvalid => (int)HttpStatusCode.BadRequest,
 
             // 500 Internal Server Error
             Error.Codes.SystemError => (int)HttpStatusCode.InternalServerError,

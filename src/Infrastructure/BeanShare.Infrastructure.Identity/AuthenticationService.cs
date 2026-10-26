@@ -80,8 +80,13 @@ public sealed class AuthenticationService : IAuthenticationService
         if (password.Length < 8)
             return (false, null, "Password must be at least 8 characters");
 
+        // Emails compare case-insensitively (B20).
+        var emailLower = email.Trim().ToLowerInvariant();
         var existingUser = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email == email);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == emailLower);
+
+        if (existingUser is { IsPlaceholder: true })
+            return (false, null, "An admin created a placeholder for this email; sign in with SSO to claim it");
 
         if (existingUser != null)
             return (false, null, "An account with this email already exists");
@@ -103,8 +108,11 @@ public sealed class AuthenticationService : IAuthenticationService
         if (string.IsNullOrWhiteSpace(password))
             return (false, null, "Password is required");
 
+        // Any account with a password, whatever provider a verified SSO match linked since (B24); emails
+        // compare case-insensitively (B20).
+        var emailLower = email.Trim().ToLowerInvariant();
         var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email == email && u.Provider == AuthenticationProvider.Email);
+            .FirstOrDefaultAsync(u => u.Email.ToLower() == emailLower && u.PasswordHash != null);
 
         if (user == null)
             return (false, null, "Invalid email or password");

@@ -82,8 +82,9 @@ public sealed class GetUnsettledSummaryHandler
         CancellationToken cancellationToken)
     {
         var periods = await _billingPeriodRepository.GetBySpaceIdAsync(space.Id, cancellationToken);
+        // Imported history is statistics; the ledger has settled only live periods.
         var lastSettled = periods
-            .Where(p => p.State == BillingState.Settled)
+            .Where(p => p.State == BillingState.Settled && !p.IsHistorical)
             .OrderByDescending(p => p.EndDate)
             .FirstOrDefault();
         var currentPeriod = periods.FirstOrDefault(p => p.State == BillingState.Open);
@@ -137,7 +138,8 @@ public sealed class GetUnsettledSummaryHandler
             mine?.Adjustments ?? 0m,
             mine?.Rounding ?? 0m,
             calculation.NetFor(currentUserId),
-            isAdmin ? calculation.UnassignedRounding : 0m);
+            isAdmin ? calculation.UnassignedRounding : 0m,
+            mine?.MergeTransfer ?? 0m);
     }
 
     private async Task<IReadOnlyList<UnsettledMemberSummaryDto>> BuildMemberRowsAsync(
@@ -179,7 +181,8 @@ public sealed class GetUnsettledSummaryHandler
                     line?.CarriedIn ?? 0m,
                     line?.Adjustments ?? 0m,
                     line?.Rounding ?? 0m,
-                    line?.Net ?? 0m);
+                    line?.Net ?? 0m,
+                    line?.MergeTransfer ?? 0m);
             })
             .OrderBy(m => m.Balance)
             .ThenBy(m => m.UserName)

@@ -50,6 +50,16 @@ else
     </div>
 
     <div class="bs-container" style="padding: 2rem 0;">
+        @if (isAdmin)
+        {
+            <div style="margin-bottom: 1rem;">
+                <button class="bs-btn bs-btn-secondary" @onclick="OpenAddPlaceholder">
+                    <span class="material-symbols-outlined">person_add</span>
+                    Add placeholder
+                </button>
+                <span class="bs-text-subtle" style="font-size: 0.8125rem; margin-left: 0.5rem;">A member without an account (e.g. from the old spreadsheet); they can claim it later by signing in with the same email.</span>
+            </div>
+        }
         <SpaceMembers Members="@space.Members"
                      IsLoading="@isLoadingMembers"
                      IsAdmin="@isAdmin"
@@ -57,7 +67,63 @@ else
                      OnPromoteMember="HandlePromoteMember"
                      OnDemoteMember="HandleDemoteMember"
                      OnRemoveMember="RequestRemoveMember"
-                     OnLeaveSpace="HandleLeaveSpace" />
+                     OnLeaveSpace="HandleLeaveSpace"
+                     OnEditPlaceholder="OpenEditPlaceholder"
+                     OnMergePlaceholder="OpenMergePlaceholder" />
+    </div>
+}
+
+@if (showPlaceholderModal)
+{
+    <div class="bs-modal-backdrop" @onclick="ClosePlaceholderModal">
+        <div class="bs-modal" @onclick:stopPropagation="true" @ontouchend:stopPropagation="true">
+            <div class="bs-modal-header">
+                <h3 class="bs-modal-title">@(editingPlaceholderId is null ? "Add placeholder member" : "Edit placeholder")</h3>
+            </div>
+            <div class="bs-flex bs-flex-col" style="gap: 1rem;">
+                <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                    <label for="placeholderName" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Name</label>
+                    <input id="placeholderName" type="text" class="bs-input" maxlength="100" @bind="placeholderName" />
+                </div>
+                <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                    <label for="placeholderEmail" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Email (optional; used when they sign in)</label>
+                    <input id="placeholderEmail" type="email" class="bs-input" maxlength="254" @bind="placeholderEmail" />
+                </div>
+            </div>
+            <div class="bs-hero-actions">
+                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="SavePlaceholder" disabled="@isSavingPlaceholder">@(isSavingPlaceholder ? "Saving..." : "Save")</button>
+                <button type="button" class="bs-btn bs-btn-quiet" @onclick="ClosePlaceholderModal">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showMergeModal)
+{
+    <div class="bs-modal-backdrop" @onclick="CloseMergeModal">
+        <div class="bs-modal" @onclick:stopPropagation="true" @ontouchend:stopPropagation="true">
+            <div class="bs-modal-header">
+                <h3 class="bs-modal-title">Merge @mergePlaceholderName into a member</h3>
+            </div>
+            <p class="bs-text-subtle" style="font-size: 0.875rem;">
+                The placeholder's balance, history and the bags it paid for move to the member you choose, now and in
+                every later settlement. The placeholder is then hidden. This cannot be undone.
+            </p>
+            <div class="bs-flex bs-flex-col" style="gap: 0.35rem;">
+                <label for="mergeTarget" class="bs-text-subtle" style="font-size: 0.8125rem; font-weight: 500;">Member</label>
+                <select id="mergeTarget" class="bs-input" value="@(mergeTargetId ?? "")" @onchange="@(e => mergeTargetId = e.Value?.ToString())">
+                    <option value="">Choose a member</option>
+                    @foreach (var m in MergeTargets)
+                    {
+                        <option value="@m.UserId">@m.UserName</option>
+                    }
+                </select>
+            </div>
+            <div class="bs-hero-actions">
+                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="ExecuteMerge" disabled="@(isMerging || string.IsNullOrEmpty(mergeTargetId))">@(isMerging ? "Merging..." : "Merge")</button>
+                <button type="button" class="bs-btn bs-btn-quiet" @onclick="CloseMergeModal">Cancel</button>
+            </div>
+        </div>
     </div>
 }
 
@@ -263,6 +329,128 @@ else
             await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", space.InviteCode);
             ShowToast(false, "Copied!", "Invite code copied to clipboard");
         }
+    }
+
+    // ---- placeholders (D21, DS-32) ----
+
+    private bool showPlaceholderModal;
+    private Guid? editingPlaceholderId;
+    private string placeholderName = "";
+    private string placeholderEmail = "";
+    private bool isSavingPlaceholder;
+
+    private bool showMergeModal;
+    private Guid mergePlaceholderId;
+    private string mergePlaceholderName = "";
+    private string? mergeTargetId;
+    private bool isMerging;
+
+    private IEnumerable<BeanShare.Application.Features.Spaces.Dtos.MembershipDto> MergeTargets =>
+        (space?.Members ?? []).Where(m => !m.IsPlaceholder).OrderBy(m => m.UserName);
+
+    private void OpenAddPlaceholder()
+    {
+        editingPlaceholderId = null;
+        placeholderName = "";
+        placeholderEmail = "";
+        showPlaceholderModal = true;
+    }
+
+    private void OpenEditPlaceholder(string userId)
+    {
+        var member = space?.Members.FirstOrDefault(m => m.UserId.ToString() == userId);
+        if (member is null) return;
+        editingPlaceholderId = member.UserId;
+        placeholderName = member.UserName;
+        placeholderEmail = member.Email;
+        showPlaceholderModal = true;
+    }
+
+    private void ClosePlaceholderModal() => showPlaceholderModal = false;
+
+    private async Task SavePlaceholder()
+    {
+        isSavingPlaceholder = true;
+        try
+        {
+            var email = string.IsNullOrWhiteSpace(placeholderEmail) ? null : placeholderEmail.Trim();
+            var result = editingPlaceholderId is { } id
+                ? await Mediator.Send(new UpdatePlaceholderMemberCommand(Guid.Parse(SpaceId), id, placeholderName, email))
+                : await Mediator.Send(new CreatePlaceholderMemberCommand(Guid.Parse(SpaceId), placeholderName, email));
+            if (result.IsSuccess)
+            {
+                showPlaceholderModal = false;
+                ShowToast(false, "Saved", $"{result.Value.UserName} saved.");
+                await LoadSpace();
+            }
+            else
+            {
+                await HandleFailure(result.Errors);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", ex.Message);
+        }
+        finally
+        {
+            isSavingPlaceholder = false;
+        }
+    }
+
+    private void OpenMergePlaceholder(string userId)
+    {
+        var member = space?.Members.FirstOrDefault(m => m.UserId.ToString() == userId);
+        if (member is null) return;
+        mergePlaceholderId = member.UserId;
+        mergePlaceholderName = member.UserName;
+        mergeTargetId = null;
+        showMergeModal = true;
+    }
+
+    private void CloseMergeModal() => showMergeModal = false;
+
+    private async Task ExecuteMerge()
+    {
+        if (!Guid.TryParse(mergeTargetId, out var targetId)) return;
+
+        isMerging = true;
+        try
+        {
+            var result = await Mediator.Send(new MergePlaceholderCommand(Guid.Parse(SpaceId), mergePlaceholderId, targetId));
+            if (result.IsSuccess)
+            {
+                showMergeModal = false;
+                ShowToast(false, "Merged", $"{mergePlaceholderName} was merged.");
+                await LoadSpace();
+            }
+            else
+            {
+                await HandleFailure(result.Errors);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast(true, "Error", ex.Message);
+        }
+        finally
+        {
+            isMerging = false;
+        }
+    }
+
+    private async Task HandleFailure(IReadOnlyList<Error> errors)
+    {
+        if (errors.Any(e => e.Code == Error.Codes.ConcurrencyConflict))
+        {
+            showMergeModal = false;
+            showPlaceholderModal = false;
+            ShowToast(true, "Changed meanwhile", "The members changed in the meantime and were reloaded. Please check and try again.");
+            await LoadSpace();
+            return;
+        }
+
+        ShowToast(true, "Error", string.Join(", ", errors.Select(e => e.Message)));
     }
 
     private void ShowToast(bool isError, string title, string message)

@@ -42,9 +42,10 @@ public sealed class LedgerBackfillService
                 stampedByLegacy += await StampAsync(period, settlement.GeneratedAt, cancellationToken);
         }
 
-        // 2. Settled periods without a settlement (seed-style data): cups logged before they were settled.
+        // 2. Settled live periods without a settlement (seed-style data): cups logged before they were settled.
+        //    Imported history has no settlement by design and never owns live cups (B26).
         var stampedBySettledPeriod = 0;
-        foreach (var period in periods.Where(p => p.State == BillingState.Settled && !periodsWithSettlement.Contains(p.Id)))
+        foreach (var period in periods.Where(p => p.State == BillingState.Settled && !p.IsHistorical && !periodsWithSettlement.Contains(p.Id)))
         {
             stampedBySettledPeriod += await StampAsync(period, period.SettledAt ?? period.EndDate, cancellationToken);
         }

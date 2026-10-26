@@ -72,6 +72,47 @@ public sealed class SettlementLedgerCalculatorTests
         result.Lines.All(l => decimal.Round(l.Net, 2) == l.Net).Should().BeTrue();
     }
 
+    // T-CALC-01, rev4 (V1, I13): 0–3 merged users per scenario, with their cups, credits, carries and fallback cups.
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void MergedUsers_AreSweptToTheirTargets_AndNetsStillSumToZero(int seed)
+    {
+        var random = new Random(seed);
+        var input = RandomScenario(random, out var treasurer);
+        var users = input.Cups.Select(c => c.Drinker)
+            .Concat(input.Cups.Where(c => c.Payer.HasValue).Select(c => c.Payer!.Value))
+            .Concat(input.FallbackPurchases.Select(p => p.Payer))
+            .Concat(input.Entries.SelectMany(e => new[] { e.UserId, e.CounterpartyUserId }))
+            .Concat(input.CarriedIn.Keys)
+            .Where(u => u != treasurer)
+            .Distinct()
+            .OrderBy(u => u.Value)
+            .ToList();
+        var merged = users.OrderBy(_ => random.Next()).Take(Math.Min(random.Next(0, 4), Math.Max(0, users.Count - 1))).ToList();
+        var targets = users.Except(merged).Append(treasurer).Distinct().ToList();
+        var map = merged.ToDictionary(m => m, _ => targets[random.Next(targets.Count)]);
+
+        var before = SettlementLedgerCalculator.Calculate(input);
+        var after = SettlementLedgerCalculator.Calculate(input with { MergedInto = map });
+
+        after.Lines.Sum(l => l.Net).Should().Be(0m);
+        after.Lines.Sum(l => l.MergeTransfer).Should().Be(0m);
+        foreach (var user in merged)
+        {
+            after.NetFor(user).Should().Be(0m);
+            (after.LineFor(user)?.MergeTransfer ?? 0m).Should().Be(-before.NetFor(user));
+        }
+
+        foreach (var target in map.Values.Distinct())
+        {
+            var expected = map.Where(m => m.Value == target).Sum(m => before.NetFor(m.Key));
+            (after.LineFor(target)?.MergeTransfer ?? 0m).Should().Be(expected);
+            after.NetFor(target).Should().Be(before.NetFor(target) + expected);
+        }
+
+        after.FallbackRate.Should().Be(before.FallbackRate);
+    }
+
     // T-CALC-03 (I3) and the residual rule (§4.4)
     [Theory]
     [MemberData(nameof(Seeds))]

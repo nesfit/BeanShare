@@ -27,6 +27,8 @@ public static class DependencyInjection
 
         services.AddScoped<Features.Balances.Services.LedgerSnapshotService>();
 
+        // First: an identity without an active, real user row must not reach anything else (DS-30).
+        services.AddScoped(typeof(IPipelineBehavior<,>), typeof(CurrentUserBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(Pipeline.AuthorizationBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ConcurrencyRetryBehavior<,>));

@@ -22,6 +22,12 @@ public sealed class User
     public bool IsActive { get; private set; }
     public DateTime? DeactivatedAt { get; private set; }
 
+    /// <summary>A member an admin created for someone without an account (D21); cannot log in.</summary>
+    public bool IsPlaceholder { get; private set; }
+
+    /// <summary>Set when an admin merged this placeholder into a member (DS-32); its money is swept there.</summary>
+    public UserId? MergedIntoUserId { get; private set; }
+
     private User()
     {
         Email = string.Empty;
@@ -168,4 +174,92 @@ public sealed class User
     }
 
     public bool IsSystemAdmin => SystemRole == SystemRole.SystemAdmin;
+
+    /// <summary>Domain of the sentinel address a placeholder without an email gets (RFC 6761 `.invalid`, DS-14).</summary>
+    public const string SentinelEmailDomain = "placeholder.invalid";
+
+    public static string SentinelEmailFor(UserId id) => $"placeholder-{id.Value:N}@{SentinelEmailDomain}";
+
+    public static bool IsSentinelEmail(string? email) =>
+        email is not null && email.EndsWith("@" + SentinelEmailDomain, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>False for a sentinel address: nothing can be delivered to it.</summary>
+    public bool HasDeliverableEmail => !IsSentinelEmail(Email);
+
+    /// <summary>The email to show or mail; "" for a sentinel (DS-33).</summary>
+    public string PublicEmail => HasDeliverableEmail ? Email : string.Empty;
+
+    public bool IsMerged => MergedIntoUserId.HasValue;
+
+    /// <summary>A member without an account; without an email it gets the sentinel address (DS-14).</summary>
+    public static User CreatePlaceholder(string name, string? email, DateTime createdAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        var id = new UserId(Guid.NewGuid());
+        var address = string.IsNullOrWhiteSpace(email) ? SentinelEmailFor(id) : NormalizeEmail(email);
+        return new User(id, address, name.Trim(), AuthenticationProvider.Email, createdAt)
+        {
+            IsPlaceholder = true
+        };
+    }
+
+    public void UpdatePlaceholder(string name, string? email)
+    {
+        EnsurePlaceholder();
+        if (IsMerged)
+            throw new InvalidOperationException("A merged placeholder cannot be edited");
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        Name = name.Trim();
+        Email = string.IsNullOrWhiteSpace(email) ? SentinelEmailFor(Id) : NormalizeEmail(email);
+    }
+
+    /// <summary>The person accepted the link (DS-31): same id, now a normal user with the provider link.</summary>
+    public void ClaimPlaceholder(AuthenticationProvider provider, string providerUserId, DateTime now)
+    {
+        EnsurePlaceholder();
+        if (IsMerged)
+            throw new InvalidOperationException("A merged placeholder cannot be claimed");
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerUserId);
+
+        IsPlaceholder = false;
+        Provider = provider;
+        ProviderUserId = providerUserId;
+        LastLoginAt = now;
+    }
+
+    /// <summary>Stores the provider link of a verified email match (D24, DS-29).</summary>
+    public void LinkProvider(AuthenticationProvider provider, string providerUserId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerUserId);
+        Provider = provider;
+        ProviderUserId = providerUserId;
+    }
+
+    /// <summary>Gives up the real address (decline or merge), so it can belong to a real account.</summary>
+    public void ReleaseEmail()
+    {
+        EnsurePlaceholder();
+        Email = SentinelEmailFor(Id);
+    }
+
+    public void MarkMergedInto(UserId target)
+    {
+        EnsurePlaceholder();
+        if (target == Id)
+            throw new InvalidOperationException("A placeholder cannot be merged into itself");
+        if (IsMerged)
+            throw new InvalidOperationException("The placeholder is already merged");
+
+        MergedIntoUserId = target;
+    }
+
+    private void EnsurePlaceholder()
+    {
+        if (!IsPlaceholder)
+            throw new InvalidOperationException("The user is not a placeholder");
+    }
+
+    private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 }

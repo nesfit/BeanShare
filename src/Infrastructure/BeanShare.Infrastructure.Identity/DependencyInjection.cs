@@ -9,10 +9,27 @@ namespace BeanShare.Infrastructure.Identity;
 
 public static class DependencyInjection
 {
+    /// <summary>Registers <see cref="ICurrentPrincipalAccessor"/> and the sync settings; every host that registers an IUserContext calls it.</summary>
+    public static IServiceCollection AddCurrentPrincipalAccessor(this IServiceCollection services, IConfiguration? configuration = null)
+    {
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentPrincipalAccessor, CurrentPrincipalAccessor>();
+        if (configuration is not null)
+        {
+            services.AddSingleton(new BeanShare.Application.Services.UserSyncSettings
+            {
+                RequireVerifiedEmailForLinking = configuration.GetValue("Authentication:RequireVerifiedEmailForLinking", true)
+            });
+        }
+
+        return services;
+    }
+
     public static IServiceCollection AddIdentityInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddHttpContextAccessor();
         services.AddScoped<IUserContext, OidcUserContext>();
+        services.AddCurrentPrincipalAccessor();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();

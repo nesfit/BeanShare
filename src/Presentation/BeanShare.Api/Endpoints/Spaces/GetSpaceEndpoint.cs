@@ -63,7 +63,8 @@ public sealed class GetSpaceEndpoint : EndpointWithoutRequest<GetSpaceByIdRespon
                 Email = m.Email,
                 Role = m.Role,
                 JoinedAt = m.JoinedAt,
-                UserName = m.UserName
+                UserName = m.UserName,
+                IsPlaceholder = m.IsPlaceholder
             }).ToList()
         };
 

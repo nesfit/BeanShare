@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IActiveQrCodeRepository, ActiveQrCodeRepository>();
         services.AddScoped<IBalanceEntryRepository, BalanceEntryRepository>();
+        services.AddScoped<IHistoryImportRepository, HistoryImportRepository>();
         services.AddScoped<IInviteCodeGenerator, InviteCodeGenerator>();
         services.AddScoped<ICostCalculationService, CostCalculationService>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();

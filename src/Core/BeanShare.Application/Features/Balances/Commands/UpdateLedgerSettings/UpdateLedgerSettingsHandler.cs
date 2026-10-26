@@ -15,12 +15,18 @@ public sealed class UpdateLedgerSettingsHandler : IRequestHandler<UpdateLedgerSe
     private readonly ISpaceRepository _spaceRepository;
     private readonly ISettlementRepository _settlementRepository;
     private readonly IUserService _userService;
+    private readonly IUserRepository _userRepository;
+    private readonly IBillingPeriodRepository _billingPeriodRepository;
 
     public UpdateLedgerSettingsHandler(
         ISpaceRepository spaceRepository,
         ISettlementRepository settlementRepository,
-        IUserService userService)
+        IUserService userService,
+        IUserRepository userRepository,
+        IBillingPeriodRepository billingPeriodRepository)
     {
+        _userRepository = userRepository;
+        _billingPeriodRepository = billingPeriodRepository;
         _spaceRepository = spaceRepository;
         _settlementRepository = settlementRepository;
         _userService = userService;
@@ -44,6 +50,9 @@ public sealed class UpdateLedgerSettingsHandler : IRequestHandler<UpdateLedgerSe
             if (!space.IsAdmin(treasurerId))
                 return Result<LedgerSettingsDto>.Failure(Error.ValidationFailure(
                     nameof(command.TreasurerUserId), "The treasurer must be an admin of the space"));
+            if ((await _userRepository.GetAccessStatusAsync(treasurerId, cancellationToken))?.CanAct != true)
+                return Result<LedgerSettingsDto>.Failure(Error.ValidationFailure(
+                    nameof(command.TreasurerUserId), "The treasurer must be an active member with an account, not a placeholder"));
         }
 
         var hasLedgerSettlement = await _settlementRepository.HasLedgerSettlementAsync(spaceId, cancellationToken);
@@ -52,6 +61,15 @@ public sealed class UpdateLedgerSettingsHandler : IRequestHandler<UpdateLedgerSe
             : command.LedgerStartDate is { } start ? UtcDate.Of(start) : space.LedgerStartDate;
         if (hasLedgerSettlement && ledgerStart != space.LedgerStartDate)
             return Result<LedgerSettingsDto>.Failure(Error.LedgerStartLocked());
+
+        // History never touches money: every imported period must end before the ledger starts (DS-37).
+        if (ledgerStart is { } newStart && ledgerStart != space.LedgerStartDate)
+        {
+            var periods = await _billingPeriodRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
+            if (periods.Where(p => p.IsHistorical).Select(p => (DateTime?)p.EndDate).Max() is { } historyEnd && historyEnd >= newStart)
+                return Result<LedgerSettingsDto>.Failure(Error.ValidationFailure(
+                    nameof(command.LedgerStartDate), $"The ledger start date must be after the imported history, which ends {historyEnd:yyyy-MM-dd}"));
+        }
 
         if (treasurer != space.TreasurerUserId)
             space.SetTreasurer(treasurer);

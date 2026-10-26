@@ -15,14 +15,17 @@ public sealed class MarkBagEmptyCommandHandler : IRequestHandler<MarkBagEmptyCom
     private readonly ISpaceRepository _spaceRepository;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public MarkBagEmptyCommandHandler(
         ICoffeeStockRepository coffeeStockRepository,
         IConsumptionRepository consumptionRepository,
         ISpaceRepository spaceRepository,
         IUserContext userContext,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _coffeeStockRepository = coffeeStockRepository;
         _consumptionRepository = consumptionRepository;
         _spaceRepository = spaceRepository;
@@ -56,10 +59,10 @@ public sealed class MarkBagEmptyCommandHandler : IRequestHandler<MarkBagEmptyCom
 
         // Who absorbs the remainder, in priority order: this bag's own drinkers → the product's
         // drinkers → any space consumer → an equal split among members.
-        // Only current members share a write-off, renormalised over them (DS-34): ex-members are never billed.
-        var consumptions = (await _consumptionRepository.GetBySpaceIdAsync(spaceId, cancellationToken))
-            .Where(c => space.HasMember(c.UserId))
-            .ToList();
+        // Only current, non-merged members share a write-off, renormalised over them (DS-34): ex-members and
+        // merged placeholders are never billed.
+        var consumptions = await WriteOffParticipants.ShareableCupsAsync(
+            space, await _consumptionRepository.GetBySpaceIdAsync(spaceId, cancellationToken), _userRepository, cancellationToken);
 
         var byUser =
             GramsByUser(consumptions.Where(c => c.StockLotId == command.LotId));
@@ -68,7 +71,7 @@ public sealed class MarkBagEmptyCommandHandler : IRequestHandler<MarkBagEmptyCom
         if (byUser.Count == 0)
             byUser = GramsByUser(consumptions);
 
-        var shares = BuildShares(byUser, remainder, space.Members.Select(m => m.UserId).ToList());
+        var shares = BuildShares(byUser, remainder, await WriteOffParticipants.EqualSplitMembersAsync(space, _userRepository, cancellationToken));
         if (shares.Count == 0)
             return Result<MarkBagEmptyResult>.Failure(Error.NoRemainingStock());
 

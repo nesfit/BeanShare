@@ -94,7 +94,8 @@ public sealed class GetSpaceBalancesHandler : IRequestHandler<GetSpaceBalancesQu
                     line?.CarriedIn ?? 0m,
                     line?.Adjustments ?? 0m,
                     line?.Rounding ?? 0m,
-                    line?.Net ?? 0m);
+                    line?.Net ?? 0m,
+                    line?.MergeTransfer ?? 0m);
             })
             .OrderBy(m => m.Balance)
             .ThenBy(m => m.UserName)

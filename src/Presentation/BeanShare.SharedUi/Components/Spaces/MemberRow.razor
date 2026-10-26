@@ -10,6 +10,10 @@
             </div>
         </div>
         <div class="bs-flex bs-items-center bs-gap-2">
+            @if (IsPlaceholder)
+            {
+                <span class="bs-badge bs-badge-secondary" title="Added by an admin; this member cannot sign in yet">No login</span>
+            }
             <RolePill Role="@Role" />
             @if (ShowActions && CanManage)
             {
@@ -28,7 +32,25 @@
                         <div style="position: fixed; inset: 0; z-index: 5;" @onclick="CloseMenu"></div>
                         <div style="position: absolute; right: 0; top: 2.5rem; background: var(--bs-surface); border: 1px solid var(--bs-border); border-radius: 0.5rem; box-shadow: var(--bs-shadow-lg); min-width: 12rem; z-index: 10;">
                             <div style="padding: 0.25rem;">
-                                @if (Role == "Member")
+                                @if (IsPlaceholder && OnEditPlaceholder.HasDelegate)
+                                {
+                                    <button class="bs-flex bs-items-center bs-gap-2 bs-px-4 bs-py-2"
+                                            style="width: 100%; background: transparent; border: none; cursor: pointer; text-align: left; font-size: 0.875rem;"
+                                            @onclick="HandleEditPlaceholderClick">
+                                        <span class="material-symbols-outlined" style="font-size: 1.25rem;">edit</span>
+                                        Edit name or email
+                                    </button>
+                                }
+                                @if (IsPlaceholder && OnMergePlaceholder.HasDelegate)
+                                {
+                                    <button class="bs-flex bs-items-center bs-gap-2 bs-px-4 bs-py-2"
+                                            style="width: 100%; background: transparent; border: none; cursor: pointer; text-align: left; font-size: 0.875rem;"
+                                            @onclick="HandleMergePlaceholderClick">
+                                        <span class="material-symbols-outlined" style="font-size: 1.25rem;">merge</span>
+                                        Merge into member…
+                                    </button>
+                                }
+                                @if (Role == "Member" && !IsPlaceholder)
                                 {
                                     <button class="bs-flex bs-items-center bs-gap-2 bs-px-4 bs-py-2"
                                             style="width: 100%; background: transparent; border: none; cursor: pointer; text-align: left; font-size: 0.875rem;"
@@ -102,6 +124,18 @@
     [Parameter]
     public EventCallback<string> OnRemove { get; set; }
 
+    /// <summary>A member without an account (D21): shows a "No login" badge and is never promoted.</summary>
+    [Parameter]
+    public bool IsPlaceholder { get; set; }
+
+    /// <summary>Optional; without it the edit action is hidden (MAUI).</summary>
+    [Parameter]
+    public EventCallback<string> OnEditPlaceholder { get; set; }
+
+    /// <summary>Optional; without it the merge action is hidden (MAUI).</summary>
+    [Parameter]
+    public EventCallback<string> OnMergePlaceholder { get; set; }
+
     private bool isMenuOpen;
     private bool IsAdmin => Role == "Admin";
 
@@ -125,6 +159,18 @@
     {
         isMenuOpen = false;
         return OnDemote.InvokeAsync(UserId);
+    }
+
+    private Task HandleEditPlaceholderClick()
+    {
+        isMenuOpen = false;
+        return OnEditPlaceholder.InvokeAsync(UserId);
+    }
+
+    private Task HandleMergePlaceholderClick()
+    {
+        isMenuOpen = false;
+        return OnMergePlaceholder.InvokeAsync(UserId);
     }
 
     private Task HandleRemoveClick()

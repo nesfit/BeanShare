@@ -2,6 +2,7 @@ using BeanShare.Application.Abstractions;
 using BeanShare.Application.Common;
 using BeanShare.Application.Features.Balances.Dtos;
 using BeanShare.Application.Features.Balances.Services;
+using BeanShare.Application.Features.Spaces.Services;
 using BeanShare.Application.Services;
 using BeanShare.Domain.Aggregates.Ledger;
 using BeanShare.Domain.Common;
@@ -19,14 +20,17 @@ public sealed class CommitBalanceEntriesPasteHandler
     private readonly IUserService _userService;
     private readonly IUserContext _userContext;
     private readonly IClock _clock;
+    private readonly IUserRepository _userRepository;
 
     public CommitBalanceEntriesPasteHandler(
         ISpaceRepository spaceRepository,
         IBalanceEntryRepository balanceEntryRepository,
         IUserService userService,
         IUserContext userContext,
-        IClock clock)
+        IClock clock,
+        IUserRepository userRepository)
     {
+        _userRepository = userRepository;
         _spaceRepository = spaceRepository;
         _balanceEntryRepository = balanceEntryRepository;
         _userService = userService;
@@ -42,10 +46,10 @@ public sealed class CommitBalanceEntriesPasteHandler
             return Result<IReadOnlyList<BalanceEntryDto>>.Failure(Error.SpaceNotFound(command.SpaceId));
 
         var currentUserId = _userContext.CurrentUserId;
-        var members = await MemberResolver.CreateAsync(space, _userService, cancellationToken);
+        var members = await MemberResolver.CreateAsync(space, _userService, _userRepository, cancellationToken);
         var batch = BalancePasteEvaluator.CreateBatch(
             space, currentUserId, command.CounterpartyUserId, command.EffectiveDate, command.Kind, command.BatchNote, _clock);
-        var evaluation = BalancePasteEvaluator.Evaluate(command.Text, batch, members, _clock);
+        var evaluation = BalancePasteEvaluator.Evaluate(command.Text, batch, members, _clock, command.CreateMissingPlaceholders);
 
         if (!evaluation.IsValid)
         {
@@ -55,11 +59,23 @@ public sealed class CommitBalanceEntriesPasteHandler
             return Result<IReadOnlyList<BalanceEntryDto>>.Failure(errors);
         }
 
+        // New placeholders join in the same unit of work, so the batch stays all or nothing (U10).
+        var created = new Dictionary<string, UserId>(StringComparer.OrdinalIgnoreCase);
+        foreach (var text in evaluation.PlaceholdersToCreate)
+        {
+            var (name, email) = PlaceholderMembers.FromPastedText(text);
+            var placeholder = await PlaceholderMembers.AddAsync(space, name, email, _userRepository, _clock, cancellationToken);
+            if (placeholder.IsFailure)
+                return Result<IReadOnlyList<BalanceEntryDto>>.Failure(placeholder.Errors.ToArray());
+            created[text] = placeholder.Value.Id;
+        }
+
         var entries = new List<BalanceEntry>();
         foreach (var row in evaluation.Rows)
         {
+            var memberId = row.IsNewPlaceholder ? created[row.MemberText.Trim()] : new UserId(row.UserId!.Value);
             var entry = BalanceEntry.Create(
-                spaceId, new UserId(row.UserId!.Value), batch.CounterpartyUserId, row.Amount!.Value, space.Currency,
+                spaceId, memberId, batch.CounterpartyUserId, row.Amount!.Value, space.Currency,
                 batch.EffectiveDate, batch.Kind, row.Note, currentUserId, space.LedgerStartDate, _clock);
             await _balanceEntryRepository.AddAsync(entry, cancellationToken);
             entries.Add(entry);

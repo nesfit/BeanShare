@@ -142,6 +142,10 @@ public sealed class GetSpaceAnalyticsQueryHandler : IRequestHandler<GetSpaceAnal
         // that has already been rounded to whole cents (which inflates the total).
         var stockValue = await _costCalculationService.CalculateTotalCostAsync(request.SpaceId, stockGrams, cancellationToken);
 
+        // Placeholders are not people who use the app (DS-33).
+        var placeholderCount = (await _userService.GetByIdsAsync(space.Members.Select(m => m.UserId), cancellationToken))
+            .Count(u => u.IsPlaceholder);
+
         var totalGramsThisMonth = consumptionsThisMonth.Sum(c => c.Quantity.Grams);
         var totalCostThisMonth = await _costCalculationService.CalculateTotalCostAsync(
             request.SpaceId,
@@ -150,7 +154,7 @@ public sealed class GetSpaceAnalyticsQueryHandler : IRequestHandler<GetSpaceAnal
 
         return new SpaceAnalyticsDto
         {
-            TotalMembers = space.Members.Count,
+            TotalMembers = space.Members.Count - placeholderCount,
             TotalConsumptionsThisMonth = consumptionsThisMonth.Count,
             TotalConsumptionsAllTime = allConsumptions.Count(),
             TopConsumers = topConsumers,

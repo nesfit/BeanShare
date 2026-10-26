@@ -1,0 +1,29 @@
+@page "/account/sign-in-problem"
+@layout BeanShare.BlazorWeb.Components.Layout.AccountLayout
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+
+<PageTitle>Sign-in problem - BeanShare</PageTitle>
+
+<div class="bs-login-container">
+    <div class="bs-login-card">
+        <div class="bs-login-header">
+            <h1 class="bs-login-title">We could not sign you in</h1>
+            <p class="bs-login-subtitle">@Explanation</p>
+        </div>
+        <div class="bs-login-providers">
+            <a href="/account/login" class="bs-btn bs-btn-primary bs-w-full" data-enhance-nav="false">Try again</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "code")]
+    public string? Code { get; set; }
+
+    private string Explanation => Code switch
+    {
+        "EMAIL_NOT_VERIFIED" => "Your email address is not verified with the sign-in provider. Verify it there (for example in Keycloak), then sign in again.",
+        "SYNC_FAILED" => "Your account could not be set up right now. Please try again later.",
+        _ => "Something went wrong while signing you in. Please try again later."
+    };
+}

@@ -1,3 +1,4 @@
+using BeanShare.Application.Tests.TestHelpers;
 using System.Linq;
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Features.Consumption.Commands;
@@ -41,7 +42,7 @@ public sealed class PresetConsumptionTests
             _coffeeStockRepository,
             _consumptionRepository,
             _userContext,
-            _clock);
+            _clock, TestUsers.ActiveRepository());
     }
 
     [Fact]

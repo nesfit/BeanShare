@@ -87,6 +87,7 @@ public sealed class JwtTestFixture : WebApplicationFactory<Program>, IAsyncLifet
         using var scope = Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<BeanShareDbContext>();
         await context.Database.MigrateAsync();
+        await FixtureUsers.SeedAsync(Services);
     }
 
     public new async Task DisposeAsync()

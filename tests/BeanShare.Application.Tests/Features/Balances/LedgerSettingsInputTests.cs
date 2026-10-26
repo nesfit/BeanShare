@@ -1,3 +1,4 @@
+using BeanShare.Application.Tests.TestHelpers;
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Common;
 using BeanShare.Application.Features.Balances.Commands.UpdateLedgerSettings;
@@ -36,7 +37,7 @@ public sealed class LedgerSettingsInputTests
         _spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), Arg.Any<CancellationToken>()).Returns(_space);
     }
 
-    private UpdateLedgerSettingsHandler CreateHandler() => new(_spaceRepository, _settlementRepository, Substitute.For<IUserService>());
+    private UpdateLedgerSettingsHandler CreateHandler() => new(_spaceRepository, _settlementRepository, Substitute.For<IUserService>(), TestUsers.ActiveRepository(), Substitute.For<IBillingPeriodRepository>());
 
     [Fact]
     public async Task ChangingOnlyTheTreasurer_KeepsTheLedgerStart()

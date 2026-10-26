@@ -91,6 +91,39 @@ public sealed class UnsettledSummaryLedgerTests
         criteria(openCup).Should().BeTrue();
     }
 
+    // Rev8 (B26): a later-ending historical period is statistics and does not move the settled watermark.
+    [Fact]
+    public async Task AHistoricalPeriod_DoesNotMoveTheSettledWatermark()
+    {
+        _world.Periods.Add(Domain.Aggregates.BillingPeriod.BillingPeriod.CreateHistorical(
+            _world.Space.Id, "Imported", Jan1, new DateTime(2026, 2, 28, 0, 0, 0, DateTimeKind.Utc),
+            Domain.ValueObjects.HistoryImportId.New(), _world.Admin, _world.Clock));
+        var openCup = _world.LegacyCup(_alice, 10m, Feb10);
+        Domain.Specifications.ISpec<Domain.Entities.ConsumptionEntry>? asked = null;
+        _world.ConsumptionRepository
+            .When(r => r.GetBySpecAsync(Arg.Any<Domain.Specifications.ISpec<Domain.Entities.ConsumptionEntry>>(), Arg.Any<CancellationToken>()))
+            .Do(ci => asked = ci.Arg<Domain.Specifications.ISpec<Domain.Entities.ConsumptionEntry>>());
+
+        var summary = await _world.UnsettledAsync();
+
+        summary.TotalCups.Should().Be(1);
+        asked!.Criteria.Compile()(openCup).Should().BeTrue();
+    }
+
+    // CR5-2: the "Since …" of the card names the last live settled period; imported history never counts.
+    [Fact]
+    public async Task AHistoricalPeriod_IsNotTheLastSettledPeriod()
+    {
+        _world.Periods.Add(Domain.Aggregates.BillingPeriod.BillingPeriod.CreateHistorical(
+            _world.Space.Id, "Excel round 12", Jan1, Jan31, Domain.ValueObjects.HistoryImportId.New(), _world.Admin, _world.Clock));
+
+        var summary = await _world.UnsettledAsync();
+
+        summary.SettledThrough.Should().BeNull();
+        summary.LastSettledPeriodName.Should().BeNull();
+        summary.HasEverBeenSettled.Should().BeFalse();
+    }
+
     // Code round 1, F5: without a treasurer the rounding residual is shown, so the balances still net to zero.
     [Fact]
     public async Task WithoutATreasurer_TheRoundingResidualIsShownSoBalancesNetToZero()

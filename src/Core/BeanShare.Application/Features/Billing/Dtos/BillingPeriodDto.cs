@@ -19,7 +19,9 @@ public sealed record BillingPeriodDto(
     int ConsumptionCount,
     decimal TotalCoffeeGrams,
     decimal? EstimatedCost,
-    string? Currency
+    string? Currency,
+    bool IsHistorical = false,
+    Guid? HistoryImportId = null
 )
 {
     public bool IsOpenEnded => EndDate >= BillingPeriod.OpenEndedSentinel.Date;

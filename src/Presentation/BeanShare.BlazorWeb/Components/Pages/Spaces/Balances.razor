@@ -383,6 +383,10 @@ else
                         <input id="pasteNote" type="text" class="bs-input" @bind="pasteBatchNote" @bind:after="InvalidatePreview" />
                     </div>
                 </div>
+                <label class="bs-flex bs-items-center" style="gap: 0.5rem; font-size: 0.875rem;">
+                    <input type="checkbox" @bind="pasteCreatePlaceholders" @bind:after="InvalidatePreview" />
+                    Create unknown members as placeholders (a name gets no email, an email keeps it)
+                </label>
 
                 @if (pastePreview != null)
                 {
@@ -406,7 +410,7 @@ else
                                 {
                                     <tr style="border-top: 1px solid var(--bs-border); background: @(row.IsValid ? "transparent" : "var(--bs-error-light)");">
                                         <td style="padding: 0.25rem 0.5rem 0.25rem 0;">@row.LineNumber</td>
-                                        <td style="padding: 0.25rem 0.5rem;">@(row.UserName ?? row.MemberText)</td>
+                                        <td style="padding: 0.25rem 0.5rem;">@(row.UserName ?? row.MemberText)@(row.IsNewPlaceholder ? " (new)" : "")</td>
                                         <td style="padding: 0.25rem 0.5rem; text-align: right; font-variant-numeric: tabular-nums;">@(row.Amount.HasValue ? Signed(row.Amount.Value) : "")</td>
                                         <td style="padding: 0.25rem 0.5rem;">@row.Note</td>
                                         <td style="padding: 0.25rem 0;">
@@ -426,6 +430,11 @@ else
                     </div>
                     <p style="margin: 0; font-size: 0.875rem;">
                         @pastePreview.ValidRowCount valid, @pastePreview.ErrorRowCount with errors. Σ @Signed(pastePreview.Total).
+                        @if (pastePreview.PlaceholdersToCreate is { Count: > 0 } toCreate)
+                        {
+                            <br />
+                            <span>New placeholder members: @string.Join(", ", toCreate).</span>
+                        }
                         @pastePreview.CounterpartyName's balance: @Signed(pastePreview.CounterpartyBalance) → @Signed(pastePreview.CounterpartyResultingBalance).
                     </p>
                 }
@@ -492,6 +501,7 @@ else
     private Guid? pasteCounterpartyId;
     private DateTime pasteDate = LocalToday;
     private BalanceEntryKind pasteKind = BalanceEntryKind.Opening;
+    private bool pasteCreatePlaceholders;
     private BalancePastePreviewDto? pastePreview;
 
     private bool showDeleteConfirm;
@@ -739,6 +749,7 @@ else
         pasteCounterpartyId = currentUserId;
         pasteDate = LocalToday;
         pasteKind = BalanceEntryKind.Opening;
+        pasteCreatePlaceholders = false;
         pastePreview = null;
         showPasteModal = true;
     }
@@ -754,7 +765,7 @@ else
         try
         {
             var result = await Mediator.Send(new PreviewBalanceEntriesPasteQuery(
-                Guid.Parse(SpaceId), pasteText, pasteBatchNote, pasteCounterpartyId, Utc(pasteDate), pasteKind));
+                Guid.Parse(SpaceId), pasteText, pasteBatchNote, pasteCounterpartyId, Utc(pasteDate), pasteKind, pasteCreatePlaceholders));
             if (result.IsSuccess)
             {
                 pastePreview = result.Value;
@@ -787,7 +798,7 @@ else
         try
         {
             var result = await Mediator.Send(new CommitBalanceEntriesPasteCommand(
-                Guid.Parse(SpaceId), pasteText, pasteBatchNote, pasteCounterpartyId, Utc(pasteDate), pasteKind));
+                Guid.Parse(SpaceId), pasteText, pasteBatchNote, pasteCounterpartyId, Utc(pasteDate), pasteKind, pasteCreatePlaceholders));
             if (result.IsSuccess)
             {
                 showPasteModal = false;

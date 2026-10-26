@@ -36,7 +36,7 @@ internal static class SettlementDtoMapper
                 return new SettlementLineDto(
                     line.UserId.Value,
                     user?.Name ?? $"User {line.UserId.Value}",
-                    user?.Email ?? string.Empty,
+                    user?.PublicEmail ?? string.Empty,
                     line.TotalCoffeeGrams,
                     line.TotalMilkMl ?? 0,
                     line.AmountDue.Amount,
@@ -54,7 +54,9 @@ internal static class SettlementDtoMapper
                     line.RoundingAmount,
                     line.Resolution?.ToString(),
                     line.CarriedToSettlementId?.Value,
-                    settlement.IsTreasurerLine(line));
+                    settlement.IsTreasurerLine(line),
+                    line.MergeTransferAmount ?? 0m,
+                    user?.MergedIntoUserId is { } mergedInto ? NameOf(mergedInto) : null);
             })
             .OrderBy(l => l.NetBalance)
             .ThenBy(l => l.UserName)
