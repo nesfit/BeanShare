@@ -443,13 +443,14 @@ mean the running balance. These status codes change:
 
 | Endpoint | Before | Now |
 |---|---|---|
-| Every command endpoint (each POST, PUT and DELETE that runs a command; the avatar upload runs none) | Access failures mostly 400; a few endpoints already answered 403 | 401 `UNAUTHENTICATED` when the caller has no active, non-placeholder user row; 403 `NOT_MEMBER`, `NOT_ADMIN`, `FORBIDDEN` or `INSUFFICIENT_PRIVILEGES`; 409 `CONCURRENCY_CONFLICT` when the data changed meanwhile (retry after reloading). Each comes with the code in the body, and a 401 also with the `WWW-Authenticate: Bearer` challenge. Every other failure keeps the endpoint's previous status and body |
+| Every command endpoint (each POST, PUT and DELETE that runs a command) | Access failures mostly 400; a few endpoints already answered 403 | 401 `UNAUTHENTICATED` when the caller has no active, non-placeholder user row; 403 `NOT_MEMBER`, `NOT_ADMIN`, `FORBIDDEN` or `INSUFFICIENT_PRIVILEGES`; 409 `CONCURRENCY_CONFLICT` when the data changed meanwhile (retry after reloading). Each comes with the code in the body, and a 401 also with the `WWW-Authenticate: Bearer` challenge. Every other failure keeps the endpoint's previous status and body |
 | `POST /api/billing-periods/{id}/settlement` (generate) | Every failure 400, with only the message in `detail` | Ledger failures (`SETTLEMENT_ORDER`, `TREASURER_REQUIRED`, …) stay 400. The message is now in `Detail` (capital D, like the rest of the API's JSON), and the code is added in `Errors[].Reason` |
 | `PUT /api/settlements/{id}/confirm-payment/{memberUserId}` | Every failure 400, with only the message in `detail` | Failures that are not about access (`PAYMENT_ALREADY_CONFIRMED`, `LINE_CARRIED`, `LINE_MERGED`, …) stay 400. The message is now in `Detail`, and the code is added in `Errors[].Reason` |
 | `POST /api/users/sync` | 500 on a sync failure | 403 `EMAIL_NOT_VERIFIED` or `SYNC_FAILED`, 409 `PLACEHOLDER_LINK_PENDING`; the 200 response is unchanged |
 | `POST /api/users/sync/placeholder-link` (new) | — | `{ "accept": true \| false }` → 200 with the outcome; 404 when nothing is pending; 409 `CONCURRENCY_CONFLICT`; 403 `SYNC_FAILED` |
 | Placeholder create/edit (new) | — | 409 `EMAIL_IN_USE` for an address another user already has |
 | `DELETE /api/consumptions/{id}`, `PUT /api/consumptions/{id}` | A cup before the ledger start could be deleted, or re-dated past it | 400 `BEFORE_LEDGER_START` for a cup before the ledger start, and for a re-date across it in either direction |
+| `POST /api/me/avatar` | Any signed-in caller could upload | 401 `UNAUTHENTICATED`, with the code and the Bearer challenge, for an unknown, deactivated or placeholder account |
 
 Queries (GET) keep their own failure shapes. A body "with the code" is the shared problem-details shape
 (`application/problem+json`): each entry of `Errors` carries an error code in `Reason`, and `Detail` carries the first

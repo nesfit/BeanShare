@@ -1,4 +1,6 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Abstractions;
+using BeanShare.Application.Common;
 using BeanShare.Infrastructure.Services;
 using FastEndpoints;
 
@@ -8,11 +10,13 @@ public sealed class UploadAvatarEndpoint : EndpointWithoutRequest<UploadAvatarRe
 {
     private readonly IUserContext _userContext;
     private readonly AvatarStorageService _avatarStorageService;
+    private readonly IUserRepository _userRepository;
 
-    public UploadAvatarEndpoint(IUserContext userContext, AvatarStorageService avatarStorageService)
+    public UploadAvatarEndpoint(IUserContext userContext, AvatarStorageService avatarStorageService, IUserRepository userRepository)
     {
         _userContext = userContext;
         _avatarStorageService = avatarStorageService;
+        _userRepository = userRepository;
     }
 
     public override void Configure()
@@ -25,11 +29,20 @@ public sealed class UploadAvatarEndpoint : EndpointWithoutRequest<UploadAvatarRe
             s.Description = "Upload a profile picture for the current user. Accepts jpg, png, gif, webp formats. Max 5MB.";
             s.Response<UploadAvatarResponse>(200, "Avatar uploaded successfully");
             s.Response(400, "Invalid file format or size");
+            s.Response(401, "The account is unknown, deactivated or a placeholder");
         });
     }
 
     public override async Task HandleAsync(CancellationToken ct)
     {
+        // DS-30: the upload runs no command, so the pipeline's active-account check does not cover it.
+        var access = await _userRepository.GetAccessStatusAsync(_userContext.CurrentUserId, ct);
+        if (!access.CanAct)
+        {
+            await this.TrySendAccessOrConflictAsync([Error.Unauthenticated()], ct);
+            return;
+        }
+
         var file = Files.FirstOrDefault();
         if (file is null)
         {
