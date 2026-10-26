@@ -18,6 +18,7 @@ public class ActiveQrService : IActiveQrService
         {
             var request = new
             {
+                SpaceId = spaceId,
                 Label = label,
                 ProductName = productName,
                 ProductBrand = productBrand,
