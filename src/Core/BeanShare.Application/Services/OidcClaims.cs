@@ -13,12 +13,15 @@ public static class OidcClaims
 
     /// <summary>
     /// The identity provider's own subject, kept by the claims transformation when it replaces <c>sub</c> with the
-    /// database user id, so sync still sees the provider's subject. Trusted only with <see cref="LocalIssuer"/>.
+    /// database user id, so sync still sees the provider's subject. Trusted only with <see cref="TransformationIssuer"/>.
     /// </summary>
     public const string ProviderSubject = "beanshare_provider_sub";
 
-    /// <summary>The issuer of claims BeanShare adds itself; a token from the IdP never carries it.</summary>
-    public const string LocalIssuer = "BeanShare";
+    /// <summary>
+    /// The issuer of claims the claims transformation adds itself. It is distinct from the token issuers BeanShare
+    /// uses — the IdP's and the API's own local JWT issuer ("BeanShare") — so a claim inside a token cannot satisfy it.
+    /// </summary>
+    public const string TransformationIssuer = "BeanShare.ClaimsTransformation";
 
     /// <summary>The verified flag as a bool, ignoring case ("True", "true"); anything else is false (N5).</summary>
     public static bool IsEmailVerified(ClaimsPrincipal principal) =>
@@ -36,7 +39,7 @@ public static class OidcClaims
     /// The provider's subject: the one the claims transformation kept, else <c>sub</c>, else the name identifier.
     /// </summary>
     public static string? ProviderSubjectOf(ClaimsPrincipal principal) =>
-        principal.FindAll(ProviderSubject).FirstOrDefault(c => c.Issuer == LocalIssuer)?.Value
+        principal.FindAll(ProviderSubject).FirstOrDefault(c => c.Issuer == TransformationIssuer)?.Value
         ?? principal.FindFirst("sub")?.Value
         ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 }

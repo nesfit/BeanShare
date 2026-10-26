@@ -179,7 +179,8 @@ A member's **Net** is positive when the space owes the member.
   The web strips any `beanshare_link_pending` claim that comes from the identity provider before sync decides;
   only sync adds it. The API answers a pending sync with 409 and an unverified one with 403.
   - In the API, `OidcClaimsTransformation` replaces `sub` with the database user id and keeps the provider's
-    subject in `beanshare_provider_sub` (issuer `BeanShare`); sync reads it through `OidcClaims.ProviderSubjectOf`.
+    subject in `beanshare_provider_sub` (issuer `BeanShare.ClaimsTransformation`, which no token issuer uses); sync
+    reads it through `OidcClaims.ProviderSubjectOf`.
     An email match links only an account that has no provider link yet, and sentinel addresses never match.
 - **Merge:** an admin can merge a placeholder into a member with an account. No entry is written: every later
   calculation **sweeps** the placeholder's Net to the target (`MergeTransfer` on both lines), whatever still

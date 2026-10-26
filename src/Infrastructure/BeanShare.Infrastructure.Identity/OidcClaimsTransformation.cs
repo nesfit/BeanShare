@@ -79,7 +79,7 @@ public sealed class OidcClaimsTransformation : IClaimsTransformation
         if (!string.Equals(sub, user.Id.Value.ToString(), StringComparison.Ordinal))
         {
             // Keep the provider's subject for sync, which must find the account by it, not by the database id.
-            identity.AddClaim(new Claim(OidcClaims.ProviderSubject, sub, ClaimValueTypes.String, OidcClaims.LocalIssuer));
+            identity.AddClaim(new Claim(OidcClaims.ProviderSubject, sub, ClaimValueTypes.String, OidcClaims.TransformationIssuer));
 
             var oldSub = identity.FindFirst("sub");
             if (oldSub is not null)

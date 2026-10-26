@@ -149,6 +149,30 @@ public sealed class PlaceholderLinkHardeningTests
         OidcClaims.ProviderSubjectOf(principal).Should().Be("kc-real");
     }
 
+    [Fact]
+    public void AProviderSubjectClaimFromALocalLoginToken_IsNotTrusted()
+    {
+        // The API's local JWT tokens are issued as Jwt:Issuer; a claim stamped with that issuer must not pass.
+        var localIssuer = LocalJwtIssuer();
+        localIssuer.Should().NotBe(OidcClaims.TransformationIssuer);
+        var principal = Principal("local-sub", "eve@example.org", "true");
+        ((ClaimsIdentity)principal.Identity!).AddClaim(new Claim(OidcClaims.ProviderSubject, "kc-someone-else", ClaimValueTypes.String, localIssuer));
+
+        OidcClaims.ProviderSubjectOf(principal).Should().Be("local-sub");
+    }
+
+    private static string LocalJwtIssuer()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "BeanShare.slnf")))
+            directory = directory.Parent;
+        var appsettings = Path.Combine(
+            directory?.FullName ?? throw new InvalidOperationException("BeanShare.slnf not found above the test output"),
+            "src", "Presentation", "BeanShare.Api", "appsettings.json");
+        using var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(appsettings));
+        return json.RootElement.GetProperty("Jwt").GetProperty("Issuer").GetString()!;
+    }
+
     // ---- Sentinel addresses never link or map (A5-1) ----
 
     [Fact(Timeout = 20000)]
