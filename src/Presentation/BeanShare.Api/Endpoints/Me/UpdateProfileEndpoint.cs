@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Users.Commands.UpdateProfile;
 using FastEndpoints;
 using MediatR;
@@ -37,6 +38,8 @@ public sealed class UpdateProfileEndpoint : Endpoint<UpdateProfileRequest, Updat
         }
         else
         {
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
+                return;
             var errorMessage = result.Errors.Any() ? result.Errors.First().Message : "Failed to update profile";
             await SendAsync(new UpdateProfileResponse(false, errorMessage), 400, ct);
         }

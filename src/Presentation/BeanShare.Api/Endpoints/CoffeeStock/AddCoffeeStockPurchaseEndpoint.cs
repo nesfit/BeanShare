@@ -65,7 +65,7 @@ public sealed class AddCoffeeStockPurchaseEndpoint : Endpoint<AddStockPurchaseRe
         var result = await _mediator.Send(command, ct);
 
 
-        if (await this.TrySendConflictAsync(result.Errors, ct))
+        if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
             return;
 
         if (result.IsFailure)

@@ -30,7 +30,7 @@ public sealed class GenerateSettlementEndpoint : Endpoint<GenerateSettlementRequ
         var command = new GenerateSettlementCommand(req.BillingPeriodId);
         var result = await _mediator.Send(command, ct);
 
-        if (await this.TrySendConflictAsync(result.Errors, ct))
+        if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
             return;
 
         if (result.IsSuccess)
@@ -39,10 +39,8 @@ public sealed class GenerateSettlementEndpoint : Endpoint<GenerateSettlementRequ
         }
         else
         {
-            await SendResultAsync(TypedResults.Problem(
-                detail: result.Errors.Any() ? result.Errors.First().Message : "Failed to generate settlement",
-                statusCode: 400
-            ));
+            // Ledger failures (SETTLEMENT_ORDER, TREASURER_REQUIRED, …) keep their 400, now with the code in the body.
+            await this.SendErrorsWithCodesAsync(result.Errors, StatusCodes.Status400BadRequest, ct);
         }
     }
 }

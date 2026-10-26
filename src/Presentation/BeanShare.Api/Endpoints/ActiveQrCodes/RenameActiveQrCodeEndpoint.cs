@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.ActiveQrCodes.Commands;
 using BeanShare.Contracts.ActiveQrCodes;
 using FastEndpoints;
@@ -55,6 +56,8 @@ public sealed class RenameActiveQrCodeEndpoint : Endpoint<RenameActiveQrCodeRequ
         }
         else
         {
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
+                return;
             foreach (var error in result.Errors)
             {
                 AddError(error.Code, error.Message);

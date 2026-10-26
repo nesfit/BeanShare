@@ -51,7 +51,7 @@ public sealed class DeactivateSpaceEndpoint : Endpoint<DeactivateSpaceRequest, S
 
         if (result.IsFailure)
         {
-            if (await this.TrySendConflictAsync(result.Errors, ct))
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
                 return;
             foreach (var error in result.Errors)
             {

@@ -35,7 +35,7 @@ public sealed class DiscardBagEndpoint : EndpointWithoutRequest<DiscardBagRespon
         var result = await _mediator.Send(new DiscardBagCommand(spaceId, lotId), ct);
 
 
-        if (await this.TrySendConflictAsync(result.Errors, ct))
+        if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
             return;
 
         if (result.IsSuccess)

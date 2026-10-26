@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Users.Commands.UpdatePreferredCurrency;
 using BeanShare.Contracts.Users;
 using FastEndpoints;
@@ -31,6 +32,8 @@ public sealed class UpdatePreferredCurrencyEndpoint : Endpoint<UpdatePreferredCu
 
         if (result.IsFailure)
         {
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
+                return;
             foreach (var error in result.Errors)
             {
                 AddError(error.Code, error.Message);

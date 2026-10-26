@@ -38,7 +38,7 @@ public sealed class SetCurrentlyUsedStockLevelEndpoint : EndpointWithoutRequest
         }
         else
         {
-            if (await this.TrySendConflictAsync(result.Errors, ct))
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
                 return;
             foreach (var error in result.Errors)
             {

@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Notifications.Commands.ClearNotifications;
 using BeanShare.Contracts.Notifications;
 using FastEndpoints;
@@ -31,6 +32,8 @@ public sealed class ClearNotificationsEndpoint : EndpointWithoutRequest<ClearNot
 
         if (!result.IsSuccess)
         {
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
+                return;
             AddError("Notifications", result.Errors.Any() ? result.Errors.First().Message : "Failed to clear notifications");
             await SendErrorsAsync(400, ct);
             return;

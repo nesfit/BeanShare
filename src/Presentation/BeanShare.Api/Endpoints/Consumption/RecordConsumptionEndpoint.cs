@@ -46,7 +46,7 @@ public sealed class RecordConsumptionEndpoint(IMediator mediator)
         var result = await mediator.Send(command, ct);
 
 
-        if (await this.TrySendConflictAsync(result.Errors, ct))
+        if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
             return;
 
         if (result.IsSuccess)

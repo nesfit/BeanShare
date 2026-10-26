@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Admin.Presets.Commands;
 using BeanShare.Contracts.Admin;
 using FastEndpoints;
@@ -41,6 +42,8 @@ public sealed class UpdateGlobalPresetEndpoint : Endpoint<UpdateGlobalPresetRequ
 
         if (result.IsFailure)
         {
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
+                return;
             foreach (var error in result.Errors)
             {
                 AddError(error.Code, error.Message);

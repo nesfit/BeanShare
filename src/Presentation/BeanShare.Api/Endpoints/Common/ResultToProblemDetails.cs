@@ -55,32 +55,10 @@ public static class ResultExtensions
     }
 
     /// <summary>
-    /// For endpoints that shape their own failures: sends a CONCURRENCY_CONFLICT failure as 409 with the
-    /// error codes in the body, the way <c>SendResultErrorsAsync</c> does, and returns true. Any other
-    /// result (success included) is left to the caller.
-    /// </summary>
-    public static async Task<bool> TrySendConflictAsync<TRequest, TResponse>(
-        this Endpoint<TRequest, TResponse> endpoint,
-        IReadOnlyList<Error> errors,
-        CancellationToken ct = default)
-        where TRequest : notnull
-    {
-        if (!IsConcurrencyConflict(errors))
-            return false;
-
-        foreach (var error in errors)
-        {
-            endpoint.AddError(error.Code, error.Message);
-        }
-
-        await endpoint.HttpContext.Response.SendErrorsAsync(endpoint.ValidationFailures, (int)HttpStatusCode.Conflict, cancellation: ct);
-        return true;
-    }
-
-    /// <summary>
-    /// For endpoints that shape their own failures: sends a failure whose code maps to 401, 403 or 409 with that
-    /// status and the error codes in the body, the way <c>SendResultErrorsAsync</c> does, and returns true. Any
-    /// other result (success included) is left to the caller.
+    /// For endpoints that shape their own failures: sends an access failure (a code that maps to 401 or 403, such as
+    /// UNAUTHENTICATED or NOT_ADMIN) or a CONCURRENCY_CONFLICT (409) with that status and the error codes in the
+    /// body, the way <c>SendResultErrorsAsync</c> does, and returns true. Every other result, success and business
+    /// failures included, is left to the caller and keeps the endpoint's own shape.
     /// </summary>
     public static async Task<bool> TrySendAccessOrConflictAsync<TRequest, TResponse>(
         this Endpoint<TRequest, TResponse> endpoint,
@@ -89,7 +67,7 @@ public static class ResultExtensions
         where TRequest : notnull
     {
         var status = IsConcurrencyConflict(errors) ? (int)HttpStatusCode.Conflict : GetStatusCode(errors);
-        if (status is not ((int)HttpStatusCode.Unauthorized or (int)HttpStatusCode.Forbidden or (int)HttpStatusCode.Conflict))
+        if (status is not ((int)HttpStatusCode.Unauthorized or (int)HttpStatusCode.Forbidden) && !IsConcurrencyConflict(errors))
             return false;
 
         foreach (var error in errors)
@@ -99,6 +77,25 @@ public static class ResultExtensions
 
         await endpoint.HttpContext.Response.SendErrorsAsync(endpoint.ValidationFailures, status, cancellation: ct);
         return true;
+    }
+
+    /// <summary>
+    /// For endpoints that keep their own status for a failure: sends it with <paramref name="statusCode"/> and the
+    /// error codes in the body, in the same shape as <c>SendResultErrorsAsync</c>.
+    /// </summary>
+    public static async Task SendErrorsWithCodesAsync<TRequest, TResponse>(
+        this Endpoint<TRequest, TResponse> endpoint,
+        IReadOnlyList<Error> errors,
+        int statusCode,
+        CancellationToken ct = default)
+        where TRequest : notnull
+    {
+        foreach (var error in errors)
+        {
+            endpoint.AddError(error.Code, error.Message);
+        }
+
+        await endpoint.HttpContext.Response.SendErrorsAsync(endpoint.ValidationFailures, statusCode, cancellation: ct);
     }
 
     /// <summary>A retryable race: the data changed while the request ran.</summary>

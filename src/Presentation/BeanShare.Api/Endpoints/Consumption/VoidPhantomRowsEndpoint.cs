@@ -37,7 +37,7 @@ public sealed class VoidPhantomRowsEndpoint : Endpoint<VoidPhantomRowsRequest, E
 
         if (result.IsFailure)
         {
-            if (await this.TrySendConflictAsync(result.Errors, ct))
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
                 return;
             await this.SendResultErrorsAsync(result, ct);
             return;

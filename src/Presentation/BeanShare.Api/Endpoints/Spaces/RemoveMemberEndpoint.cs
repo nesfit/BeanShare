@@ -56,7 +56,7 @@ public sealed class RemoveMemberEndpoint : Endpoint<RemoveMemberRequest, MemberA
         var command = new RemoveMemberCommand(req.SpaceId, req.UserId);
         var result = await _mediator.Send(command, ct);
 
-        if (await this.TrySendConflictAsync(result.Errors, ct))
+        if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
             return;
 
         if (result.IsFailure)

@@ -42,10 +42,8 @@ public sealed class ConfirmPaymentEndpoint : Endpoint<ConfirmPaymentRequest, Emp
         }
         else if (!await this.TrySendAccessOrConflictAsync(result.Errors, ct))
         {
-            await SendResultAsync(TypedResults.Problem(
-                detail: result.Errors.Any() ? result.Errors.First().Message : "Failed to confirm payment",
-                statusCode: 400
-            ));
+            // Ledger failures (LINE_CARRIED, LINE_MERGED, …) keep their 400, now with the code in the body.
+            await this.SendErrorsWithCodesAsync(result.Errors, StatusCodes.Status400BadRequest, ct);
         }
     }
 }

@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Notifications.Commands.MarkAllAsRead;
 using BeanShare.Contracts.Notifications;
 using FastEndpoints;
@@ -31,6 +32,8 @@ public sealed class MarkAllAsReadEndpoint : EndpointWithoutRequest<MarkAsReadRes
 
         if (!result.IsSuccess)
         {
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
+                return;
             AddError("Notifications", result.Errors.Any() ? result.Errors.First().Message : "Failed to mark all as read");
             await SendErrorsAsync(400, ct);
             return;

@@ -140,6 +140,91 @@ public sealed class ResultMappingTests
         ghost.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.Unauthenticated);
     }
 
+    // Evidence audit §4: the generate and confirm endpoints keep their 400, now with the ledger code in the body.
+    [Fact]
+    public async Task GenerateSettlement_OutOfOrder_Is400WithTheCode()
+    {
+        var endpoint = Factory.Create<GenerateSettlementEndpoint>(
+            new CannedMediator(Result<BeanShare.Application.Features.Settlement.Dtos.SettlementDto>.Failure(Error.SettlementOrder("Settle or delete 'L2' first"))));
+
+        await endpoint.HandleAsync(new GenerateSettlementRequest { BillingPeriodId = Guid.NewGuid() }, default);
+
+        endpoint.HttpContext.Response.StatusCode.Should().Be(400);
+        endpoint.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.SettlementOrder);
+    }
+
+    [Fact]
+    public async Task ConfirmPayment_OfACarriedLine_Is400WithTheCode()
+    {
+        var endpoint = Factory.Create<ConfirmPaymentEndpoint>(
+            new CannedMediator(Result.Failure(new Error(Error.Codes.LineCarried, "This line was carried; confirm it there"))));
+
+        await endpoint.HandleAsync(new ConfirmPaymentRequest { SettlementId = Guid.NewGuid(), MemberUserId = Guid.NewGuid() }, default);
+
+        endpoint.HttpContext.Response.StatusCode.Should().Be(400);
+        endpoint.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.LineCarried);
+    }
+
+    // CR8-1: every command endpoint answers an unknown, inactive or placeholder caller with 401 and the code, an
+    // access refusal with 403, and a CONCURRENCY_CONFLICT with 409; every other failure keeps the endpoint's shape.
+    [Fact]
+    public async Task CloseBillingPeriod_RefusedForAGhost_Is401WithItsCode()
+    {
+        var endpoint = Factory.Create<CloseBillingPeriodEndpoint>(new CannedMediator(Result.Failure(Error.Unauthenticated())));
+
+        await endpoint.HandleAsync(new CloseBillingPeriodRequest { BillingPeriodId = Guid.NewGuid() }, default);
+
+        endpoint.HttpContext.Response.StatusCode.Should().Be(401);
+        endpoint.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.Unauthenticated);
+    }
+
+    [Fact]
+    public async Task CloseBillingPeriod_RefusedForANonAdmin_Is403WithItsCode()
+    {
+        var endpoint = Factory.Create<CloseBillingPeriodEndpoint>(
+            new CannedMediator(Result.Failure(Error.InsufficientSpacePrivileges("close billing periods"))));
+
+        await endpoint.HandleAsync(new CloseBillingPeriodRequest { BillingPeriodId = Guid.NewGuid() }, default);
+
+        endpoint.HttpContext.Response.StatusCode.Should().Be(403);
+        endpoint.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.InsufficientPrivileges);
+    }
+
+    [Fact]
+    public async Task ASelfShapingEndpoint_RefusedForAGhost_Is401WithItsCode()
+    {
+        var endpoint = Factory.Create<BeanShare.Api.Endpoints.Users.SetRevolutTagEndpoint>(new CannedMediator(Result.Failure(Error.Unauthenticated())));
+
+        await endpoint.HandleAsync(new BeanShare.Contracts.Users.SetRevolutTagRequest(), default);
+
+        endpoint.HttpContext.Response.StatusCode.Should().Be(401);
+        endpoint.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.Unauthenticated);
+    }
+
+    [Fact]
+    public async Task SendingSettlementEmails_RefusedForAGhost_Is401WithItsCode()
+    {
+        var endpoint = Factory.Create<SendSettlementEmailsEndpoint>(new CannedMediator(Result<int>.Failure(Error.Unauthenticated())));
+
+        await endpoint.HandleAsync(new SendSettlementEmailsRequest { Id = Guid.NewGuid() }, default);
+
+        endpoint.HttpContext.Response.StatusCode.Should().Be(401);
+    }
+
+    [Fact]
+    public async Task ABusinessConflict_KeepsTheEndpointsOwnShape()
+    {
+        // ALREADY_MEMBER maps to 409 in the shared mapping, but it is neither an access failure nor a concurrency
+        // conflict, so JoinSpace keeps its own 400 with the code.
+        var endpoint = Factory.Create<JoinSpaceEndpoint>(
+            new CannedMediator(Result<JoinSpaceResult>.Failure(new Error(Error.Codes.AlreadyMember, "Already a member"))));
+
+        await endpoint.HandleAsync(new JoinSpaceRequest { InviteCode = "KAVAXY" }, default);
+
+        endpoint.HttpContext.Response.StatusCode.Should().Be(400);
+        endpoint.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.AlreadyMember);
+    }
+
     /// <summary>Answers every Send with one canned response.</summary>
     private sealed class CannedMediator(object response) : IMediator
     {

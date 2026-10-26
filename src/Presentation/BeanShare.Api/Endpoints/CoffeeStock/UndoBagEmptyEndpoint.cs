@@ -35,7 +35,7 @@ public sealed class UndoBagEmptyEndpoint : EndpointWithoutRequest<UndoBagEmptyRe
         var result = await _mediator.Send(new UndoBagEmptyCommand(spaceId, lotId), ct);
 
 
-        if (await this.TrySendConflictAsync(result.Errors, ct))
+        if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
             return;
 
         if (result.IsSuccess)

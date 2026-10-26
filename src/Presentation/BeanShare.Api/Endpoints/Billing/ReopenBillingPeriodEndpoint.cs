@@ -30,7 +30,7 @@ public sealed class ReopenBillingPeriodEndpoint : Endpoint<ReopenBillingPeriodRe
         var command = new ReopenBillingPeriodCommand(req.BillingPeriodId);
         var result = await _mediator.Send(command, ct);
 
-        if (await this.TrySendConflictAsync(result.Errors, ct))
+        if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
             return;
 
         if (result.IsSuccess)

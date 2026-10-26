@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Notifications.Commands.MarkNotificationAsRead;
 using FastEndpoints;
 using MediatR;
@@ -35,6 +36,8 @@ public sealed class MarkNotificationAsReadEndpoint : Endpoint<MarkNotificationAs
 
         if (!result.IsSuccess)
         {
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
+                return;
             var error = result.Errors.First();
             if (error.Code == "NOTIFICATION_NOT_FOUND")
             {

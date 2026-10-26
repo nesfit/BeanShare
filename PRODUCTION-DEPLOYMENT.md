@@ -443,13 +443,15 @@ mean the running balance. These status codes change:
 
 | Endpoint | Before | Now |
 |---|---|---|
-| Every command and every authorized request | — | 401 `UNAUTHENTICATED` when the caller has no active, non-placeholder user row. CreateSpace, JoinSpace and ConfirmPayment send it with the code in the body |
-| `POST /api/spaces/join` | `ALREADY_MEMBER`: 400 | `ALREADY_MEMBER`: **409**, with the code |
-| `PUT /api/settlements/{id}/confirm-payment/{memberUserId}` | `PAYMENT_ALREADY_CONFIRMED`: 400; not allowed (`NOT_ADMIN`, `INSUFFICIENT_PRIVILEGES`): 400 | `PAYMENT_ALREADY_CONFIRMED`: **409**; not allowed: **403** (with the code in the body). New: `CONCURRENCY_CONFLICT` 409 with the code; `LINE_CARRIED` and `LINE_MERGED` 400 with the message |
+| Every command endpoint (each POST, PUT and DELETE that runs a command; the avatar upload runs none) | Access failures mostly 400; a few endpoints already answered 403 | 401 `UNAUTHENTICATED` when the caller has no active, non-placeholder user row; 403 `NOT_MEMBER`, `NOT_ADMIN`, `FORBIDDEN` or `INSUFFICIENT_PRIVILEGES`; 409 `CONCURRENCY_CONFLICT` when the data changed meanwhile (retry after reloading). Each comes with the code in the body. Every other failure keeps the endpoint's previous status and body |
+| `POST /api/billing-periods/{id}/settlement` (generate) | Every failure 400, with only the message in `detail` | Ledger failures (`SETTLEMENT_ORDER`, `TREASURER_REQUIRED`, …) stay 400, now with the code in the body |
+| `PUT /api/settlements/{id}/confirm-payment/{memberUserId}` | Every failure 400, with only the message in `detail` | Failures that are not about access (`PAYMENT_ALREADY_CONFIRMED`, `LINE_CARRIED`, `LINE_MERGED`, …) stay 400, now with the code in the body |
 | `POST /api/users/sync` | 500 on a sync failure | 403 `EMAIL_NOT_VERIFIED` or `SYNC_FAILED`, 409 `PLACEHOLDER_LINK_PENDING`; the 200 response is unchanged |
 | `POST /api/users/sync/placeholder-link` (new) | — | `{ "accept": true \| false }` → 200 with the outcome; 404 when nothing is pending; 409 `CONCURRENCY_CONFLICT`; 403 `SYNC_FAILED` |
-| Command endpoints that write a versioned row (stock, consumption, space, billing and ledger commands) | — | New: 409 `CONCURRENCY_CONFLICT`, with the code, when the data changed meanwhile; retry after reloading |
 | Placeholder create/edit (new) | — | 409 `EMAIL_IN_USE` for an address another user already has |
+
+Queries (GET) keep their own failure shapes. The body "with the code" is the shared problem-details shape the other
+endpoints already use, where each entry of `errors` carries the error code.
 
 ---
 

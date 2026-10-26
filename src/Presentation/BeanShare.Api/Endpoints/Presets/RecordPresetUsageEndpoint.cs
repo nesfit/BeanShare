@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Presets.Commands;
 using BeanShare.Contracts.Presets;
 using FastEndpoints;
@@ -33,6 +34,8 @@ public sealed class RecordPresetUsageEndpoint : EndpointWithoutRequest<RecordPre
 
         if (result.IsFailure)
         {
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
+                return;
             foreach (var error in result.Errors)
             {
                 AddError(error.Code, error.Message);

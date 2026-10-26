@@ -50,11 +50,7 @@ public sealed class SendSettlementEmailsEndpoint : Endpoint<SendSettlementEmails
                 Message = $"Successfully sent {result.Value} email(s)"
             }, ct);
         }
-        else if (result.Errors.Any(e => ResultExtensions.GetStatusCode(e) == StatusCodes.Status403Forbidden))
-        {
-            await this.SendResultErrorsAsync(result, ct);
-        }
-        else
+        else if (!await this.TrySendAccessOrConflictAsync(result.Errors, ct))
         {
             await SendResultAsync(Results.BadRequest(result.Errors.Any() ? result.Errors.First().Message : "Failed to send emails"));
         }

@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Admin.Users.Commands;
 using BeanShare.Contracts.Admin;
 using BeanShare.Domain.Enums;
@@ -42,6 +43,8 @@ public sealed class SetUserRoleEndpoint : Endpoint<SetUserRoleRequest>
 
         if (result.IsFailure)
         {
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
+                return;
             foreach (var error in result.Errors)
             {
                 AddError(error.Code, error.Message);

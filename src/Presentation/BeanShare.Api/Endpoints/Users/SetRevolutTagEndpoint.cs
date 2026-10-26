@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.Users.Commands.SetRevolutTag;
 using BeanShare.Contracts.Users;
 using FastEndpoints;
@@ -30,6 +31,8 @@ public sealed class SetRevolutTagEndpoint : Endpoint<SetRevolutTagRequest>
 
         if (result.IsFailure)
         {
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
+                return;
             foreach (var error in result.Errors)
             {
                 AddError(error.Code, error.Message);

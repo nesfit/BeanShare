@@ -47,7 +47,7 @@ public sealed class LeaveSpaceEndpoint : Endpoint<LeaveSpaceRequest, LeaveSpaceR
         var command = new LeaveSpaceCommand(req.SpaceId);
         var result = await _mediator.Send(command, ct);
 
-        if (await this.TrySendConflictAsync(result.Errors, ct))
+        if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
             return;
 
         if (result.IsFailure)

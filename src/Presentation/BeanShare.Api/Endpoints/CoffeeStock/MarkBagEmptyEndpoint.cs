@@ -34,7 +34,7 @@ public sealed class MarkBagEmptyEndpoint : Endpoint<MarkBagEmptyRequest, MarkBag
         var command = new MarkBagEmptyCommand(spaceId, lotId, req.Reason);
         var result = await _mediator.Send(command, ct);
 
-        if (await this.TrySendConflictAsync(result.Errors, ct))
+        if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
             return;
 
         if (result.IsSuccess)

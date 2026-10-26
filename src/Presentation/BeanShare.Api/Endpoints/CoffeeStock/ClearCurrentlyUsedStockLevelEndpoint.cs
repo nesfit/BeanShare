@@ -1,3 +1,4 @@
+using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Features.CoffeeStock.Commands;
 using FastEndpoints;
 using MediatR;
@@ -36,6 +37,8 @@ public sealed class ClearCurrentlyUsedStockLevelEndpoint : EndpointWithoutReques
         }
         else
         {
+            if (await this.TrySendAccessOrConflictAsync(result.Errors, ct))
+                return;
             foreach (var error in result.Errors)
             {
                 AddError(error.Code, error.Message);
