@@ -201,7 +201,7 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
         BalanceOf(afterS1, _h).Should().Be(270.00m);
 
         // 10b. Exports, and the S1 emails: exactly H, A, B, P01 and P03 (N4, D25).
-        (await _asH.GetAsync($"/api/settlements/{s1.Id}/export/pdf")).StatusCode.Should().Be(HttpStatusCode.OK);
+        await PdfExportAsync(s1.Id);
         var excel = await _asH.GetAsync($"/api/settlements/{s1.Id}/export/excel");
         excel.StatusCode.Should().Be(HttpStatusCode.OK);
         // The header row of the ledger lines sheet; the Adjustments column is headed "Adj." as built.
@@ -258,7 +258,7 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
         s3.Lines.Sum(l => l.TotalCoffeeGrams).Should().Be(0m, "neither the C−2 cup nor any history is ever included");
 
         // 15. A superseded settlement still exports, but its emails are refused (N-2; the 400 shape as built).
-        (await _asH.GetAsync($"/api/settlements/{s1.Id}/export/pdf")).StatusCode.Should().Be(HttpStatusCode.OK);
+        await PdfExportAsync(s1.Id);
         (await FailsAsync(_asH.PostAsJsonAsync($"/api/settlements/{s1.Id}/send-emails", new { }), HttpStatusCode.BadRequest))
             .Should().Contain("Cannot send emails for settlement in carried-forward state");
         _emails.TakeRecipients().Should().BeEmpty();
@@ -377,6 +377,17 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
 
     private async Task<UnsettledSpaceSummaryDto> UnsettledAsync(HttpClient client) =>
         await OkAsync<UnsettledSpaceSummaryDto>(client.GetAsync($"/api/spaces/{_space}/unsettled"));
+
+    // A real PDF document, not just a 200: the content type, the "%PDF-" signature and more than a stub's length.
+    private async Task PdfExportAsync(Guid settlementId)
+    {
+        var pdf = await _asH.GetAsync($"/api/settlements/{settlementId}/export/pdf");
+        pdf.StatusCode.Should().Be(HttpStatusCode.OK);
+        pdf.Content.Headers.ContentType?.MediaType.Should().Be("application/pdf");
+        var bytes = await pdf.Content.ReadAsByteArrayAsync();
+        bytes.Length.Should().BeGreaterThan(1024);
+        System.Text.Encoding.ASCII.GetString(bytes, 0, 5).Should().Be("%PDF-");
+    }
 
     private async Task<SettlementDto> SettlementAsync(Guid id) => await OkAsync<SettlementDto>(_asH.GetAsync($"/api/settlements/{id}"));
 
