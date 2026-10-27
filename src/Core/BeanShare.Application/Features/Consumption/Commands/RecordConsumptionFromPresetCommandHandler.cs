@@ -81,6 +81,13 @@ public sealed class RecordConsumptionFromPresetCommandHandler : IRequestHandler<
             return Result<ConsumptionEntryDto>.Failure(Error.SpaceNotFound(request.SpaceId));
         }
 
+        // As for an ordinary cup, only a current member can be billed, whoever logs the cup: a settlement line makes its
+        // user a recipient of the settlement emails and their report.
+        if (!space.HasMember(userId))
+        {
+            return Result<ConsumptionEntryDto>.Failure(Error.MemberNotFound(userId.Value, request.SpaceId));
+        }
+
         if (space.LedgerStartDate is { } ledgerStart && consumedAt < ledgerStart)
         {
             return Result<ConsumptionEntryDto>.Failure(Error.BeforeLedgerStart(ledgerStart));

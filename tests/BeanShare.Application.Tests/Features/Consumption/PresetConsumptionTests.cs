@@ -32,9 +32,10 @@ public sealed class PresetConsumptionTests
         _userContext = Substitute.For<IUserContext>();
         _clock = Substitute.For<IClock>();
 
-        // The handler always loads the space for the ledger-start check (DS-20); none is set here.
+        // The handler always loads the space, for the ledger-start and membership checks: no ledger start is set here,
+        // and the caller is the space's admin.
         _spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), Arg.Any<CancellationToken>())
-            .Returns(ci => Space.Create(SpaceId.New(), "Lab", Currency.USD, UserId.New(), new InviteCode("CAFE23"), _clock));
+            .Returns(ci => Space.Create(SpaceId.New(), "Lab", Currency.USD, _userContext.CurrentUserId, new InviteCode("CAFE23"), _clock));
 
         _handler = new RecordConsumptionFromPresetCommandHandler(
             _presetRepository,
