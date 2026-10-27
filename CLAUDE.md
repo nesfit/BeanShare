@@ -155,10 +155,13 @@ A member's **Net** is positive when the space owes the member.
   preset, CSV), cup edits and deletes, write-off shares (emptying a bag, splitting the remaining stock) and their undo,
   voiding phantom rows, Paid-in-Excel flags, purchase date changes, history import and delete, demotion, leaving and
   removal, merges, placeholder edits and link answers. Two of these racing in one space give the later one
-  `CONCURRENCY_CONFLICT` (409 in the API; the web reloads). Other bag changes (discard, adding a purchase, purchase
-  edits other than the date) rely on `Purchase.Version`, and a confirmation on the settlement's version, which a merge
-  also bumps. A new cup that loses only on bag counters or on this token is retried, at most twice, with its drinker's
-  membership checked again; a cup edit or delete is retried only for bag counters.
+  `CONCURRENCY_CONFLICT` (409 in the API; the web reloads). Other bag changes (discard, purchase edits other than the
+  date) are serialised only with other changes of the same bag (`Purchase.Version`); adding a purchase is not
+  serialised, and a racing generation or departure simply sees it or not. A confirmation relies on the settlement's
+  version, which a merge also bumps. A new cup that loses only on bag counters or on this token is retried, at most
+  twice, with its drinker's membership checked again. A cup edit or delete is retried only for bag counters, never on
+  this token (a conflict reported there may hide one on the cup itself), so it answers 409 when another cup write in
+  the space commits during it; the client retries. This is an accepted trade-off.
 - **Settlement emails** go to every line with a deliverable address and something to read or do: consumption in
   the settlement, a non-zero Net, or (the treasurer) at least one transfer. Placeholders without an email are
   skipped. Every recipient gets the full PDF, and the wording follows the line's state ("you paid … confirmed").
