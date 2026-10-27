@@ -188,6 +188,27 @@ public sealed class GetSpaceAnalyticsQueryHandlerTests
         result.TopConsumers.Should().BeEmpty();
     }
 
+    // Placeholders, merged ones included, use no app, so the member total leaves them out.
+    [Fact]
+    public async Task GetSpaceAnalytics_TotalMembers_LeavesOutPlaceholders()
+    {
+        var space = CreateSpaceWithCurrentUser();
+        var member = UserId.New();
+        var pete = User.CreatePlaceholder("Old Pete", null, _now);
+        var olga = User.CreatePlaceholder("Old Olga", null, _now);
+        olga.MarkMergedInto(member);
+        space.Join(member, _clock);
+        space.AddPlaceholderMember(pete.Id, _clock);
+        space.AddPlaceholderMember(olga.Id, _clock);
+        _spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Space>>(), Arg.Any<CancellationToken>()).Returns(space);
+        _consumptionRepository.GetBySpaceIdAsync(_spaceId, Arg.Any<CancellationToken>()).Returns(new List<ConsumptionEntry>());
+        _userService.GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>()).Returns(new List<User> { pete, olga });
+
+        var result = await _handler.Handle(new GetSpaceAnalyticsQuery(_spaceId), default);
+
+        result.TotalMembers.Should().Be(2);
+    }
+
     // ---- helpers -------------------------------------------------------
 
     private Space CreateSpaceWithCurrentUser()

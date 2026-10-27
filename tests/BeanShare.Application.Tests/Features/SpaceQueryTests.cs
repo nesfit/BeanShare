@@ -112,7 +112,7 @@ public class SpaceQueryTests
         };
         mapper.Map<IReadOnlyList<SpaceSummaryDto>>(spaces).Returns(new List<SpaceSummaryDto> { spaceSummary });
 
-        var handler = new GetUserSpacesQueryHandler(spaceRepository, userContext, mapper);
+        var handler = new GetUserSpacesQueryHandler(spaceRepository, userContext, mapper, Substitute.For<IUserService>());
         var query = new GetUserSpacesQuery();
 
         var result = await handler.Handle(query, default);
@@ -120,5 +120,36 @@ public class SpaceQueryTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Spaces.Should().HaveCount(1);
         result.Value.Spaces.First().Name.Should().Be("Test Space");
+    }
+    // The space list counts people who use the app; placeholders, merged ones included, are left out.
+    [Fact]
+    public async Task GetUserSpaces_CountsMembersWithoutPlaceholders()
+    {
+        var spaceRepository = Substitute.For<ISpaceRepository>();
+        var userContext = Substitute.For<IUserContext>();
+        var userService = Substitute.For<IUserService>();
+        var mapper = Substitute.For<IMapper>();
+        var clock = TestClock.Instance;
+        var admin = UserId.New();
+        var member = UserId.New();
+        var pete = User.CreatePlaceholder("Old Pete", null, clock.UtcNow);
+        var olga = User.CreatePlaceholder("Old Olga", null, clock.UtcNow);
+        olga.MarkMergedInto(member);
+
+        var space = Space.Create(SpaceId.New(), "Kava", Currency.USD, admin, new InviteCode("CAFE23"), clock);
+        space.Join(member, clock);
+        space.AddPlaceholderMember(pete.Id, clock);
+        space.AddPlaceholderMember(olga.Id, clock);
+        userContext.CurrentUserId.Returns(admin);
+        spaceRepository.GetBySpecAsync(Arg.Any<ISpec<Space>>(), default).Returns(new List<Space> { space });
+        mapper.Map<IReadOnlyList<SpaceSummaryDto>>(Arg.Any<object>()).Returns(new List<SpaceSummaryDto>
+        {
+            new() { Id = space.Id.Value, Name = "Kava", InviteCode = "CAFE23", MemberCount = space.Members.Count, CreatedAt = clock.UtcNow }
+        });
+        userService.GetByIdsAsync(Arg.Any<IEnumerable<UserId>>(), Arg.Any<CancellationToken>()).Returns(new List<User> { pete, olga });
+
+        var result = await new GetUserSpacesQueryHandler(spaceRepository, userContext, mapper, userService).Handle(new GetUserSpacesQuery(), default);
+
+        result.Value.Spaces.Single().MemberCount.Should().Be(2);
     }
 }
