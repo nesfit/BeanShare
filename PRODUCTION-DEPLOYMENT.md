@@ -458,8 +458,9 @@ Queries (GET) keep their own failure shapes. A body "with the code" is the share
 message, comes only with the command endpoints' 401, 403 and 409 answers, every failure of generate-settlement and
 confirm-payment, and the endpoints that answer through the shared status mapping (for example promote/demote member,
 the balance, history and placeholder endpoints). Most other business failures, such as an endpoint's own 400 or 404
-(the cups' `BEFORE_LEDGER_START` included) and FastEndpoints' own validation and binding 400s, carry the code without
-`Detail`. These keep their earlier bodies, which carry no code: the billing-period create, open, close and reopen
+(the cups' `BEFORE_LEDGER_START` included), carry the code without `Detail`. FastEndpoints' own validation, binding and
+JSON 400s carry FastEndpoints' message in `Reason` instead of an error code, and no `Detail`. Some command
+endpoints keep their earlier failure bodies, which carry no code: the billing-period create, open, close and reopen
 endpoints (`POST /api/spaces/{SpaceId}/billing-periods`, `PUT /api/billing-periods/{id}/open`, `/close`, `/reopen`)
 answer ASP.NET problem details with the message in lowercase `detail`; purchase update and delete
 (`PUT` and `DELETE /api/spaces/{SpaceId}/stock/purchases/{id}`) and `POST /api/settlements/{id}/send-emails` answer
