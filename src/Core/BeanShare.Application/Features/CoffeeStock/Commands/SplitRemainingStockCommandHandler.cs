@@ -176,6 +176,9 @@ public sealed class SplitRemainingStockCommandHandler : IRequestHandler<SplitRem
         }
 
         await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
+        // Changes members' balances, so it shares the space's ledger token with Leave, Remove and generation.
+        space.BumpLedgerVersion();
+        await _spaceRepository.UpdateAsync(space, cancellationToken);
 
         return Result<SplitRemainingStockResult>.Success(new SplitRemainingStockResult(
             request.SpaceId,

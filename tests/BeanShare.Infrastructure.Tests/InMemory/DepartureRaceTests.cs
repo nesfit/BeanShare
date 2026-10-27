@@ -1,9 +1,13 @@
 using BeanShare.Application.Common;
+using BeanShare.Application.Features.Balances.Commands.CreateBalanceEntry;
+using BeanShare.Application.Features.Balances.Queries.GetSpaceBalances;
 using BeanShare.Application.Features.Balances.Commands.UpdateLedgerSettings;
 using BeanShare.Application.Features.CoffeeStock.Commands;
 using BeanShare.Application.Features.Consumption.Commands;
 using BeanShare.Application.Features.Spaces.Commands;
 using BeanShare.Domain.Common;
+using BeanShare.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace BeanShare.Infrastructure.Tests.InMemory;
 
@@ -57,5 +61,82 @@ public sealed class DepartureRaceTests
         box.Barrier.Release();
 
         (await cup).Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.MemberNotFound);
+    }
+    // The other commands that change a member's balance share the token too: a write-off share, a cup edit or delete,
+    // and undoing an emptying. With Leave held after its balance check, each racing command commits first, so the held
+    // Leave fails and the member stays, owing (or owed) what they owe.
+
+    /// <summary>Ben drank 10 g (5.00) and is owed 5.00 by an opening entry: his balance is 0, so he may leave.</summary>
+    private static async Task<(InMemoryContainer Box, UserId Ann, UserId Ben, Guid SpaceId, Guid CupId, Guid BagId)> ArrangeSquareLeaverAsync()
+    {
+        var (box, ann, ben, spaceId) = await ArrangeAsync();
+        var cup = (await box.SendAsync(ben, new RecordConsumptionCommand(spaceId, "Alfa", "Roaster", "Filter", 10m, DateTime.UtcNow.AddMinutes(-30)))).Value;
+        (await box.SendAsync(ann, new CreateBalanceEntryCommand(spaceId, ben.Value, 5m, C.AddDays(-1), "Excel", BalanceEntryKind.Opening, ann.Value))).IsSuccess.Should().BeTrue();
+        (await BalanceOfAsync(box, ann, spaceId, ben)).Should().Be(0m);
+        var bagId = await box.ReadAsync(async db => (await db.CoffeeStocks.AsNoTracking().Include(s => s.Purchases).SingleAsync()).Purchases.Single().Id);
+        return (box, ann, ben, spaceId, cup.Id, bagId);
+    }
+
+    private static async Task<decimal?> BalanceOfAsync(InMemoryContainer box, UserId admin, Guid spaceId, UserId user) =>
+        (await box.SendAsync(admin, new GetSpaceBalancesQuery(spaceId))).Value.Members.SingleOrDefault(m => m.UserId == user.Value)?.Balance;
+
+    private static async Task<bool> LeaveRacingAsync(InMemoryContainer box, UserId ben, Guid spaceId, Func<Task<bool>> other)
+    {
+        box.Barrier.Arm();
+        var leave = Task.Run(() => box.SendAsync(ben, new LeaveSpaceCommand(spaceId)));
+        await box.Barrier.WaitUntilHeldAsync();
+        (await other()).Should().BeTrue("the racing command commits first");
+        box.Barrier.Release();
+        var left = await leave;
+        left.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.ConcurrencyConflict);
+        return left.IsSuccess;
+    }
+
+    [Fact(Timeout = 20000)]
+    public async Task AHeldLeave_LosingToAWriteOffShare_Fails()
+    {
+        var (box, ann, ben, spaceId, _, bagId) = await ArrangeSquareLeaverAsync();
+        await using var _ = box;
+        await LeaveRacingAsync(box, ben, spaceId, async () => (await box.SendAsync(ann, new MarkBagEmptyCommand(spaceId, bagId))).IsSuccess);
+    }
+
+    [Fact(Timeout = 20000)]
+    public async Task AHeldLeave_LosingToASplitOfTheRemainingStock_Fails()
+    {
+        var (box, ann, ben, spaceId, _, _) = await ArrangeSquareLeaverAsync();
+        await using var _ = box;
+        var levelId = (await box.SendAsync(ann, new BeanShare.Application.Features.CoffeeStock.Queries.GetSpaceStockQuery(spaceId, 1, 50))).Value.StockLevels.Single().Id;
+        await LeaveRacingAsync(box, ben, spaceId, async () => (await box.SendAsync(ann, new SplitRemainingStockCommand(spaceId, levelId))).IsSuccess);
+    }
+
+    [Fact(Timeout = 20000)]
+    public async Task AHeldLeave_LosingToAnEditOfTheLeaversCup_Fails()
+    {
+        var (box, ann, ben, spaceId, cupId, _) = await ArrangeSquareLeaverAsync();
+        await using var _ = box;
+        await LeaveRacingAsync(box, ben, spaceId, async () =>
+            (await box.SendAsync(ann, new UpdateConsumptionCommand(cupId, spaceId, "Alfa", "Roaster", "Filter", 30m, DateTime.UtcNow.AddMinutes(-30)))).IsSuccess);
+    }
+
+    [Fact(Timeout = 20000)]
+    public async Task AHeldLeave_LosingToADeleteOfTheLeaversCup_Fails()
+    {
+        var (box, ann, ben, spaceId, cupId, _) = await ArrangeSquareLeaverAsync();
+        await using var _ = box;
+        await LeaveRacingAsync(box, ben, spaceId, async () => (await box.SendAsync(ann, new DeleteConsumptionCommand(cupId, spaceId))).IsSuccess);
+    }
+
+    [Fact(Timeout = 20000)]
+    public async Task AHeldLeave_LosingToAnUndoOfAnEmptying_Fails()
+    {
+        var (box, ann, ben, spaceId, _, bagId) = await ArrangeSquareLeaverAsync();
+        await using var _ = box;
+        // Emptied first: Ben's share of the bag is billed, and an entry squares him again.
+        (await box.SendAsync(ann, new MarkBagEmptyCommand(spaceId, bagId))).IsSuccess.Should().BeTrue();
+        var owed = -(await BalanceOfAsync(box, ann, spaceId, ben))!.Value;
+        (await box.SendAsync(ann, new CreateBalanceEntryCommand(spaceId, ben.Value, owed, C.AddDays(-1), "Square", BalanceEntryKind.Opening, ann.Value))).IsSuccess.Should().BeTrue();
+        (await BalanceOfAsync(box, ann, spaceId, ben)).Should().Be(0m);
+
+        await LeaveRacingAsync(box, ben, spaceId, async () => (await box.SendAsync(ann, new UndoBagEmptyCommand(spaceId, bagId))).IsSuccess);
     }
 }

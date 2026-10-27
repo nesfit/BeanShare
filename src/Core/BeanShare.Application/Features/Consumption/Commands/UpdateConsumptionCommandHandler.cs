@@ -121,6 +121,13 @@ public sealed class UpdateConsumptionCommandHandler
         }
 
         await _consumptionRepository.UpdateAsync(entry, cancellationToken);
+        // Changes the drinker's balance, so it shares the space's ledger token with Leave, Remove and generation. A
+        // conflict on it is not retried: the edit or delete may have lost to a change of the cup itself.
+        if (space is not null)
+        {
+            space.BumpLedgerVersion();
+            await _spaceRepository.UpdateAsync(space, cancellationToken);
+        }
 
         var dto = new ConsumptionEntryDto
         {

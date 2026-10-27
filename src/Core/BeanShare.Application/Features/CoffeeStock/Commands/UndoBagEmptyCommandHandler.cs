@@ -114,6 +114,9 @@ public sealed class UndoBagEmptyCommandHandler : IRequestHandler<UndoBagEmptyCom
             await _consumptionRepository.RemoveAsync(entry, cancellationToken);
 
         await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
+        // Changes members' balances, so it shares the space's ledger token with Leave, Remove and generation.
+        space.BumpLedgerVersion();
+        await _spaceRepository.UpdateAsync(space, cancellationToken);
 
         return Result<UndoBagEmptyResult>.Success(new UndoBagEmptyResult(
             bag.Id,

@@ -105,6 +105,9 @@ public sealed class MarkBagEmptyCommandHandler : IRequestHandler<MarkBagEmptyCom
         }
 
         await _coffeeStockRepository.UpdateAsync(coffeeStock, cancellationToken);
+        // Changes members' balances, so it shares the space's ledger token with Leave, Remove and generation.
+        space.BumpLedgerVersion();
+        await _spaceRepository.UpdateAsync(space, cancellationToken);
 
         return Result<MarkBagEmptyResult>.Success(new MarkBagEmptyResult(
             command.LotId,

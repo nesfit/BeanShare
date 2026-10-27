@@ -18,6 +18,8 @@ public sealed class ConcurrencyBehaviorTests
 
     public sealed record RetryableCommand : ICommand<Result<int>>, IRetryOnConcurrencyConflict;
 
+    public sealed record NewCupCommand : ICommand<Result<int>>, IRetryOnLedgerTokenConflict;
+
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IDomainEventDispatcher _dispatcher = Substitute.For<IDomainEventDispatcher>();
 
@@ -111,12 +113,12 @@ public sealed class ConcurrencyBehaviorTests
 
     // Every new cup bumps the space's ledger token, so two cups logged at once conflict there; that is retried too.
     [Fact]
-    public async Task Retry_RerunsACupThatLostARaceOnTheSpacesLedgerToken()
+    public async Task Retry_RerunsANewCupThatLostARaceOnTheSpacesLedgerToken()
     {
-        var behavior = new ConcurrencyRetryBehavior<RetryableCommand, Result<int>>(_unitOfWork);
+        var behavior = new ConcurrencyRetryBehavior<NewCupCommand, Result<int>>(_unitOfWork);
         var attempts = 0;
 
-        var result = await behavior.Handle(new RetryableCommand(), () =>
+        var result = await behavior.Handle(new NewCupCommand(), () =>
         {
             attempts++;
             if (attempts == 1)
@@ -125,6 +127,23 @@ public sealed class ConcurrencyBehaviorTests
         }, default);
 
         result.Value.Should().Be(2);
+    }
+
+    // A change of an existing cup also bumps the token, but a conflict reported there may hide one on the cup itself.
+    [Fact]
+    public async Task Retry_NeverRetriesALedgerTokenConflictForACupChange()
+    {
+        var behavior = new ConcurrencyRetryBehavior<RetryableCommand, Result<int>>(_unitOfWork);
+        var attempts = 0;
+
+        var result = await behavior.Handle(new RetryableCommand(), () =>
+        {
+            attempts++;
+            throw Conflict(typeof(BeanShare.Domain.Aggregates.Space.Space));
+        }, default);
+
+        attempts.Should().Be(1);
+        result.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.ConcurrencyConflict);
     }
 
     [Fact]
