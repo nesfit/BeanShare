@@ -542,6 +542,7 @@ else
             if (success)
             {
                 ShowToast(false, "Success", "Consumption updated successfully!");
+                DashboardService.InvalidateDashboard(spaceGuid);
                 await LoadConsumption();
             }
             else
@@ -566,6 +567,7 @@ else
             if (success)
             {
                 ShowToast(false, "Success", "Consumption deleted successfully!");
+                DashboardService.InvalidateDashboard(spaceGuid);
                 await LoadConsumption();
                 await LoadStock();
             }
