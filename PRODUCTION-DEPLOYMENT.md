@@ -457,9 +457,14 @@ Queries (GET) keep their own failure shapes. A body "with the code" is the share
 (`application/problem+json`): each entry of `Errors` carries an error code in `Reason`. `Detail`, the first error's
 message, comes only with the command endpoints' 401, 403 and 409 answers, every failure of generate-settlement and
 confirm-payment, and the endpoints that answer through the shared status mapping (for example promote/demote member,
-the balance, history and placeholder endpoints). The other business failures, such as an endpoint's own 400 or 404
+the balance, history and placeholder endpoints). Most other business failures, such as an endpoint's own 400 or 404
 (the cups' `BEFORE_LEDGER_START` included) and FastEndpoints' own validation and binding 400s, carry the code without
-`Detail`. The 401 answers listed here also carry the Bearer challenge.
+`Detail`. These keep their earlier bodies, which carry no code: the billing-period create, open, close and reopen
+endpoints (`POST /api/spaces/{SpaceId}/billing-periods`, `PUT /api/billing-periods/{id}/open`, `/close`, `/reopen`)
+answer ASP.NET problem details with the message in lowercase `detail`; purchase update and delete
+(`PUT` and `DELETE /api/spaces/{SpaceId}/stock/purchases/{id}`) and `POST /api/settlements/{id}/send-emails` answer
+the message as a bare JSON string; and the profile, avatar and notification endpoints keep their own response bodies.
+The 401 answers listed here also carry the Bearer challenge.
 
 **Deploy the API before the MAUI app.** A new MAUI build shows Delete only where `CanDelete` is true; an older API does
 not send it, so the app would hide Delete on every cup. An older MAUI build against the new API still shows Delete
