@@ -76,6 +76,47 @@ public sealed class LedgerStartCupCommandTests
         cup.ConsumedAt.Should().Be(C.AddDays(3));
     }
 
+    // O7: "delete it instead" only where a delete would go through; a frozen share gets the refusal a delete gets.
+    [Fact]
+    public async Task EditingAShareInAClosedPeriod_IsRefusedForThePeriod_NotAsAShare()
+    {
+        var closed = _world.AddPeriod("October", C, C.AddDays(14));
+        var share = Share(C.AddDays(3));
+        share.AssignToBillingPeriod(closed.Id);
+
+        var result = await UpdateAsync(share, share.ConsumedAt);
+
+        result.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.InvalidBillingPeriodState);
+        (await DeleteAsync(share)).Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.InvalidBillingPeriodState);
+    }
+
+    [Fact]
+    public async Task EditingAShareBeforeTheLedgerStart_IsRefusedForTheLedgerStart()
+    {
+        var share = Share(C.AddDays(-3));
+
+        (await UpdateAsync(share, share.ConsumedAt)).Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.BeforeLedgerStart);
+    }
+
+    [Fact]
+    public async Task EditingAnOpenShare_SaysDeleteItInstead_AndTheDeleteWorks()
+    {
+        var share = Share(C.AddDays(3));
+
+        var result = await UpdateAsync(share, share.ConsumedAt);
+
+        result.Errors.Should().ContainSingle().Which.Message.Should().Contain("delete it instead");
+        (await DeleteAsync(share)).IsSuccess.Should().BeTrue();
+    }
+
+    private ConsumptionEntry Share(DateTime at)
+    {
+        var share = ConsumptionEntry.Create(_world.Space.Id, _world.Admin, LedgerWorld.Product, Domain.ValueObjects.Weight.FromGrams(40m), at,
+            _world.Clock, isWriteOff: true);
+        _world.Cups.Add(share);
+        return share;
+    }
+
     private Task<Result<bool>> DeleteAsync(ConsumptionEntry cup) =>
         new DeleteConsumptionCommandHandler(_world.ConsumptionRepository, _world.BillingPeriodRepository,
                 _world.CoffeeStockRepository, _world.SpaceRepository, _world.Clock)

@@ -47,11 +47,6 @@ public sealed class UpdateConsumptionCommandHandler
         if (entry.SpaceId.Value != request.SpaceId)
             return Result<ConsumptionEntryDto>.Failure(Error.InsufficientSpacePrivileges("edit this consumption"));
 
-        // Its edit path would re-draw the share as an ordinary cup (H8).
-        if (entry.IsWriteOff)
-            return Result<ConsumptionEntryDto>.Failure(Error.ValidationFailure(
-                "Id", "A write-off share cannot be edited; delete it instead"));
-
         Domain.Aggregates.BillingPeriod.BillingPeriod? stampedPeriod = null;
         if (entry.BillingPeriodId != null)
         {
@@ -63,8 +58,18 @@ public sealed class UpdateConsumptionCommandHandler
 
         var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(entry.SpaceId), cancellationToken);
         // Neither a cup before the ledger start nor a re-date across it: a cup before C is never billed (B22).
-        if (space?.LedgerStartDate is { } ledgerStart && (entry.ConsumedAt < ledgerStart || request.ConsumedAt < ledgerStart))
-            return Result<ConsumptionEntryDto>.Failure(Error.BeforeLedgerStart(ledgerStart));
+        var ledgerStart = space?.LedgerStartDate;
+        if (ledgerStart is { } c && entry.ConsumedAt < c)
+            return Result<ConsumptionEntryDto>.Failure(Error.BeforeLedgerStart(c));
+
+        // Its edit path would re-draw the share as an ordinary cup (H8). Checked after the refusals that apply to a
+        // delete as well, so "delete it instead" is only said when a delete would go through.
+        if (entry.IsWriteOff)
+            return Result<ConsumptionEntryDto>.Failure(Error.ValidationFailure(
+                "Id", "A write-off share cannot be edited; delete it instead"));
+
+        if (ledgerStart is { } start && request.ConsumedAt < start)
+            return Result<ConsumptionEntryDto>.Failure(Error.BeforeLedgerStart(start));
 
         if (!Enum.TryParse<CoffeeType>(request.ProductType, ignoreCase: true, out var coffeeType))
             return Result<ConsumptionEntryDto>.Failure(Error.InvalidCoffeeType());
