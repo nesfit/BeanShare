@@ -94,6 +94,12 @@ public sealed class UndoBagEmptyCommandHandler : IRequestHandler<UndoBagEmptyCom
                     Error.CannotUndoBagEmpty($"its cups are already in a {period.State.ToString().ToLowerInvariant()} billing period"));
         }
 
+        // Nor does anything dated before the ledger start (B22, as for deleting a cup): such a share is never billed,
+        // and removing it would only hand its grams back to the bag.
+        if (space.LedgerStartDate is { } ledgerStart && entries.Any(e => e.ConsumedAt < ledgerStart))
+            return Result<UndoBagEmptyResult>.Failure(
+                Error.CannotUndoBagEmpty($"its cups are dated before the ledger start ({ledgerStart:yyyy-MM-dd}), and those cannot be removed"));
+
         Weight restored;
         try
         {

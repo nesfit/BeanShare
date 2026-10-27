@@ -630,6 +630,36 @@ public sealed class BagCommandTests
         bag.RemainingGrams.Grams.Should().Be(300m);
     }
 
+    // A10-3: like deleting a cup (B22), "Undo empty" removes no share dated before the ledger start.
+    [Fact]
+    public async Task UndoingAnEmptying_WhoseSharesAreBeforeTheLedgerStart_IsRefused()
+    {
+        var world = new LedgerWorld("CZK");
+        var alice = world.AddMember("Alice");
+        var bag = world.AddBag(1000m, 500m, world.Clock.UtcNow.AddDays(-2));
+        world.Drink(alice, 700m, world.Clock.UtcNow.AddDays(-1), bag);
+        (await new MarkBagEmptyCommandHandler(
+                world.CoffeeStockRepository, world.ConsumptionRepository, world.SpaceRepository, world.UserContext, world.Clock, world.UserRepository)
+            .Handle(new MarkBagEmptyCommand(world.Space.Id.Value, bag.Id), CancellationToken.None)).IsSuccess.Should().BeTrue();
+        var shares = world.Cups.Where(c => c.IsWriteOff).ToList();
+
+        // Emptied today; C is set to tomorrow, and the undo comes tomorrow morning, inside its 24 h window.
+        var tomorrow = world.Clock.UtcNow.Date.AddDays(1);
+        world.Space.SetLedgerStartDate(tomorrow, hasLedgerSettlement: false);
+        world.Clock.Set(tomorrow.AddHours(8));
+        bag.IsWriteOffUndoable(world.Clock.UtcNow).Should().BeTrue();
+
+        var undo = await new UndoBagEmptyCommandHandler(world.CoffeeStockRepository, world.ConsumptionRepository, world.BillingPeriodRepository,
+                world.SpaceRepository, world.UserContext, world.Clock)
+            .Handle(new UndoBagEmptyCommand(world.Space.Id.Value, bag.Id), CancellationToken.None);
+
+        undo.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.CannotUndoBagEmpty);
+        undo.Errors[0].Message.Should().Contain("ledger start");
+        world.Cups.Where(c => c.IsWriteOff).Should().BeEquivalentTo(shares);
+        bag.WrittenOffGrams.Should().Be(300m);
+        bag.RemainingGrams.Grams.Should().Be(0m);
+    }
+
     // T-STK-02, rev9 (H8): a write-off share cannot be edited, and the bag stays as it is.
     [Fact]
     public async Task EditingAWriteOffShare_IsRefused()
