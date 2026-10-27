@@ -87,6 +87,13 @@ public sealed class ImportConsumptionCsvCommandHandler
             await _consumptionRepository.AddAsync(entry, cancellationToken);
         }
 
+        // As for a single cup: shared with Leave, Remove and generation through the space's ledger token.
+        if (entriesToCreate.Count > 0)
+        {
+            space.BumpLedgerVersion();
+            await _spaceRepository.UpdateAsync(space, cancellationToken);
+        }
+
         var warnings = new List<string>();
         var coffeeStock = await _coffeeStockRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
         if (coffeeStock != null)

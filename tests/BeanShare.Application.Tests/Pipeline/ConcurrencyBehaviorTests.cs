@@ -109,6 +109,24 @@ public sealed class ConcurrencyBehaviorTests
         await _unitOfWork.Received(1).ResetAsync(Arg.Any<CancellationToken>());
     }
 
+    // Every new cup bumps the space's ledger token, so two cups logged at once conflict there; that is retried too.
+    [Fact]
+    public async Task Retry_RerunsACupThatLostARaceOnTheSpacesLedgerToken()
+    {
+        var behavior = new ConcurrencyRetryBehavior<RetryableCommand, Result<int>>(_unitOfWork);
+        var attempts = 0;
+
+        var result = await behavior.Handle(new RetryableCommand(), () =>
+        {
+            attempts++;
+            if (attempts == 1)
+                throw Conflict(typeof(Purchase), typeof(BeanShare.Domain.Aggregates.Space.Space));
+            return Task.FromResult(Result<int>.Success(attempts));
+        }, default);
+
+        result.Value.Should().Be(2);
+    }
+
     [Fact]
     public async Task Retry_NeverRetriesAConflictOnTheCupItself()
     {

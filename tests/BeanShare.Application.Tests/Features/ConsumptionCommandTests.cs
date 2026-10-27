@@ -21,9 +21,10 @@ public sealed class ConsumptionCommandTests
 
     public ConsumptionCommandTests()
     {
-        // The space is always loaded for the ledger-start check (DS-20); none is set by default.
+        // The space is always loaded, for the ledger-start and membership checks: no ledger start is set by default, and
+        // the caller is the space's admin.
         _spaceRepository.GetSingleBySpecAsync(Arg.Any<ISpec<Domain.Aggregates.Space.Space>>(), Arg.Any<CancellationToken>())
-            .Returns(ci => Domain.Aggregates.Space.Space.Create(SpaceId.New(), "Lab", Currency.USD, UserId.New(), new InviteCode("CAFE23"), _clock));
+            .Returns(ci => Domain.Aggregates.Space.Space.Create(SpaceId.New(), "Lab", Currency.USD, _userContext.CurrentUserId, new InviteCode("CAFE23"), _clock));
 
         _handler = new RecordConsumptionCommandHandler(_coffeeStockRepository, _consumptionRepository, _spaceRepository, _userContext, _clock, TestUsers.ActiveRepository());
     }

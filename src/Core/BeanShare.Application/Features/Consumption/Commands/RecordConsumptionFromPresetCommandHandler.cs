@@ -135,6 +135,10 @@ public sealed class RecordConsumptionFromPresetCommandHandler : IRequestHandler<
 
             await _consumptionRepository.AddAsync(consumptionEntry, cancellationToken);
 
+            // As for an ordinary cup: shared with Leave, Remove and generation through the space's ledger token.
+            space.BumpLedgerVersion();
+            await _spaceRepository.UpdateAsync(space, cancellationToken);
+
             preset.RecordUsage(_clock.UtcNow);
             await _presetRepository.UpdateAsync(preset, cancellationToken);
 

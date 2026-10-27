@@ -59,6 +59,11 @@ public sealed class RecordConsumptionCommandHandler : IRequestHandler<RecordCons
             targetUserId = _userContext.CurrentUserId;
         }
 
+        // Checked here as well as by the pipeline, which does not run again when a lost race is retried: a cup must not
+        // land on someone who left the space meanwhile.
+        if (!space.HasMember(targetUserId))
+            return Result<ConsumptionEntryDto>.Failure(Error.MemberNotFound(targetUserId.Value, request.SpaceId));
+
         if (!Enum.TryParse<Domain.ValueObjects.CoffeeType>(request.ProductType, true, out var coffeeType))
         {
             return Result<ConsumptionEntryDto>.Failure(Error.InvalidCoffeeType());
@@ -105,6 +110,11 @@ public sealed class RecordConsumptionCommandHandler : IRequestHandler<RecordCons
                 unitCostPerGram: allocation.UnitCostPerGram);
 
             await _consumptionRepository.AddAsync(consumptionEntry, cancellationToken);
+
+            // A cup moves its drinker's balance, so it shares the space's ledger token with Leave and Remove (and with
+            // generation): a cup racing a departure makes one of them retry or fail, instead of leaving an ex-member owing it.
+            space.BumpLedgerVersion();
+            await _spaceRepository.UpdateAsync(space, cancellationToken);
 
             var dto = new ConsumptionEntryDto
             {
