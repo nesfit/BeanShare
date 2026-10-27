@@ -92,6 +92,7 @@
 
     private async Task HandleSubmit()
     {
+        if (isSubmitting) return; // a second click before the first submit ends would create a twin period
         isSubmitting = true;
         try
         {

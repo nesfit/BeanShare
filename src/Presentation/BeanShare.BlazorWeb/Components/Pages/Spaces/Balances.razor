@@ -607,6 +607,7 @@ else
     /// <summary>Sends only what changed: null leaves a setting as it is, the Clear flags remove it.</summary>
     private async Task SaveSettings()
     {
+        if (isSaving) return; // a second click before the first round trip ends
         showStartConfirm = false;
         if (balances == null) return;
 
@@ -673,6 +674,7 @@ else
 
     private async Task SaveEntry()
     {
+        if (isSaving) return; // a second click before the first round trip ends
         if (entryUserId is not { } userId || entryCounterpartyId is not { } counterpartyId)
         {
             ShowToast(true, "Missing member", "Choose the member and the counterparty.");
@@ -719,6 +721,7 @@ else
 
     private async Task ConfirmDelete()
     {
+        if (isSaving) return; // a second click before the first round trip ends
         if (deleteEntry == null)
         {
             showDeleteConfirm = false;
@@ -772,6 +775,7 @@ else
 
     private async Task PreviewPaste()
     {
+        if (isSaving) return; // a second click before the first round trip ends
         isSaving = true;
         try
         {
@@ -799,6 +803,7 @@ else
 
     private async Task CommitPaste()
     {
+        if (isSaving) return; // a second click before the first round trip ends
         if (pastePreview?.CanCommit != true)
         {
             ShowToast(true, "Preview first", "The paste changed since the preview. Preview it again before saving.");
