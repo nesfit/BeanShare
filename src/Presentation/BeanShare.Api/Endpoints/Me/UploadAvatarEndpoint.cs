@@ -1,6 +1,7 @@
 using BeanShare.Api.Endpoints.Common;
 using BeanShare.Application.Abstractions;
 using BeanShare.Application.Common;
+using BeanShare.Domain.Common;
 using BeanShare.Infrastructure.Services;
 using FastEndpoints;
 
@@ -35,8 +36,20 @@ public sealed class UploadAvatarEndpoint : EndpointWithoutRequest<UploadAvatarRe
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        // DS-30: the upload runs no command, so the pipeline's active-account check does not cover it.
-        var access = await _userRepository.GetAccessStatusAsync(_userContext.CurrentUserId, ct);
+        // DS-30: the upload runs no command, so the pipeline's active-account check does not cover it. A principal
+        // without a usable id claim is refused the same way, as the pipeline does for a request that needs a user.
+        UserId caller;
+        try
+        {
+            caller = _userContext.CurrentUserId;
+        }
+        catch (InvalidOperationException)
+        {
+            await this.TrySendAccessOrConflictAsync([Error.Unauthenticated()], ct);
+            return;
+        }
+
+        var access = await _userRepository.GetAccessStatusAsync(caller, ct);
         if (!access.CanAct)
         {
             await this.TrySendAccessOrConflictAsync([Error.Unauthenticated()], ct);
@@ -58,10 +71,9 @@ public sealed class UploadAvatarEndpoint : EndpointWithoutRequest<UploadAvatarRe
 
         try
         {
-            var userId = _userContext.CurrentUserId.Value;
             await using var stream = file.OpenReadStream();
             var result = await _avatarStorageService.SaveAvatarAsync(
-                userId,
+                caller.Value,
                 file.FileName,
                 file.ContentType,
                 file.Length,

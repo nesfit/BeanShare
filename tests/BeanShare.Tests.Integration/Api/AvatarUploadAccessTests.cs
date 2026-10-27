@@ -47,11 +47,33 @@ public sealed class AvatarUploadAccessTests
         endpoint.ValidationFailures.Should().BeEmpty();
     }
 
-    private static UploadAvatarEndpoint Create(UserAccessStatus status) =>
-        Factory.Create<UploadAvatarEndpoint>(
-            new CallerContext(),
-            new AvatarStorageService(new ConfigurationBuilder().Build()),
-            AccessStatusOnly.For(status));
+    private static UploadAvatarEndpoint Create(UserAccessStatus status, IUserContext? context = null)
+    {
+        var users = AccessStatusOnly.For(status);
+        return Factory.Create<UploadAvatarEndpoint>(
+            context ?? new CallerContext(),
+            new AvatarStorageService(new ConfigurationBuilder().Build(), users),
+            users);
+    }
+
+    // A10-4: a principal whose id claim is missing or not a GUID gets the same 401, not a 500.
+    [Fact]
+    public async Task APrincipalWithoutAUsableIdClaim_Gets401WithItsCode()
+    {
+        var endpoint = Create(new UserAccessStatus(true, true, false, null), new NoIdClaimContext());
+
+        await endpoint.HandleAsync(default);
+
+        endpoint.HttpContext.Response.StatusCode.Should().Be(401);
+        endpoint.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.Unauthenticated);
+    }
+
+    private sealed class NoIdClaimContext : IUserContext
+    {
+        public UserId CurrentUserId => throw new InvalidOperationException("User ID claim not found or invalid");
+        public string Email => "caller@example.org";
+        public IReadOnlyCollection<string> Roles => [];
+    }
 
     private sealed class CallerContext : IUserContext
     {

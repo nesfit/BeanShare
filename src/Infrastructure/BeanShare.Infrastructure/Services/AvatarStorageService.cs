@@ -1,3 +1,5 @@
+using BeanShare.Application.Abstractions;
+using BeanShare.Domain.Common;
 using Microsoft.Extensions.Configuration;
 
 namespace BeanShare.Infrastructure.Services;
@@ -11,10 +13,12 @@ public sealed class AvatarStorageService
     private const long MaxAvatarSizeBytes = 5 * 1024 * 1024;
 
     private readonly IConfiguration _configuration;
+    private readonly IUserRepository _users;
 
-    public AvatarStorageService(IConfiguration configuration)
+    public AvatarStorageService(IConfiguration configuration, IUserRepository users)
     {
         _configuration = configuration;
+        _users = users;
     }
 
     public string GetUploadsRootPath()
@@ -36,6 +40,13 @@ public sealed class AvatarStorageService
         Stream source,
         CancellationToken cancellationToken = default)
     {
+        // DS-30 for every caller (the API endpoint and the web profile page): only an active, non-placeholder account
+        // may replace its photo, and a refused one leaves the stored files untouched.
+        if (!(await _users.GetAccessStatusAsync(new UserId(userId), cancellationToken)).CanAct)
+        {
+            return new AvatarUploadResult(false, null, "This account cannot change its photo");
+        }
+
         if (fileSize > MaxAvatarSizeBytes)
         {
             return new AvatarUploadResult(false, null, "File size exceeds 5MB limit");
