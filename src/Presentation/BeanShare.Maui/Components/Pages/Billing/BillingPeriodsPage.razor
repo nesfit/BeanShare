@@ -107,7 +107,7 @@
             </div>
 
             <div class="bs-hero-actions">
-                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="CreatePeriod">Create</button>
+                <button type="button" class="bs-btn bs-btn-primary bs-btn-hero" @onclick="CreatePeriod" disabled="@isCreatingPeriod">Create</button>
                 <button type="button" class="bs-btn bs-btn-quiet" @onclick="CloseCreateModal">Cancel</button>
             </div>
         </div>
@@ -120,6 +120,7 @@
     private bool isLoading = true;
     private List<BillingPeriodSummaryDto> billingPeriods = new();
     private bool showCreateModal = false;
+    private bool isCreatingPeriod;
     private string newPeriodName = string.Empty;
     private DateTime newPeriodStart = DateTime.Today.AddDays(-DateTime.Today.Day + 1);
     private DateTime newPeriodEnd = DateTime.Today.AddDays(-DateTime.Today.Day + 1).AddMonths(1).AddDays(-1);
@@ -134,7 +135,8 @@
         isLoading = true;
         try
         {
-            billingPeriods = await BillingService.GetSpaceBillingPeriodsAsync(SpaceId);
+            // Imported history periods are statistics only; the app manages live periods (the web shows the history).
+            billingPeriods = (await BillingService.GetSpaceBillingPeriodsAsync(SpaceId)).Where(p => !p.IsHistorical).ToList();
         }
         catch (Exception ex)
         {
@@ -156,6 +158,8 @@
 
     private async Task CreatePeriod()
     {
+        if (isCreatingPeriod) return; // a double tap would send two creates
+        isCreatingPeriod = true;
         try
         {
             var dto = new CreateBillingPeriodDto
@@ -172,6 +176,10 @@
         catch (Exception ex)
         {
             await AlertService.ShowAlertAsync("Error", $"Failed to create billing period: {ex.Message}");
+        }
+        finally
+        {
+            isCreatingPeriod = false;
         }
     }
 }
