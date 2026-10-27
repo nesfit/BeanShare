@@ -459,10 +459,13 @@ message, comes only with the command endpoints' 401, 403 and 409 answers, every 
 confirm-payment, and the endpoints that answer through the shared status mapping (for example promote/demote member,
 the balance, history and placeholder endpoints). Most other business failures, such as an endpoint's own 400 or 404
 (the cups' `BEFORE_LEDGER_START` included), carry the code without `Detail`. FastEndpoints' own validation, binding and
-JSON 400s carry FastEndpoints' message in `Reason` instead of an error code, and no `Detail`. Some command
-endpoints keep their earlier failure bodies, which carry no code: the billing-period create, open, close and reopen
-endpoints (`POST /api/spaces/{SpaceId}/billing-periods`, `PUT /api/billing-periods/{id}/open`, `/close`, `/reopen`)
-answer ASP.NET problem details with the message in lowercase `detail`; purchase update and delete
+JSON 400s, and the endpoints' own request checks that run before the command (an invalid balance-entry `Kind` on the
+balance-entry and paste endpoints, an invalid role on set-user-role, a body `SpaceId` that differs from the route when
+adding stock, a legacy stock purchase without `SpaceId`), carry a message in `Reason` instead of an error code, and no
+`Detail`. Some command endpoints keep their earlier failure bodies, which carry no code: the billing-period
+create, open, close and reopen endpoints (`POST /api/spaces/{SpaceId}/billing-periods`,
+`PUT /api/billing-periods/{id}/open`, `/close`, `/reopen`) answer ASP.NET problem details with the message in
+lowercase `detail`; purchase update and delete
 (`PUT` and `DELETE /api/spaces/{SpaceId}/stock/purchases/{id}`) and `POST /api/settlements/{id}/send-emails` answer
 the message as a bare JSON string; and the profile, avatar and notification endpoints keep their own response bodies.
 The 401 answers listed here also carry the Bearer challenge.
