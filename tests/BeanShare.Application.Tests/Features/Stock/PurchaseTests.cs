@@ -28,7 +28,7 @@ public sealed class PurchaseTests
 
         bag.Discard(_clock).Grams.Should().Be(300m);
         bag.UndoWriteOff(_clock).Grams.Should().Be(300m);
-        bag.ConsumedGrams.Should().Be(700m, "the old code restored 600 g and dropped this to 400 (DR7 R7-1)");
+        bag.ConsumedGrams.Should().Be(700m, "the old code restored 600 g and dropped this to 400");
         bag.RemainingGrams.Grams.Should().Be(300m);
     }
 

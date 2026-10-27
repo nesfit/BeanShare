@@ -15,7 +15,7 @@ using SettlementAggregate = BeanShare.Domain.Aggregates.Settlement.Settlement;
 
 namespace BeanShare.Tests.Integration.Migrations;
 
-// T-INT-02 (ADV-1 fix 5): after the migration and the backfill, the first ledger settlement bills only
+// After the migration and the backfill, the first ledger settlement bills only
 // the cup a legacy settlement could not have covered.
 public sealed class LedgerMigrationTests : IClassFixture<PostgreSqlFixture>, IAsyncLifetime
 {

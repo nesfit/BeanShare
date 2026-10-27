@@ -13,7 +13,7 @@ using NSubstitute;
 namespace BeanShare.Application.Tests.Features.Balances;
 
 // A settings change touches only what it names, and every ledger date is normalised
-// the same way (CR-4).
+// the same way.
 public sealed class LedgerSettingsInputTests
 {
     private static readonly DateTime Now = new(2026, 10, 26, 10, 0, 0, DateTimeKind.Utc);
