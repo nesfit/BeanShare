@@ -186,11 +186,14 @@ public sealed class UserSynchronizationService : IUserSynchronizationService
         if (await _userService.GetByProviderUserIdAsync(provider, subject, cancellationToken) is not null)
             return LinkResolveOutcome.NotPending;
 
-        // Re-read tracked and re-check: a merge or an edit may have won meanwhile.
         var found = await _userRepository.FindByEmailAsync(email, cancellationToken);
         if (found is null)
             return LinkResolveOutcome.ChangedMeanwhile;
 
+        // The spaces whose ledger token this answer bumps are read first, then the placeholder is re-read tracked and
+        // re-checked. A merge or an edit that commits before the re-read is seen by the check; one that commits after the
+        // spaces were read has bumped their token, so this save conflicts. Either way only one of them commits.
+        var spaces = await _spaceRepository.GetBySpecAsync(new SpacesWithUserMembershipSpecification(found.Id), cancellationToken);
         var placeholder = await _userRepository.GetByIdAsync(found.Id, cancellationToken);
         if (placeholder is not { IsPlaceholder: true, IsMerged: false }
             || !string.Equals(placeholder.Email, email, StringComparison.OrdinalIgnoreCase))
@@ -198,7 +201,6 @@ public sealed class UserSynchronizationService : IUserSynchronizationService
             return LinkResolveOutcome.ChangedMeanwhile;
         }
 
-        var spaces = await _spaceRepository.GetBySpecAsync(new SpacesWithUserMembershipSpecification(placeholder.Id), cancellationToken);
         User? declinedAccount = null;
 
         if (accept)
