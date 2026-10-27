@@ -451,10 +451,15 @@ mean the running balance. These status codes change:
 | Placeholder create/edit (new) | — | 409 `EMAIL_IN_USE` for an address another user already has |
 | `DELETE /api/consumptions/{id}`, `PUT /api/consumptions/{id}` | A cup before the ledger start could be deleted, or re-dated past it | 400 `BEFORE_LEDGER_START` for a cup before the ledger start, and for a re-date across it in either direction |
 | `POST /api/me/avatar` | Any signed-in caller could upload | 401 `UNAUTHENTICATED`, with the code and the Bearer challenge, for an unknown, deactivated or placeholder account |
+| `GET /api/spaces/{SpaceId}/consumption` (recent cups), and the `Consumption` part of `GET /api/spaces/{SpaceId}/dashboard` | `CanEdit` offered both Edit and Delete | New `CanDelete` offers Delete. `CanEdit` offers Edit only and is now false for a write-off share, which can only be deleted |
 
 Queries (GET) keep their own failure shapes. A body "with the code" is the shared problem-details shape
 (`application/problem+json`): each entry of `Errors` carries an error code in `Reason`, and `Detail` carries the first
 error's message. The endpoints that already sent this shape now also send `Detail`, and their 401s the Bearer challenge.
+
+**Deploy the API before the MAUI app.** A new MAUI build shows Delete only where `CanDelete` is true; an older API does
+not send it, so the app would hide Delete on every cup. An older MAUI build against the new API still shows Delete
+under `CanEdit`, so it hides Delete on write-off shares only.
 
 ---
 
