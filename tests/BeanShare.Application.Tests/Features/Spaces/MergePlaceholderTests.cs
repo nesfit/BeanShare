@@ -1,7 +1,9 @@
+using BeanShare.Application.Abstractions;
 using BeanShare.Application.Common;
 using BeanShare.Application.Features.Balances.Commands.CreateBalanceEntry;
 using BeanShare.Application.Features.Consumption.Commands;
 using BeanShare.Application.Features.CoffeeStock.Commands;
+using BeanShare.Application.Features.Spaces.Commands;
 using BeanShare.Application.Tests.TestHelpers;
 using BeanShare.Domain.Aggregates.History;
 using BeanShare.Domain.Common;
@@ -215,4 +217,47 @@ public sealed class MergePlaceholderTests
         (await _world.ConfirmAsync(january, _placeholder)).Errors.Should().ContainSingle()
             .Which.Code.Should().Be(Error.Codes.LineMerged);
     }
+    // A claim or another merge can commit between the merge's uncached reads and its tracked load. The merge (and a
+    // placeholder edit) then refuses as its checks would have, instead of letting the domain throw (a 500).
+    [Fact]
+    public async Task AMerge_FindingThePlaceholderClaimedAfterItsChecks_IsRefused()
+    {
+        var pete = _world.AddPlaceholder("Pete");
+        StaleStatusSays(pete, new UserAccessStatus(true, true, true, null));
+        _world.UserOf(pete).ClaimPlaceholder(AuthenticationProvider.Oidc, "idp-pete", _world.Clock.UtcNow);
+
+        var result = await _world.MergeAsync(pete, _alice);
+
+        result.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.NotPlaceholder);
+        _world.UserOf(pete).IsMerged.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AMerge_FindingThePlaceholderMergedAfterItsChecks_IsRefused()
+    {
+        var pete = _world.AddPlaceholder("Pete");
+        StaleStatusSays(pete, new UserAccessStatus(true, true, true, null));
+        _world.UserOf(pete).MarkMergedInto(_world.Admin);
+
+        var result = await _world.MergeAsync(pete, _alice);
+
+        result.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.MemberMerged);
+        _world.UserOf(pete).MergedIntoUserId.Should().Be(_world.Admin, "the earlier merge stands");
+    }
+
+    [Fact]
+    public async Task APlaceholderEdit_FindingItMergedAfterItsCheck_IsRefused()
+    {
+        var pete = _world.AddPlaceholder("Pete");
+        StaleStatusSays(pete, new UserAccessStatus(true, true, true, null));
+        _world.UserOf(pete).MarkMergedInto(_alice);
+
+        var result = await new UpdatePlaceholderMemberCommandHandler(_world.SpaceRepository, _world.UserRepository, _world.UserService)
+            .Handle(new UpdatePlaceholderMemberCommand(_world.Space.Id.Value, pete.Value, "Peter"), default);
+
+        result.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.MemberMerged);
+    }
+
+    private void StaleStatusSays(UserId user, UserAccessStatus status) =>
+        _world.UserRepository.GetAccessStatusAsync(user, Arg.Any<CancellationToken>()).Returns(status);
 }

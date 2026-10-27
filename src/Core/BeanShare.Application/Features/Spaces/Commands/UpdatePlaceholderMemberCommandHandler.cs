@@ -42,6 +42,8 @@ public sealed class UpdatePlaceholderMemberCommandHandler : IRequestHandler<Upda
         var placeholder = await _userRepository.GetByIdAsync(userId, cancellationToken);
         if (placeholder is null)
             return Result<MembershipDto>.Failure(Error.UserNotFound(command.UserId));
+        if (placeholder.IsMerged)
+            return Result<MembershipDto>.Failure(Error.MemberMerged()); // merged since the uncached read above
         if (!placeholder.IsPlaceholder)
             return Result<MembershipDto>.Failure(Error.NotPlaceholder());
 
@@ -58,6 +60,11 @@ public sealed class UpdatePlaceholderMemberCommandHandler : IRequestHandler<Upda
 
         var oldEmail = placeholder.Email;
         placeholder.UpdatePlaceholder(command.Name, command.Email);
+
+        // A claim of this placeholder bumps its spaces' ledger token too, so an edit racing it fails instead of both
+        // committing (the claimed account must not take the address the admin just typed).
+        space.BumpLedgerVersion();
+        await _spaceRepository.UpdateAsync(space, cancellationToken);
         _userService.Evict(placeholder.Id, oldEmail, placeholder.Email);
 
         return Result<MembershipDto>.Success(new MembershipDto

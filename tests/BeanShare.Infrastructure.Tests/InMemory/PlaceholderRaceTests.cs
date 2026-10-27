@@ -122,4 +122,39 @@ public sealed class PlaceholderRaceTests
         merge.IsSuccess.Should().BeTrue();
         confirm.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.ConcurrencyConflict);
     }
+    // A placeholder edit and a claim share the space's ledger token: the held one loses instead of both committing, so
+    // the claimed account cannot end up with the address the admin just typed.
+    [Fact(Timeout = 10000)]
+    public async Task AHeldPlaceholderEdit_LosingToAnAccept_GetsConcurrencyConflict()
+    {
+        var w = await ArrangeAsync();
+        await using var _ = w.Container;
+
+        w.Container.Barrier.Arm();
+        var held = Task.Run(() => w.Container.SendAsync(w.Admin,
+            new UpdatePlaceholderMemberCommand(w.SpaceId, w.Placeholder.Value, "Old Pete", "someone.else@example.org")));
+        await w.Container.Barrier.WaitUntilHeldAsync();
+
+        (await ResolveAsync(w.Container, accept: true)).Should().Be(LinkResolveOutcome.Claimed);
+
+        w.Container.Barrier.Release();
+        (await held).Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.ConcurrencyConflict);
+    }
+
+    [Fact(Timeout = 10000)]
+    public async Task AHeldAccept_LosingToAPlaceholderEdit_GivesChangedMeanwhile()
+    {
+        var w = await ArrangeAsync();
+        await using var _ = w.Container;
+
+        w.Container.Barrier.Arm();
+        var held = Task.Run(() => ResolveAsync(w.Container, accept: true));
+        await w.Container.Barrier.WaitUntilHeldAsync();
+
+        (await w.Container.SendAsync(w.Admin,
+            new UpdatePlaceholderMemberCommand(w.SpaceId, w.Placeholder.Value, "Old Pete", "someone.else@example.org"))).IsSuccess.Should().BeTrue();
+
+        w.Container.Barrier.Release();
+        (await held).Should().Be(LinkResolveOutcome.ChangedMeanwhile);
+    }
 }

@@ -81,6 +81,15 @@ public sealed class MergePlaceholderCommandHandler : IRequestHandler<MergePlaceh
         if (placeholder is null || target is null)
             return Result.Failure(Error.UserNotFound(placeholder is null ? command.PlaceholderUserId : command.TargetUserId));
 
+        // A claim or another merge may have committed since the uncached reads above: refuse as they would have, rather
+        // than let the domain throw on the changed user.
+        if (placeholder.IsMerged)
+            return Result.Failure(Error.MemberMerged());
+        if (!placeholder.IsPlaceholder)
+            return Result.Failure(Error.NotPlaceholder());
+        if (target.IsPlaceholder || target.IsMerged)
+            return Result.Failure(Error.ValidationFailure("Target", "Merge into a current member who has an account"));
+
         var releasedEmail = placeholder.Email;
         placeholder.MarkMergedInto(targetId);
         placeholder.ReleaseEmail();
