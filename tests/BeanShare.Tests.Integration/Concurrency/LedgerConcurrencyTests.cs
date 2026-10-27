@@ -4,6 +4,7 @@ using BeanShare.Application.Features.Balances.Commands.DeleteBalanceEntry;
 using BeanShare.Application.Features.Balances.Commands.UpdateBalanceEntry;
 using BeanShare.Application.Features.Balances.Commands.UpdateLedgerSettings;
 using BeanShare.Application.Features.Billing.Commands.CloseBillingPeriod;
+using BeanShare.Application.Features.Billing.Commands.CreateBillingPeriod;
 using BeanShare.Application.Features.Billing.Commands.ReopenBillingPeriod;
 using BeanShare.Application.Features.Consumption.Commands;
 using BeanShare.Application.Features.Settlement.Commands.ConfirmPayment;
@@ -187,6 +188,22 @@ public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, I
         winner.IsSuccess.Should().BeTrue();
         held.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.ConcurrencyConflict);
         (await _container.ReadAsync(db => db.Settlements.CountAsync(x => x.BillingPeriodId == new BillingPeriodId(period)))).Should().Be(1);
+    }
+
+    // Two creates of the same period (a double submit, two admins): the held one loses, and no twin period is stored.
+    [Fact]
+    public async Task TwoCreatesOfTheSamePeriod_TheHeldOneGets409_AndOnlyOneIsStored()
+    {
+        var s = await LedgerScenario.CreateAsync(_container);
+        var create = new CreateBillingPeriodCommand(s.SpaceId, "Next", Today.AddDays(1), Today.AddDays(20));
+
+        var (held, winner) = await RaceAsync(
+            () => _container.SendAsync(s.Admin, create),
+            () => _container.SendAsync(s.Admin, create));
+
+        winner.IsSuccess.Should().BeTrue();
+        held.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.ConcurrencyConflict);
+        (await _container.ReadAsync(db => db.BillingPeriods.CountAsync(p => p.SpaceId == new SpaceId(s.SpaceId) && p.Name == "Next"))).Should().Be(1);
     }
 
     [Fact]

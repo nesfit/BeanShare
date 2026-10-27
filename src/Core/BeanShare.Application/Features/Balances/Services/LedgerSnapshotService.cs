@@ -85,6 +85,12 @@ public sealed class LedgerSnapshotService
         var settled = periods.Where(p => p.State == BillingState.Settled && !p.IsHistorical).ToList();
         var settledPeriodIds = settled.Select(p => p.Id).ToHashSet();
         var settledThrough = settled.Select(p => (DateTime?)p.EndDate).Max();
+        // The stamped-cup pre-filter below assumes no unsettled live period starts on or before that end. Should two live
+        // periods ever overlap, cap the cut-off before the earliest unsettled one, so its cups are still read.
+        var earliestUnsettledStart = periods.Where(p => p.State != BillingState.Settled && !p.IsHistorical)
+            .Select(p => (DateTime?)p.StartDate).Min();
+        if (settledThrough is { } through && earliestUnsettledStart is { } unsettledStart && unsettledStart <= through)
+            settledThrough = unsettledStart.AddTicks(-1);
 
         var candidates = await _consumptionRepository.GetBySpecAsync(
             new LedgerConsumptionsSpecification(space.Id, upTo: null, space.LedgerStartDate, settledThrough: settledThrough), cancellationToken);

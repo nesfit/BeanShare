@@ -61,6 +61,10 @@ public sealed class OpenBillingPeriodHandler : IRequestHandler<OpenBillingPeriod
         {
             billingPeriod.Open(currentUserId, _clock);
             await _billingPeriodRepository.UpdateAsync(billingPeriod, cancellationToken);
+
+            // Serialised with creates, reopens, closes and generation through the space's ledger token.
+            space.BumpLedgerVersion();
+            await _spaceRepository.UpdateAsync(space, cancellationToken);
             return Result.Success();
         }
         catch (InvalidOperationException ex)

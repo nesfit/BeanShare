@@ -44,6 +44,10 @@ public sealed class CloseBillingPeriodHandler : IRequestHandler<CloseBillingPeri
         if (!space.IsAdmin(_userContext.CurrentUserId))
             return Result.Failure(Error.InsufficientSpacePrivileges("close billing periods"));
 
+        // Closing an open-ended period ends it today, which would put its end before a future start.
+        if (billingPeriod.State == Domain.Enums.BillingState.Open && billingPeriod.IsOpenEnded && !billingPeriod.CanCloseOpenEnded(_clock))
+            return Result.Failure(Error.PeriodNotStarted(billingPeriod.StartDate));
+
         try
         {
             billingPeriod.Close(_userContext.CurrentUserId, _clock);

@@ -139,6 +139,9 @@ public readonly record struct Error(string Code, string Message)
     public static Error InvalidBillingPeriodState(string action, string currentState) =>
         new(Codes.InvalidBillingPeriodState, $"Cannot {action} billing period in {currentState} state");
 
+    public static Error PeriodNotStarted(DateTime startDate) =>
+        new(Codes.InvalidBillingPeriodState, $"An open-ended period cannot be closed before it starts ({startDate:yyyy-MM-dd})");
+
     public static Error SettlementAlreadyExists(Guid billingPeriodId) =>
         new(Codes.SettlementAlreadyExists, $"Settlement already exists for billing period {billingPeriodId}");
 

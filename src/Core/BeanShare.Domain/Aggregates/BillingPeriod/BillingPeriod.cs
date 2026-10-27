@@ -149,6 +149,9 @@ public sealed class BillingPeriod : AggregateRoot
         ));
     }
 
+    /// <summary>Closing an open-ended period ends it today, so it must have started by then.</summary>
+    public bool CanCloseOpenEnded(IClock clock) => clock.UtcNow.Date.AddDays(1).AddTicks(-1) >= StartDate;
+
     public void Close(UserId userId, IClock clock)
     {
         ArgumentNullException.ThrowIfNull(userId);
@@ -157,6 +160,11 @@ public sealed class BillingPeriod : AggregateRoot
         if (State != BillingState.Open)
         {
             throw new InvalidOperationException($"Cannot close billing period in state {State}");
+        }
+
+        if (IsOpenEnded && !CanCloseOpenEnded(clock))
+        {
+            throw new InvalidOperationException("An open-ended period cannot be closed before its start date");
         }
 
         State = BillingState.Closed;

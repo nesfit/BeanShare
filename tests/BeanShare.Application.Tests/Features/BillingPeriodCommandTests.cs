@@ -537,4 +537,37 @@ public sealed class BillingPeriodCommandTests
         world.Space.LedgerVersion.Should().BeGreaterThan(ledgerVersionBefore);
         await world.ConsumptionRepository.Received().GetBySpecForUpdateAsync(Arg.Any<ISpec<ConsumptionEntry>>(), Arg.Any<CancellationToken>());
     }
+    // Closing an open-ended period ends it today; one that starts later is refused, not failed with an exception.
+    [Fact]
+    public async Task ClosingAnOpenEndedPeriod_BeforeItStarts_IsRefused()
+    {
+        var world = new LedgerWorld("CZK");
+        var future = BillingPeriod.Create(world.Space.Id, "Next", world.Clock.UtcNow.Date.AddDays(5), null, world.Admin, world.Clock);
+        future.Open(world.Admin, world.Clock);
+        world.Periods.Add(future);
+
+        var result = await new CloseBillingPeriodHandler(world.BillingPeriodRepository, world.SpaceRepository, world.ConsumptionRepository,
+                world.UserContext, world.Clock)
+            .Handle(new CloseBillingPeriodCommand(future.Id.Value), CancellationToken.None);
+
+        result.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.InvalidBillingPeriodState);
+        future.State.Should().Be(BillingState.Open);
+        future.IsOpenEnded.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ClosingAnOpenEndedPeriod_ThatStartsToday_Works()
+    {
+        var world = new LedgerWorld("CZK");
+        var current = BillingPeriod.Create(world.Space.Id, "Now", world.Clock.UtcNow.Date, null, world.Admin, world.Clock);
+        current.Open(world.Admin, world.Clock);
+        world.Periods.Add(current);
+
+        var result = await new CloseBillingPeriodHandler(world.BillingPeriodRepository, world.SpaceRepository, world.ConsumptionRepository,
+                world.UserContext, world.Clock)
+            .Handle(new CloseBillingPeriodCommand(current.Id.Value), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        current.EndDate.Should().Be(world.Clock.UtcNow.Date.AddDays(1).AddTicks(-1));
+    }
 }

@@ -70,6 +70,11 @@ public sealed class CreateBillingPeriodHandler : IRequestHandler<CreateBillingPe
 
         await _billingPeriodRepository.AddAsync(billingPeriod, cancellationToken);
 
+        // Two creates (a double submit, two admins) or a create racing a reopen must not both pass the overlap check:
+        // they share the space's ledger token, as close, reopen and generation do.
+        space.BumpLedgerVersion();
+        await _spaceRepository.UpdateAsync(space, cancellationToken);
+
         var dto = new BillingPeriodDto(
             billingPeriod.Id.Value,
             billingPeriod.SpaceId.Value,

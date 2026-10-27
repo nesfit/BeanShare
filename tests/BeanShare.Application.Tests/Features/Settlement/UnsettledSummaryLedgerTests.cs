@@ -141,4 +141,22 @@ public sealed class UnsettledSummaryLedgerTests
         summary.UnassignedRounding.Should().Be(-0.01m);
         (summary.Members.Sum(m => m.Balance) + summary.UnassignedRounding).Should().Be(0m);
     }
+    // Should two live periods ever overlap (two creates that raced before creation took the ledger token), settling one
+    // must not hide the cups stamped to the other: the running balance's cut-off stops before the unsettled twin.
+    [Fact]
+    public async Task OverlappingLivePeriods_SettlingOne_StillShowsTheOthersCups()
+    {
+        var twinA = _world.AddPeriod("January", Jan1, Jan31);
+        var twinB = _world.AddPeriod("January", Jan1, Jan31);
+        var bag = _world.AddBag(1000m, 500m, Jan1, paidBy: _world.Admin);
+        _world.Drink(_alice, 10m, Jan1.AddDays(9), bag).AssignToBillingPeriod(twinA.Id);
+        _world.Drink(_alice, 30m, Jan1.AddDays(10), bag).AssignToBillingPeriod(twinB.Id);
+        (await _world.GenerateAsync(twinA)).IsSuccess.Should().BeTrue();
+
+        var alice = (await _world.UnsettledAsync()).Members.Single(m => m.UserId == _alice.Value);
+
+        alice.Carried.Should().Be(-5m, "twin A billed the 10 g");
+        alice.Cost.Should().Be(15m, "the 30 g stamped to the unsettled twin still count");
+        alice.Balance.Should().Be(-20m);
+    }
 }
