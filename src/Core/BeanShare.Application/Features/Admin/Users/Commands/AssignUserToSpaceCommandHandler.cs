@@ -35,6 +35,18 @@ public sealed class AssignUserToSpaceCommandHandler : IRequestHandler<AssignUser
             return Result.Failure(Error.UserNotFound(request.UserId));
         }
 
+        // A placeholder belongs to the one space it was created in: a merge there would also move its money in any other
+        // space, to a target who is no member of it. A merged user is no person any more.
+        if (user.IsMerged)
+        {
+            return Result.Failure(Error.MemberMerged());
+        }
+
+        if (user.IsPlaceholder)
+        {
+            return Result.Failure(Error.ValidationFailure("UserId", "A placeholder member cannot be assigned to another space"));
+        }
+
         var space = await _spaceRepository.GetByIdAsync(spaceId, cancellationToken);
         if (space is null)
         {
