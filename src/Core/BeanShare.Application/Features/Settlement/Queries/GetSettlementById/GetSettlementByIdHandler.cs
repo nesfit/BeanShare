@@ -10,7 +10,7 @@ using MediatR;
 namespace BeanShare.Application.Features.Settlement.Queries.GetSettlementById;
 
 /// <summary>
-/// Reads a settlement from its stored snapshot: a ledger settlement never recomputes anything (I7); a
+/// Reads a settlement from its stored snapshot: a ledger settlement never recomputes anything; a
 /// legacy one shows its frozen Paid, falling back to the old purchase-based figure only when the
 /// backfill has not frozen it yet.
 /// </summary>

@@ -7,7 +7,7 @@ using FluentAssertions;
 namespace BeanShare.Application.Tests.Features.Consumption;
 
 /// <summary>
-/// B22 on the server: a cup before the ledger start C is never billed, so it can be neither deleted (which would hand
+/// On the server too: a cup before the ledger start C is never billed, so it can be neither deleted (which would hand
 /// its grams back to the bag) nor re-dated across C, the same rule the cup lists apply to their Edit and Delete.
 /// </summary>
 public sealed class LedgerStartCupCommandTests
@@ -76,7 +76,7 @@ public sealed class LedgerStartCupCommandTests
         cup.ConsumedAt.Should().Be(C.AddDays(3));
     }
 
-    // O7: "delete it instead" only where a delete would go through; a frozen share gets the refusal a delete gets.
+    // "delete it instead" only where a delete would go through; a frozen share gets the refusal a delete gets.
     [Fact]
     public async Task EditingAShareInAClosedPeriod_IsRefusedForThePeriod_NotAsAShare()
     {

@@ -54,7 +54,7 @@ public sealed class DeleteConsumptionCommandHandler
                     Error.InvalidBillingPeriodState("delete consumption in", billingPeriod.State.ToString()));
         }
 
-        // A cup before the ledger start is never billed; deleting it would only hand its grams back to the bag (B22).
+        // A cup before the ledger start is never billed; deleting it would only hand its grams back to the bag.
         var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(entry.SpaceId), cancellationToken);
         if (space?.LedgerStartDate is { } ledgerStart && entry.ConsumedAt < ledgerStart)
             return Result<bool>.Failure(Error.BeforeLedgerStart(ledgerStart));
@@ -66,7 +66,7 @@ public sealed class DeleteConsumptionCommandHandler
             {
                 // Give the grams back to the exact bag the cup drew from (product-level fallback
                 // for legacy entries never stamped with a bag). A write-off share also leaves the bag's
-                // write-off counter, so a later "Undo empty" restores only what is still written off (Z2, B25).
+                // write-off counter, so a later "Undo empty" restores only what is still written off.
                 if (entry.StockLotId.HasValue)
                     coffeeStock.RestoreStockToLot(entry.StockLotId.Value, entry.Quantity, _clock, writeOff: entry.IsWriteOff);
                 else

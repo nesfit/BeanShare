@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeanShare.Infrastructure.Tests.InMemory;
 
-// T-INF-05: the web's per-operation scopes, in a container built like BlazorWeb's.
+// The web's per-operation scopes, in a container built like BlazorWeb's.
 [Collection(InMemoryContainerCollection.Name)]
 public sealed class ScopedSenderContainerTests
 {

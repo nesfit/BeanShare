@@ -74,14 +74,14 @@ public sealed class SplitRemainingStockCommandHandler : IRequestHandler<SplitRem
 
         var allConsumptions = await _consumptionRepository.GetBySpaceIdAsync(spaceId, cancellationToken);
 
-        // Only current, non-merged members share a write-off, renormalised over them (DS-34).
+        // Only current, non-merged members share a write-off, renormalised over them.
         var productConsumptions = await WriteOffParticipants.ShareableCupsAsync(
             space,
             allConsumptions.Where(c => c.Product.Name == product.Name && c.Product.Brand == product.Brand && c.Product.Type == product.Type),
             _userRepository,
             cancellationToken);
 
-        // The equal-split fallback leaves placeholders out too (DS-33).
+        // The equal-split fallback leaves placeholders out too.
         var memberIds = await WriteOffParticipants.EqualSplitMembersAsync(space, _userRepository, cancellationToken);
         var users = await _userService.GetByIdsAsync(memberIds, cancellationToken);
         var userLookup = users.ToDictionary(u => u.Id, u => u.Name);
@@ -129,7 +129,7 @@ public sealed class SplitRemainingStockCommandHandler : IRequestHandler<SplitRem
         var now = _clock.UtcNow;
 
         // Each member's share is drawn bag by bag, oldest first (cups never span bags), and every draw
-        // becomes its own entry stamped with that bag's cost, so the bag's payer is credited (B4).
+        // becomes its own entry stamped with that bag's cost, so the bag's payer is credited.
         var nonEmptyBags = coffeeStock.Purchases
             .Where(p => !p.IsEmpty
                 && p.Product.Name == product.Name

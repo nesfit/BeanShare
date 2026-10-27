@@ -7,8 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace BeanShare.Infrastructure.Tests.Services;
 
 /// <summary>
-/// DS-30 for the photo upload (A10-4): the web profile page writes the file through this service before it sends its
-/// profile command, so the service itself refuses an account that cannot act, before any file is touched.
+/// The active-account check for the photo upload: the web profile page writes the file through this service before
+/// it sends its profile command, so the service itself refuses an account that cannot act, before any file is touched.
 /// </summary>
 public sealed class AvatarStorageServiceTests : IDisposable
 {
@@ -51,7 +51,7 @@ public sealed class AvatarStorageServiceTests : IDisposable
         File.ReadAllBytes(Path.Combine(_root, "avatars", $"{_user}.png")).Should().Equal(Png);
     }
 
-    // CR14-2: the service holds no repository; each upload reads the access status through its own short-lived scope.
+    // The service holds no repository; each upload reads the access status through its own short-lived scope.
     [Fact]
     public async Task TheAccessCheck_UsesAFreshScopePerUpload()
     {

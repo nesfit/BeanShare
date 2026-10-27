@@ -5,7 +5,7 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.TestHelpers;
 
-/// <summary>User repositories for handler tests: the uncached access and merge lookups (DS-30).</summary>
+/// <summary>User repositories for handler tests: the uncached access and merge lookups.</summary>
 public static class TestUsers
 {
     /// <summary>Every id is an existing, active, real user; nobody is merged.</summary>

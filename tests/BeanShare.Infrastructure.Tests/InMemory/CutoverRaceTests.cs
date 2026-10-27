@@ -9,7 +9,7 @@ using BeanShare.Application.Features.Settlement.Commands.GenerateSettlement;
 
 namespace BeanShare.Infrastructure.Tests.InMemory;
 
-// T-CUT-01 and T-CUT-05 race variants (AD7 R7-2, AD9 N-1 inverted): every cutover input shares the space token.
+// Races of the cutover tools: every cutover input shares the space token.
 [Collection(InMemoryContainerCollection.Name)]
 public sealed class CutoverRaceTests
 {

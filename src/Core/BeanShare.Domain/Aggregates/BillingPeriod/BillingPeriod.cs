@@ -25,7 +25,7 @@ public sealed class BillingPeriod : AggregateRoot
     /// <summary>Concurrency token, bumped by every state transition.</summary>
     public int Version { get; private set; }
 
-    /// <summary>Imported from the Excel history (DS-16): statistics only, never money, never reopened.</summary>
+    /// <summary>Imported from the Excel history: statistics only, never money, never reopened.</summary>
     public bool IsHistorical { get; private set; }
 
     public HistoryImportId? HistoryImportId { get; private set; }
@@ -91,7 +91,7 @@ public sealed class BillingPeriod : AggregateRoot
 
     /// <summary>
     /// A period of the Excel history, created directly as Settled. Unlike <see cref="Create"/> a single day
-    /// (start = end) is allowed (N6). It raises no events, so importing notifies nobody.
+    /// (start = end) is allowed. It raises no events, so importing notifies nobody.
     /// </summary>
     public static BillingPeriod CreateHistorical(
         SpaceId spaceId,

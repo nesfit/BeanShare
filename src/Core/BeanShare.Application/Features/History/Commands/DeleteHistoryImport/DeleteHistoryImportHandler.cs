@@ -34,7 +34,7 @@ public sealed class DeleteHistoryImportHandler : IRequestHandler<DeleteHistoryIm
         if (import is null || import.SpaceId != spaceId)
             return Result.Failure(Error.NotFound("History import", $"{command.ImportId} was not found"));
 
-        // Only this import's periods go; other imports and every live period stay (T-HIS-01).
+        // Only this import's periods go; other imports and every live period stay.
         foreach (var period in (await _billingPeriodRepository.GetBySpaceIdAsync(spaceId, cancellationToken))
                      .Where(p => p.IsHistorical && p.HistoryImportId == importId))
         {

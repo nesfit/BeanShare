@@ -7,7 +7,7 @@ using FluentAssertions;
 
 namespace BeanShare.Tests.Integration.Api;
 
-// T-INT-08 (history, design-tables-ui §9.4): preview, commit, read and delete an Excel history import.
+// Preview, commit, read and delete an Excel history import.
 public sealed class HistoryEndpointsTests : IClassFixture<PostgreSqlFixture>
 {
     private const string Cups = "period;start;end;member;cups\n2025 H1;2025-01-01;2025-06-30;Old Pete;120\n2025 H1;2025-01-01;2025-06-30;test@coffeespace.local;80";

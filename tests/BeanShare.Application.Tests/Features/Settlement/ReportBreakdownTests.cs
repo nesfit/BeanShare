@@ -5,7 +5,7 @@ using BeanShare.Domain.Common;
 
 namespace BeanShare.Application.Tests.Features.Settlement;
 
-// T-QRY-04 (X4): with a rounding residual the exported breakdown still adds up to Net on every line,
+// With a rounding residual the exported breakdown still adds up to Net on every line,
 // the treasurer's included, because Rounding is a column of its own.
 public sealed class ReportBreakdownTests
 {

@@ -6,7 +6,7 @@ using BeanShare.Domain.Entities;
 namespace BeanShare.Application.Features.CoffeeStock.Commands;
 
 /// <summary>
-/// Who may share a write-off (DS-33/34): current members that are not merged placeholders, read uncached;
+/// Who may share a write-off: current members that are not merged placeholders, read uncached;
 /// the equal-split fallback also leaves placeholders out.
 /// </summary>
 internal static class WriteOffParticipants

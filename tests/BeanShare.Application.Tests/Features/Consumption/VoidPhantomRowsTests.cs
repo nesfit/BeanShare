@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace BeanShare.Application.Tests.Features.Consumption;
 
-// T-CUT-05 (DS-42, I1; J1, J2, J7): voiding phantom rows returns nothing to stock.
+// Voiding phantom rows returns nothing to stock.
 public sealed class VoidPhantomRowsTests
 {
     private static readonly DateTime C = new(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -72,7 +72,7 @@ public sealed class VoidPhantomRowsTests
         _bag.RemainingGrams.Grams.Should().Be(remaining);
         _bag.ConsumedGrams.Should().Be(100m);
         _bag.WrittenOffGrams.Should().Be(0m);
-        _bag.VoidedGrams.Should().Be(900m, "voided grams leave for their own counter, not the discard (J1)");
+        _bag.VoidedGrams.Should().Be(900m, "voided grams leave for their own counter, not the discard");
         _bag.DiscardedGrams.Should().Be(0m);
         _bag.Version.Should().Be(version + shares.Count);
         _world.Space.LedgerVersion.Should().Be(ledgerVersion + 1, "once per command");

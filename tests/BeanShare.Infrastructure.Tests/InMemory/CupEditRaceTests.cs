@@ -8,8 +8,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BeanShare.Infrastructure.Tests.InMemory;
 
-// T-INT-06 on InMemory (fix round L, L1): a cup edit races the generation that stamps the cup. Closing a period
-// stamps its cups (B1), and a cup stamped to a Closed period cannot be edited, so the race needs a cup that the
+// On InMemory: a cup edit races the generation that stamps the cup. Closing a period
+// stamps its cups, and a cup stamped to a Closed period cannot be edited, so the race needs a cup that the
 // close did not stamp: one logged, back-dated, after the close.
 [Collection(InMemoryContainerCollection.Name)]
 public sealed class CupEditRaceTests
@@ -26,7 +26,7 @@ public sealed class CupEditRaceTests
         var periodId = await scenario.CreateOpenPeriodAsync(Today.AddDays(-20), Today.AddDays(-1));
         (await container.SendAsync(scenario.Admin, new CloseBillingPeriodCommand(periodId))).IsSuccess.Should().BeTrue();
         (await container.ReadAsync(db => db.Consumptions.AsNoTracking().SingleAsync(c => c.Id == new ConsumptionEntryId(cupId))))
-            .BillingPeriodId.Should().Be(new BillingPeriodId(periodId), "the close stamps the period's cups (B1)");
+            .BillingPeriodId.Should().Be(new BillingPeriodId(periodId), "the close stamps the period's cups");
 
         container.Barrier.Arm();
         var edit = await container.SendAsync(scenario.Admin,
@@ -57,7 +57,7 @@ public sealed class CupEditRaceTests
         generation.IsSuccess.Should().BeTrue();
 
         container.Barrier.Release();
-        // InMemory asserts the outcome only (DS-39); the Npgsql variant checks the stored grams.
+        // InMemory asserts the outcome only; the Npgsql variant checks the stored grams.
         (await held).Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.ConcurrencyConflict);
     }
 }

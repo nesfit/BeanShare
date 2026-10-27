@@ -68,7 +68,7 @@ public sealed class CreateBalanceEntryHandler : IRequestHandler<CreateBalanceEnt
 
         await _balanceEntryRepository.AddAsync(entry, cancellationToken);
 
-        // Serializes entry writes against member removal and generation (DS-28).
+        // Serializes entry writes against member removal and generation.
         space.BumpLedgerVersion();
         await _spaceRepository.UpdateAsync(space, cancellationToken);
 

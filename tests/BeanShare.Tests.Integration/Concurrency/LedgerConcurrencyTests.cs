@@ -19,7 +19,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BeanShare.Tests.Integration.Concurrency;
 
-// T-INT-03..07b and the Npgsql variants of T-INF-07 and T-MEM-01: every race in design §6 ends in
+// The ledger races on PostgreSQL: every race ends in
 // CONCURRENCY_CONFLICT for the held command, with nothing lost or counted twice.
 public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, IAsyncLifetime
 {
@@ -62,7 +62,7 @@ public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, I
         return (await heldTask, winnerResult);
     }
 
-    // T-INT-03: entry edit held, generation wins.
+    // Entry edit held, generation wins.
     [Fact]
     public async Task EntryEditHeld_RacingGeneration_FailsAndTheSettlementKeepsTheEntry()
     {
@@ -82,7 +82,7 @@ public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, I
         stored.IncludedInSettlementId.Should().NotBeNull();
     }
 
-    // T-INT-03, other order: generation held, the entry is deleted meanwhile.
+    // Other order: generation held, the entry is deleted meanwhile.
     [Fact]
     public async Task GenerationHeld_RacingEntryDelete_FailsAtomically()
     {
@@ -104,7 +104,7 @@ public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, I
         retry.Value.Lines.Should().NotContain(l => l.UserId == s.Alice.Value);
     }
 
-    // T-INT-04: a confirm on S(n) racing the generation of S(n+1) never counts the line twice.
+    // A confirm on S(n) racing the generation of S(n+1) never counts the line twice.
     [Fact]
     public async Task ConfirmHeld_RacingTheNextGeneration_FailsAndTheLineIsCarriedOnce()
     {
@@ -127,7 +127,7 @@ public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, I
         line.IsConfirmed.Should().BeFalse();
     }
 
-    // T-INT-05: the last two confirms race; the retry resolves the treasurer.
+    // The last two confirms race; the retry resolves the treasurer.
     [Fact]
     public async Task LastTwoConfirms_TheHeldOneFails_AndTheRetryCompletesTheSettlement()
     {
@@ -150,7 +150,7 @@ public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, I
         stored.Lines.Single(l => l.UserId == s.Admin).Resolution.Should().Be(LineResolution.Confirmed);
     }
 
-    // T-INT-06: a cup edit racing the generation that stamps it. Closing a period stamps its cups (B1), and a cup
+    // A cup edit racing the generation that stamps it. Closing a period stamps its cups, and a cup
     // stamped to a Closed period cannot be edited at all, so the cup is logged, back-dated, after the close: the
     // generation is what stamps it.
     [Fact]
@@ -174,7 +174,7 @@ public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, I
             .Quantity.Grams.Should().Be(10m, "the held edit saved nothing");
     }
 
-    // T-INT-07: two generations of the same period, and generation against a settings change.
+    // Two generations of the same period, and generation against a settings change.
     [Fact]
     public async Task TwoGenerationsOfTheSamePeriod_TheHeldOneGets409NotA500()
     {
@@ -220,7 +220,7 @@ public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, I
         held.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.ConcurrencyConflict);
     }
 
-    // T-INT-07b / T-INF-06 (Npgsql): a stale close after settling never regresses the period.
+    // A stale close after settling never regresses the period.
     [Fact]
     public async Task CloseHeld_RacingCloseAndSettle_FailsAndThePeriodStaysSettled()
     {
@@ -242,7 +242,7 @@ public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, I
         (await PeriodAsync(period)).State.Should().Be(BillingState.Settled);
     }
 
-    // T-INT-07b / T-INF-07 (Npgsql): exactly one of reopen and generation commits; no settled period ends in 9999.
+    // Exactly one of reopen and generation commits; no settled period ends in 9999.
     [Fact]
     public async Task ReopenHeld_RacingGeneration_ExactlyOneCommits()
     {
@@ -276,7 +276,7 @@ public sealed class LedgerConcurrencyTests : IClassFixture<PostgreSqlFixture>, I
         (await _container.ReadAsync(db => db.Settlements.AnyAsync(x => x.BillingPeriodId == new BillingPeriodId(period)))).Should().BeFalse();
     }
 
-    // T-MEM-01 (Npgsql): an entry written while the member is removed conflicts, so no entry outlives the membership.
+    // An entry written while the member is removed conflicts, so no entry outlives the membership.
     [Fact]
     public async Task EntryCreateHeld_RacingRemoveMember_Gets409()
     {

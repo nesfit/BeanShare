@@ -36,7 +36,7 @@ public sealed class UploadAvatarEndpoint : EndpointWithoutRequest<UploadAvatarRe
 
     public override async Task HandleAsync(CancellationToken ct)
     {
-        // DS-30: the upload runs no command, so the pipeline's active-account check does not cover it. A principal
+        // The upload runs no command, so the pipeline's active-account check does not cover it. A principal
         // without a usable id claim is refused the same way, as the pipeline does for a request that needs a user.
         UserId caller;
         try

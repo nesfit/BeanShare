@@ -54,7 +54,7 @@ public sealed class CloseBillingPeriodHandler : IRequestHandler<CloseBillingPeri
             await AssignUnbilledConsumptions(billingPeriod, billingPeriodId, cancellationToken);
             await _billingPeriodRepository.UpdateAsync(billingPeriod, cancellationToken);
 
-            // A close races generation and settings changes (DS-25).
+            // A close races generation and settings changes.
             space.BumpLedgerVersion();
             await _spaceRepository.UpdateAsync(space, cancellationToken);
 
@@ -74,7 +74,7 @@ public sealed class CloseBillingPeriodHandler : IRequestHandler<CloseBillingPeri
         var spec = new UnassignedConsumptionsInPeriodSpecification(
             billingPeriod.SpaceId, billingPeriod.StartDate, billingPeriod.EndDate);
 
-        // Tracked, so the stamps are actually saved (B1).
+        // Tracked, so the stamps are actually saved.
         var consumptions = await _consumptionRepository.GetBySpecForUpdateAsync(spec, ct);
         foreach (var entry in consumptions)
             entry.AssignToBillingPeriod(billingPeriodId);

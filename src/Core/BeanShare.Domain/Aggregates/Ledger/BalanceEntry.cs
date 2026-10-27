@@ -125,7 +125,7 @@ public sealed class BalanceEntry : AggregateRoot
         userId == UserId ? Amount : userId == CounterpartyUserId ? -Amount : 0m;
 
     /// <summary>
-    /// Checks the §3.1 entry rules without creating anything; returns the first violation or null.
+    /// Checks the entry rules without creating anything; returns the first violation or null.
     /// </summary>
     public static string? GetValidationError(
         UserId userId,

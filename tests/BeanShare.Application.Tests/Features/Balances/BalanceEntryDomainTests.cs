@@ -32,7 +32,6 @@ public sealed class BalanceEntryDomainTests
         BalanceEntry.Create(_spaceId, _member, counterparty ?? _treasurer, amount, Currency.CZK,
             date ?? LedgerStart, kind, note, _treasurer, ledgerStart ?? LedgerStart, _clock);
 
-    // T-DOM-01
     [Fact]
     public void Create_WithValidData_StoresSignedAmountForMemberAndMirrorsCounterparty()
     {
@@ -132,7 +131,6 @@ public sealed class BalanceEntryDomainTests
         yen.Should().Throw<ArgumentException>().WithMessage("*0 decimal places*");
     }
 
-    // T-DOM-02
     [Fact]
     public void Update_WhileEditable_ChangesTheEntryAndBumpsVersion()
     {
@@ -155,7 +153,6 @@ public sealed class BalanceEntryDomainTests
         act.Should().NotThrow();
     }
 
-    // T-DOM-03
     [Fact]
     public void MarkIncluded_LocksTheEntry_UpdateAndDeleteThrowEntryLocked()
     {

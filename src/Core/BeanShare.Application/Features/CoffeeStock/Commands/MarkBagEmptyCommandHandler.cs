@@ -59,7 +59,7 @@ public sealed class MarkBagEmptyCommandHandler : IRequestHandler<MarkBagEmptyCom
 
         // Who absorbs the remainder, in priority order: this bag's own drinkers → the product's
         // drinkers → any space consumer → an equal split among members.
-        // Only current, non-merged members share a write-off, renormalised over them (DS-34): ex-members and
+        // Only current, non-merged members share a write-off, renormalised over them: ex-members and
         // merged placeholders are never billed.
         var consumptions = await WriteOffParticipants.ShareableCupsAsync(
             space, await _consumptionRepository.GetBySpaceIdAsync(spaceId, cancellationToken), _userRepository, cancellationToken);

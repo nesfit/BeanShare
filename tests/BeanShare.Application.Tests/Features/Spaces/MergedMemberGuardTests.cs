@@ -10,7 +10,7 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.Features.Spaces;
 
-// T-PLH-09 (W1, W4, W5, X3): a merged placeholder stays a hidden member, and nothing new can name it.
+// A merged placeholder stays a hidden member, and nothing new can name it.
 public sealed class MergedMemberGuardTests
 {
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);

@@ -7,7 +7,7 @@
 @using BeanShare.Application.Features.Consumption.Commands.VoidPhantomRows
 @inject IScopedSender Mediator
 
-@* The cutover tools (DS-41, DS-42): "Paid in Excel" bags and voiding phantom write-off rows. Admins only. *@
+@* The cutover tools: "Paid in Excel" bags and voiding phantom write-off rows. Admins only. *@
 <div class="bs-card" style="padding: 1.5rem; margin-bottom: 1rem;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.05rem; font-weight: 600;">Cutover from Excel</h3>
     @if (LedgerStartDate is not { } start)
@@ -16,7 +16,7 @@
     }
     else
     {
-        @* The flags are a cutover input: hidden once a ledger settlement exists (DS-41). *@
+        @* The flags are a cutover input: hidden once a ledger settlement exists. *@
         @if (!IsLocked)
         {
             <h4 style="margin: 0.75rem 0 0.25rem 0; font-size: 0.95rem; font-weight: 600;">Bags paid in Excel</h4>

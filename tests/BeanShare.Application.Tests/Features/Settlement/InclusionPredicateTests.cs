@@ -6,7 +6,7 @@ using BeanShare.Domain.Specifications;
 
 namespace BeanShare.Application.Tests.Features.Settlement;
 
-// T-GEN-11: a stamped cup moved out of its period is billed exactly once (DS-27, I4).
+// A stamped cup moved out of its period is billed exactly once.
 public sealed class InclusionPredicateTests
 {
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -95,7 +95,7 @@ public sealed class InclusionPredicateTests
         moved.Errors.Should().ContainSingle().Which.Code.Should().Be("BEFORE_LEDGER_START");
     }
 
-    // Code round 1, F1: the running balance pre-filters in the database again (design §5.1).
+    // The running balance pre-filters in the database again.
     [Fact]
     public void TheRunningPreFilter_SkipsSettledCupsButKeepsUnstampedAndLaterStampedOnes()
     {

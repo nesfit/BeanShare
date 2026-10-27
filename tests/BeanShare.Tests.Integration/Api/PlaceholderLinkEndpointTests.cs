@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace BeanShare.Tests.Integration.Api;
 
-// CR5-1 / A5-4: the API link endpoint answers a failure like sync does (403 SYNC_FAILED), never a 500.
+// The API link endpoint answers a failure like sync does (403 SYNC_FAILED), never a 500.
 // Pure unit tests (FastEndpoints' Factory, a throwing sync service); no database or container.
 [Collection(FastEndpointsFactoryCollection.Name)]
 public sealed class PlaceholderLinkEndpointTests

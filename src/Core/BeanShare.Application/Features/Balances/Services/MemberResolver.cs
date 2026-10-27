@@ -7,7 +7,7 @@ namespace BeanShare.Application.Features.Balances.Services;
 
 /// <summary>
 /// Resolves a pasted member reference — an email (case-insensitive) or an exact display name
-/// (case-insensitive) — to a current member of one space. Merged placeholders are hidden (DS-32).
+/// (case-insensitive) — to a current member of one space. Merged placeholders are hidden.
 /// </summary>
 public sealed class MemberResolver
 {
@@ -63,7 +63,7 @@ public sealed class MemberResolver
     }
 }
 
-/// <param name="IsUnknown">Nobody matches: the paste can offer to create a placeholder instead (DS-17).</param>
+/// <param name="IsUnknown">Nobody matches: the paste can offer to create a placeholder instead.</param>
 public sealed record MemberMatch(UserId? UserId, string? Name, string? Error, bool IsUnknown = false)
 {
     public static MemberMatch Found(UserId userId, string name) => new(userId, name, null);

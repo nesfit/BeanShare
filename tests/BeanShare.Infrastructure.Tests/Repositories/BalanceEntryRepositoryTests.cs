@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BeanShare.Infrastructure.Tests.Repositories;
 
-// T-INF-01: balance entries round-trip and their Version token guards concurrent edits.
+// Balance entries round-trip and their Version token guards concurrent edits.
 public sealed class BalanceEntryRepositoryTests : IClassFixture<DatabaseFixture>
 {
     private readonly DatabaseFixture _databaseFixture;

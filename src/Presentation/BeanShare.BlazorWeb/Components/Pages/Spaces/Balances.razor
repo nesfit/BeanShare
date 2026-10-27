@@ -867,7 +867,7 @@ else
     /// <summary>Today's date in local time (the app's other pages show local times too); sent as that UTC calendar date.</summary>
     private static DateTime LocalToday => DateTime.Now.Date;
 
-    /// <summary>Caps the textarea so a paste fits one circuit message (see the hub limit in Program.cs); the server refuses a text that reaches it (I10).</summary>
+    /// <summary>Caps the textarea so a paste fits one circuit message (see the hub limit in Program.cs); the server refuses a text that reaches it.</summary>
     private const int MaxPasteLength = PasteLimits.MaxLength;
 
     private string Money(decimal amount)

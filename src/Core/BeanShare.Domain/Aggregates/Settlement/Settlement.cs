@@ -189,7 +189,7 @@ public sealed class Settlement : AggregateRoot
         return _lines.Any(l => l.UserId == userId);
     }
 
-    /// <summary>Bumps the token so a racing confirm or generation conflicts (a placeholder merge, DS-32 U6).</summary>
+    /// <summary>Bumps the token so a racing confirm or generation conflicts (a placeholder merge).</summary>
     public void BumpVersion() => Version++;
 
     public bool IsTreasurerLine(SettlementLine line) => IsLedger && line.UserId == TreasurerUserId;
@@ -295,7 +295,7 @@ public sealed class Settlement : AggregateRoot
     }
 
     /// <summary>
-    /// Carries this settlement's unresolved lines into <paramref name="nextSettlementId"/> (design §4.2):
+    /// Carries this settlement's unresolved lines into <paramref name="nextSettlementId"/>:
     /// an open non-treasurer line carries its full net, a confirmed one nothing, and the treasurer
     /// carries the counter-sum. Returns the non-zero carry-out per user.
     /// </summary>
@@ -327,7 +327,7 @@ public sealed class Settlement : AggregateRoot
     }
 
     /// <summary>
-    /// What the next settlement would carry in from this one, without changing anything (design §4.2):
+    /// What the next settlement would carry in from this one, without changing anything:
     /// the full Net of every open non-treasurer line, and the counter-sum for the treasurer. Zeros omitted.
     /// </summary>
     public IReadOnlyDictionary<UserId, decimal> GetCarryOut()

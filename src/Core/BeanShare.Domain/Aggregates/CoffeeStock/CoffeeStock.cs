@@ -208,7 +208,7 @@ public sealed class CoffeeStock : AggregateRoot
 
     /// <summary>
     /// Reverse a draw against a specific bag (used to undo a consumption edit/delete). A write-off share
-    /// passes <paramref name="writeOff"/>, so the bag's write-off counter follows (Z2, B25).
+    /// passes <paramref name="writeOff"/>, so the bag's write-off counter follows.
     /// </summary>
     public void RestoreStockToLot(Guid lotId, Weight quantity, IClock clock, bool writeOff = false)
     {
@@ -219,7 +219,7 @@ public sealed class CoffeeStock : AggregateRoot
         UpdatedAt = clock.UtcNow;
     }
 
-    /// <summary>Voids phantom write-off grams on a bag without returning them to stock (DS-42).</summary>
+    /// <summary>Voids phantom write-off grams on a bag without returning them to stock.</summary>
     public Weight VoidWriteOffOnLot(Guid lotId, Weight quantity, IClock clock)
     {
         var lot = _purchases.FirstOrDefault(p => p.Id == lotId)

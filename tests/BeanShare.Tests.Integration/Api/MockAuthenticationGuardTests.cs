@@ -6,7 +6,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace BeanShare.Tests.Integration.Api;
 
-// J8: the API starts with mock authentication only in Development or Testing, or when it is allowed explicitly.
+// The API starts with mock authentication only in Development or Testing, or when it is allowed explicitly.
 // Pure unit tests; no database or container.
 public sealed class MockAuthenticationGuardTests
 {

@@ -3,7 +3,7 @@ using System.Globalization;
 namespace BeanShare.Tests.Integration.Scenarios;
 
 /// <summary>
-/// The data of the opening-balance E2E scenario (design-tests §12): dates relative to D = today's UTC date
+/// The data of the opening-balance E2E scenario: dates relative to D = today's UTC date
 /// with C = D − 70, the pasted texts, and the expected nets of every settlement. Pure, so its arithmetic is
 /// checked without Docker (<see cref="OpeningBalanceScenarioTests"/>).
 /// </summary>

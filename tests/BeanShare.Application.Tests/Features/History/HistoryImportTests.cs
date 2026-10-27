@@ -12,7 +12,7 @@ using BeanShare.Domain.Enums;
 
 namespace BeanShare.Application.Tests.Features.History;
 
-// T-HIS-01 (D9, D23; DS-16, DS-37; N6, I10) and the history part of T-DOM-04.
+// The Excel history import: preview, commit, delete, and how history stays out of the money ledger.
 public sealed class HistoryImportTests
 {
     private static readonly DateTime LedgerStart = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -65,7 +65,7 @@ public sealed class HistoryImportTests
         dto.CanCommit.Should().BeTrue();
         dto.Periods.Select(p => p.Label).Should().Equal("2025 H1 room A", "2025 H1 room B", "2025-12-31");
         dto.Periods[0].Should().Match<HistoryPreviewPeriodDto>(p => p.Cups == 200 && p.Cost == 570.50m && p.PurchaseCount == 2);
-        dto.Periods[2].StartDate.Should().Be(dto.Periods[2].EndDate, "a single-day period is allowed (N6)");
+        dto.Periods[2].StartDate.Should().Be(dto.Periods[2].EndDate, "a single-day period is allowed");
         dto.TotalCups.Should().Be(208);
         dto.TotalCost.Should().Be(820.50m);
         dto.PlaceholdersToCreate.Should().Equal("Old Pete");
@@ -152,7 +152,7 @@ public sealed class HistoryImportTests
         historical.Should().HaveCount(3).And.OnlyContain(p =>
             p.State == BillingState.Settled && p.HistoryImportId!.Value.Value == result.Value.ImportId);
         historical.Single(p => p.Name == "2025-12-31").EndDate.Should().Be(new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Utc).AddTicks(9_999_999));
-        _world.Periods.Should().Contain(live, "overlap with a live period is accepted (DS-16)");
+        _world.Periods.Should().Contain(live, "overlap with a live period is accepted");
 
         var pete = _world.Space.Members.Select(m => _world.UserOf(m.UserId)).Single(u => u.Name == "Old Pete");
         pete.IsPlaceholder.Should().BeTrue();
@@ -167,7 +167,7 @@ public sealed class HistoryImportTests
 
         var after = (await _world.SnapshotService.RunningAsync(_world.Space, default)).Calculation.Lines
             .Where(l => l.Net != 0).ToDictionary(l => l.UserId, l => l.Net);
-        after.Should().BeEquivalentTo(before.Where(kv => kv.Value != 0).ToDictionary(kv => kv.Key, kv => kv.Value), "history never touches money (I10)");
+        after.Should().BeEquivalentTo(before.Where(kv => kv.Value != 0).ToDictionary(kv => kv.Key, kv => kv.Value), "history never touches money");
     }
 
     [Fact]
@@ -224,7 +224,7 @@ public sealed class HistoryImportTests
     [Fact]
     public async Task AHistoricalPeriod_NeverBlocksGeneration()
     {
-        // Even one ending after the generated period (bypassing DS-37) is ignored by G2/G3 (T-GEN-02).
+        // Even one ending after the generated period (bypassing the ledger-start rule) is ignored by the ordering guards.
         var live = _world.AddPeriod("January", LedgerStart, LedgerStart.AddDays(30));
         _world.Periods.Add(BillingPeriod.CreateHistorical(_world.Space.Id, "Odd", LedgerStart.AddDays(40), LedgerStart.AddDays(50),
             BeanShare.Domain.ValueObjects.HistoryImportId.New(), _world.Admin, _world.Clock));

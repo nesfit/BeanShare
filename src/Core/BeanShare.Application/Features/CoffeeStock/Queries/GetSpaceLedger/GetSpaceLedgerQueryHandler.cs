@@ -103,7 +103,7 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
             });
         }
 
-        // Voided phantom write-off grams (DS-42): gone like a discard and billed to nobody.
+        // Voided phantom write-off grams: gone like a discard and billed to nobody.
         foreach (var p in purchases.Where(p => p.VoidedGrams > 0))
         {
             movements.Add(new Movement
@@ -146,7 +146,7 @@ public sealed class GetSpaceLedgerQueryHandler : IRequestHandler<GetSpaceLedgerQ
                 Note = c.PresetName,
                 Key = ProductKey(c.Product),
                 EntryId = c.Id.Value,
-                // A write-off share can only be deleted; the edit command refuses it (H8).
+                // A write-off share can only be deleted; the edit command refuses it.
                 CanEdit = mayChange && !c.IsWriteOff,
                 CanDelete = mayChange,
                 ProductName = c.Product.Name,

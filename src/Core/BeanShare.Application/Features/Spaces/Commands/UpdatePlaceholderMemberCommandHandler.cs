@@ -34,7 +34,7 @@ public sealed class UpdatePlaceholderMemberCommandHandler : IRequestHandler<Upda
         if (membership is null)
             return Result<MembershipDto>.Failure(Error.MemberNotFound(command.UserId, command.SpaceId));
 
-        // Read uncached first: a merge in the other head must be seen at once (X3).
+        // Read uncached first: a merge in the other head must be seen at once.
         var status = await _userRepository.GetAccessStatusAsync(userId, cancellationToken);
         if (status?.IsMerged == true)
             return Result<MembershipDto>.Failure(Error.MemberMerged());

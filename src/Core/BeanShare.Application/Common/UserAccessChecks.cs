@@ -3,7 +3,7 @@ using BeanShare.Domain.Common;
 
 namespace BeanShare.Application.Common;
 
-/// <summary>Merged-state checks; every one reads uncached through <see cref="IUserRepository.GetAccessStatusAsync"/> (DS-30).</summary>
+/// <summary>Merged-state checks; every one reads uncached through <see cref="IUserRepository.GetAccessStatusAsync"/>.</summary>
 public static class UserAccessChecks
 {
     public static async Task<bool> IsMergedAsync(this IUserRepository users, UserId userId, CancellationToken cancellationToken = default) =>

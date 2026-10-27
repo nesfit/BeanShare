@@ -14,7 +14,7 @@ using MediatR;
 
 namespace BeanShare.Tests.Integration.Api;
 
-// Code round 3, G4/G11: failures keep their HTTP meaning on endpoints that shape their own errors.
+// Failures keep their HTTP meaning on endpoints that shape their own errors.
 // Pure unit tests (FastEndpoints' Factory, a canned mediator); no database or container.
 [Collection(FastEndpointsFactoryCollection.Name)]
 public sealed class ResultMappingTests
@@ -73,7 +73,7 @@ public sealed class ResultMappingTests
         endpoint.HttpContext.Response.StatusCode.Should().Be(403);
     }
 
-    // T-INT-11 (I8): the newly wired stock and space endpoints answer a conflict with 409 and the code.
+    // The newly wired stock and space endpoints answer a conflict with 409 and the code.
     [Fact]
     public async Task SetCurrentlyUsedStockLevel_SendsAConflictAs409WithItsCode()
     {
@@ -105,7 +105,7 @@ public sealed class ResultMappingTests
         conflict.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.ConcurrencyConflict);
     }
 
-    // CR5-3: an unknown, inactive or placeholder identity gets 401 with UNAUTHENTICATED on these three endpoints too.
+    // An unknown, inactive or placeholder identity gets 401 with UNAUTHENTICATED on these three endpoints too.
     [Fact]
     public async Task CreateSpace_RefusedForAGhost_Is401WithItsCode()
     {
@@ -141,7 +141,7 @@ public sealed class ResultMappingTests
         ghost.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.Unauthenticated);
     }
 
-    // Evidence audit §4: the generate and confirm endpoints keep their 400, now with the ledger code in the body.
+    // The generate and confirm endpoints keep their 400, now with the ledger code in the body.
     [Fact]
     public async Task GenerateSettlement_OutOfOrder_Is400WithTheCode()
     {
@@ -169,7 +169,7 @@ public sealed class ResultMappingTests
         endpoint.ValidationFailures.Should().ContainSingle().Which.ErrorMessage.Should().Be(Error.Codes.LineCarried);
     }
 
-    // CR8-1: every command endpoint answers an unknown, inactive or placeholder caller with 401 and the code, an
+    // Every command endpoint answers an unknown, inactive or placeholder caller with 401 and the code, an
     // access refusal with 403, and a CONCURRENCY_CONFLICT with 409; every other failure keeps the endpoint's shape.
     [Fact]
     public async Task CloseBillingPeriod_RefusedForAGhost_Is401WithItsCode()
@@ -234,7 +234,7 @@ public sealed class ResultMappingTests
     }
 
     /// <summary>Answers every Send with one canned response.</summary>
-    // A8-1 / A8-4: a coded error body keeps the readable message in Detail next to the code in Errors[].Reason, and a
+    // A coded error body keeps the readable message in Detail next to the code in Errors[].Reason, and a
     // 401 carries the Bearer challenge. Factory.Create's context has no body stream, so give it one first.
     private static MemoryStream CaptureBody(BaseEndpoint endpoint)
     {

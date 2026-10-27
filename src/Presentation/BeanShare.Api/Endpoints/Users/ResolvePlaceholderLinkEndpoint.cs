@@ -17,8 +17,8 @@ public sealed class ResolvePlaceholderLinkResponse
 }
 
 /// <summary>
-/// An API client's answer to PLACEHOLDER_LINK_PENDING (DS-31): accept claims the placeholder (same user id),
-/// decline creates the person's own account. A lost race against a merge is 409 CONCURRENCY_CONFLICT (W5).
+/// An API client's answer to PLACEHOLDER_LINK_PENDING: accept claims the placeholder (same user id),
+/// decline creates the person's own account. A lost race against a merge is 409 CONCURRENCY_CONFLICT.
 /// </summary>
 public sealed class ResolvePlaceholderLinkEndpoint : Endpoint<ResolvePlaceholderLinkRequest, ResolvePlaceholderLinkResponse>
 {

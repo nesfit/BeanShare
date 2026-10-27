@@ -409,7 +409,7 @@ public sealed class BillingPeriodCommandTests
             _clock);
     }
 
-    // --- T-BIL-01 / T-BIL-02: ordering and concurrency rules of period transitions (B5, DS-25, DS-26) ---
+    // --- Ordering and concurrency rules of period transitions ---
 
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
     private static readonly DateTime Jan31 = new(2026, 1, 31, 0, 0, 0, DateTimeKind.Utc);

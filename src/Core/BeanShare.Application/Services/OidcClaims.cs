@@ -2,13 +2,13 @@ using System.Security.Claims;
 
 namespace BeanShare.Application.Services;
 
-/// <summary>Claim names and parsing shared by sync, the link page and the claims transformation (DS-29, DS-31).</summary>
+/// <summary>Claim names and parsing shared by sync, the link page and the claims transformation.</summary>
 public static class OidcClaims
 {
     public const string Email = "email";
     public const string EmailVerified = "email_verified";
 
-    /// <summary>Added by the web only when sync answers PlaceholderLinkPending; never trusted from the IdP (X6).</summary>
+    /// <summary>Added by the web only when sync answers PlaceholderLinkPending; never trusted from the IdP.</summary>
     public const string LinkPending = "beanshare_link_pending";
 
     /// <summary>
@@ -23,7 +23,7 @@ public static class OidcClaims
     /// </summary>
     public const string TransformationIssuer = "BeanShare.ClaimsTransformation";
 
-    /// <summary>The verified flag as a bool, ignoring case ("True", "true"); anything else is false (N5).</summary>
+    /// <summary>The verified flag as a bool, ignoring case ("True", "true"); anything else is false.</summary>
     public static bool IsEmailVerified(ClaimsPrincipal principal) =>
         principal.FindAll(EmailVerified).Any(c => bool.TryParse(c.Value, out var verified) && verified);
 

@@ -73,7 +73,7 @@ public sealed class SettlementRepositoryTests : IClassFixture<DatabaseFixture>
         line!.IsConfirmed.Should().BeTrue("the payment should have been persisted by UpdateAsync + SaveChanges");
     }
 
-    // T-INF-04: ledger line snapshots round-trip.
+    // Ledger line snapshots round-trip.
     [Fact]
     public async Task LedgerSettlement_RoundTripsSnapshotsAndCarryColumns()
     {
@@ -115,7 +115,7 @@ public sealed class SettlementRepositoryTests : IClassFixture<DatabaseFixture>
         (await repo.HasLedgerSettlementAsync(spaceId)).Should().BeTrue();
     }
 
-    // T-INF-04: the filtered unique indexes reject a second settlement with the same sequence.
+    // The filtered unique indexes reject a second settlement with the same sequence.
     [Fact]
     public async Task DuplicateSequence_InTheSameSpace_IsRejected()
     {
@@ -135,7 +135,7 @@ public sealed class SettlementRepositoryTests : IClassFixture<DatabaseFixture>
             .Which.ConstraintName.Should().Be("IX_Settlements_SpaceId_Sequence");
     }
 
-    // T-INF-04: an open line is carried at most once (I6).
+    // An open line is carried at most once.
     [Fact]
     public async Task DuplicateCarry_FromTheSameSettlementForTheSameUser_IsRejected()
     {

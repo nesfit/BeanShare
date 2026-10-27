@@ -11,7 +11,7 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.Features.Settlement;
 
-// T-EML-01 (D25, DS-40; Y5): settlement emails go only to people with something to read or do,
+// Settlement emails go only to people with something to read or do,
 // worded by the line's state when the mail is sent.
 public sealed class SendSettlementEmailsRecipientTests
 {
@@ -89,7 +89,7 @@ public sealed class SendSettlementEmailsRecipientTests
         Headline(Treasurer).Should().Be("all payments through you are confirmed");
     }
 
-    // Code round 3, G8: the treasurer's headline counts only what is still open.
+    // The treasurer's headline counts only what is still open.
     [Fact]
     public async Task TheTreasurerHeadline_CountsOnlyOpenPayments()
     {
@@ -102,7 +102,7 @@ public sealed class SendSettlementEmailsRecipientTests
         Headline(Treasurer).Should().Be("you collect 15.00 CZK and you pay out 25.00 CZK as treasurer");
     }
 
-    // Code round 3, G13: amounts use the currency's own decimal places.
+    // Amounts use the currency's own decimal places.
     [Theory]
     [InlineData("JPY", "you pay Tess 1,000 JPY")]
     [InlineData("KWD", "you pay Tess 1,000.000 KWD")]
@@ -116,7 +116,7 @@ public sealed class SendSettlementEmailsRecipientTests
         _models.Should().AllSatisfy(m => m.CurrencyDecimals.Should().Be(currency == "JPY" ? 0 : 3));
     }
 
-    // Code round 3, G11: only a space admin can send the settlement emails.
+    // Only a space admin can send the settlement emails.
     [Fact]
     public async Task ANonAdmin_CannotSendTheEmails()
     {
@@ -156,7 +156,7 @@ public sealed class SendSettlementEmailsRecipientTests
         _models.Should().AllSatisfy(m => m.IsLedger.Should().BeFalse());
     }
 
-    // N-2: a settlement whose lines were carried into the next one is history.
+    // A settlement whose lines were carried into the next one is history.
     [Fact]
     public async Task ACarriedForwardSettlement_IsRefused()
     {

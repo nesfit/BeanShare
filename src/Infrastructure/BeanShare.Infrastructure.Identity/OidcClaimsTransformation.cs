@@ -56,7 +56,7 @@ public sealed class OidcClaimsTransformation : IClaimsTransformation
 
         var userByProvider = await _userService.GetByProviderUserIdAsync(provider, sub);
 
-        // The email fallback needs a verified address (D24), never maps to a placeholder (DS-15) and never uses a
+        // The email fallback needs a verified address, never maps to a placeholder and never uses a
         // sentinel address: claiming a placeholder happens only through sync and the person's acceptance.
         var email = principal.FindFirst("email")?.Value?.Trim();
         User? userByEmail = null;

@@ -5,7 +5,7 @@ using FluentAssertions;
 
 namespace BeanShare.Infrastructure.Tests.InMemory;
 
-// DS-37 in both directions, through the pipeline (ported from code-adv-5 A5-3): history must end before C, C cannot
+// The ledger start and the history, in both directions, through the pipeline: history must end before C, C cannot
 // move into the history, and C cannot be cleared while history exists.
 [Collection(InMemoryContainerCollection.Name)]
 public sealed class LedgerStartHistoryTests

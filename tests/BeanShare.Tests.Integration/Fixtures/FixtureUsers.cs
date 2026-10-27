@@ -7,9 +7,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace BeanShare.Tests.Integration.Fixtures;
 
 /// <summary>
-/// The user rows the API's access check needs (DS-30): every command and IAuthorize request requires an
+/// The user rows the API's access check needs: every command and IAuthorize request requires an
 /// existing, active, non-placeholder user. Built as password users without a provider link, so the mock
-/// principal never matches one by subject (U2).
+/// principal never matches one by subject.
 /// </summary>
 public static class FixtureUsers
 {

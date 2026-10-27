@@ -14,8 +14,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeanShare.Infrastructure.Tests.InMemory;
 
-// T-PLH-10 (X5, Y4) and the race of T-PLH-05 (U6), InMemory variants: a link answer, a merge and a confirm share
-// the space and settlement tokens, so the held one loses. InMemory is not atomic (DS-39, F28), so only the outcome
+// InMemory variants of the placeholder races: a link answer, a merge and a confirm share
+// the space and settlement tokens, so the held one loses. InMemory is not atomic, so only the outcome
 // is asserted here; the end states are asserted by the Npgsql variants in Tests.Integration/Concurrency.
 [Collection(InMemoryContainerCollection.Name)]
 public sealed class PlaceholderRaceTests

@@ -16,7 +16,7 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.Features.Balances;
 
-// T-DOM-05 (C1 part): the member;amount;note grammar, preview and all-or-nothing commit.
+// The member;amount;note grammar, preview and all-or-nothing commit.
 public sealed class BalancePasteTests
 {
     private static readonly DateTime Now = new(2026, 10, 26, 10, 0, 0, DateTimeKind.Utc);
@@ -210,7 +210,7 @@ public sealed class BalancePasteTests
         result.Value.Should().HaveCount(2);
         result.Value[0].ViewerAmount.Should().Be(538m, "the treasurer sees the mirrored amount");
     }
-    // T-DOM-05 (C4 part, DS-17): an unknown member can become a placeholder, inside the same all-or-nothing save.
+    // An unknown member can become a placeholder, inside the same all-or-nothing save.
     private IUserRepository PlaceholderAwareRepository() =>
         TestUsers.RepositoryOver(new[] { _honza, _alice, _bob }.ToDictionary(u => u.Id));
 
@@ -269,7 +269,7 @@ public sealed class BalancePasteTests
         await repository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
         await _entryRepository.DidNotReceiveWithAnyArgs().AddAsync(default!, default);
     }
-    // T-DOM-05, rev10 (I10): a text that reaches the cap may have been cut, so it is refused.
+    // A text that reaches the cap may have been cut, so it is refused.
     [Fact]
     public async Task APasteReachingTheCap_IsRefused_ByPreviewAndCommit()
     {

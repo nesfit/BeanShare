@@ -13,7 +13,7 @@ public sealed record LedgerPurchase(UserId Payer, decimal Cost, decimal Grams);
 public sealed record LedgerEntry(UserId UserId, UserId CounterpartyUserId, decimal Amount);
 
 /// <param name="MergedInto">
-/// Merged placeholders and their targets (DS-32): each one's Net is swept to its target as the last step.
+/// Merged placeholders and their targets: each one's Net is swept to its target as the last step.
 /// </param>
 public sealed record LedgerCalculationInput(
     IReadOnlyList<LedgerCup> Cups,
@@ -38,8 +38,8 @@ public sealed record LedgerCalculation(IReadOnlyList<LedgerLineSnapshot> Lines, 
 public sealed record LedgerTransfer(UserId From, UserId To, decimal Amount);
 
 /// <summary>
-/// The single money calculation behind generation, the settlement preview and the running balance
-/// (design §4.1, DS-19). Pure: debit and credit come from the same cups, entries are two-party, the
+/// The single money calculation behind generation, the settlement preview and the running balance.
+/// Pure: debit and credit come from the same cups, entries are two-party, the
 /// carry sums to zero and the rounding residual lands on the treasurer, so ΣNet = 0 exactly when a
 /// treasurer is set; without one the residual is reported as UnassignedRounding (ΣNet + it = 0).
 /// </summary>
@@ -122,7 +122,7 @@ public static class SettlementLedgerCalculator
     }
 
     /// <summary>
-    /// The star plan (DS-3): every debtor pays the treasurer, the treasurer pays every creditor, in
+    /// The star plan: every debtor pays the treasurer, the treasurer pays every creditor, in
     /// exact cents from the lines' Net.
     /// </summary>
     public static IReadOnlyList<LedgerTransfer> StarTransfers(IEnumerable<(UserId UserId, decimal Net)> lines, UserId treasurer) =>
@@ -134,7 +134,7 @@ public static class SettlementLedgerCalculator
             .ToList();
 
     /// <summary>
-    /// DS-32 (V1): a merged user's whole pre-sweep Net moves to its target inside the same calculation, so
+    /// A merged user's whole pre-sweep Net moves to its target inside the same calculation, so
     /// its line nets to 0 and ΣNet is unchanged. The target gets a line when it has none.
     /// </summary>
     private static List<LedgerLineSnapshot> SweepMerged(List<LedgerLineSnapshot> lines, IReadOnlyDictionary<UserId, UserId>? mergedInto)

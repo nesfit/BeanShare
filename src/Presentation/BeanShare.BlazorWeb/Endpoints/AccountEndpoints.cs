@@ -17,14 +17,14 @@ public static class AccountEndpoints
         group.MapPost("/external-login", ExternalLogin).DisableAntiforgery();
         group.MapGet("/external-callback", ExternalCallback);
         group.MapPost("/logout", Logout).DisableAntiforgery();
-        // Antiforgery stays on: the link page posts its token (DS-31, U10).
+        // Antiforgery stays on: the link page posts its token.
         group.MapPost("/link/resolve", ResolveLink);
 
         return endpoints;
     }
 
     /// <summary>
-    /// The person's answer to a pending placeholder link (D28). On success the cookie is dropped and a silent
+    /// The person's answer to a pending placeholder link. On success the cookie is dropped and a silent
     /// SSO round trip rebuilds it for the claimed or the new account; a lost race says "changed meanwhile".
     /// </summary>
     private static async Task<IResult> ResolveLink(

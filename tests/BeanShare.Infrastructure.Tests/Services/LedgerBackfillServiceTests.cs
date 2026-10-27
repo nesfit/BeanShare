@@ -11,7 +11,7 @@ using SettlementAggregate = BeanShare.Domain.Aggregates.Settlement.Settlement;
 
 namespace BeanShare.Infrastructure.Tests.Services;
 
-// T-INF-03: the backfill stamps what legacy settlements already billed, freezes legacy Paid, and is idempotent.
+// The backfill stamps what legacy settlements already billed, freezes legacy Paid, and is idempotent.
 public sealed class LedgerBackfillServiceTests
 {
     private readonly DbContextOptions<BeanShareDbContext> _options = new DbContextOptionsBuilder<BeanShareDbContext>()
@@ -71,7 +71,7 @@ public sealed class LedgerBackfillServiceTests
         secondRun.Should().BeEquivalentTo(firstRun);
     }
 
-    // Rev8 (B26): imported history has no settlement by design, and step 2 must not give it live cups.
+    // Imported history has no settlement by design, and step 2 must not give it live cups.
     [Fact]
     public async Task Run_SkipsAHistoricalSettledPeriodWithoutASettlement()
     {

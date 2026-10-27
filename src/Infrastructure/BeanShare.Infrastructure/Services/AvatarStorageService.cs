@@ -17,7 +17,7 @@ public sealed class AvatarStorageService
     private readonly IServiceScopeFactory _scopes;
 
     // The access check reads through a short-lived scope: the web profile page keeps this service for its whole
-    // circuit, which must not hold a DbContext that long (DS-24, a fresh DbContext per operation).
+    // circuit, which must not hold a DbContext that long (a fresh DbContext per operation).
     public AvatarStorageService(IConfiguration configuration, IServiceScopeFactory scopes)
     {
         _configuration = configuration;
@@ -43,8 +43,8 @@ public sealed class AvatarStorageService
         Stream source,
         CancellationToken cancellationToken = default)
     {
-        // DS-30 for every caller (the API endpoint and the web profile page): only an active, non-placeholder account
-        // may replace its photo, and a refused one leaves the stored files untouched.
+        // For every caller (the API endpoint and the web profile page): only an active, non-placeholder account may
+        // replace its photo, and a refused one leaves the stored files untouched.
         if (!await CanActAsync(userId, cancellationToken))
         {
             return new AvatarUploadResult(false, null, "This account cannot change its photo");

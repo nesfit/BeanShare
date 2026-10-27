@@ -5,7 +5,7 @@ using BeanShare.Domain.ValueObjects;
 
 namespace BeanShare.Application.Tests.Features.Settlement;
 
-// T-QRY-02 (I7, B2) and T-QRY-03 (I8, T20).
+// A generated settlement never changes afterwards, and its preview equals what generation stores.
 public sealed class SettlementHistoryImmutabilityTests
 {
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);

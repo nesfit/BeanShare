@@ -43,7 +43,7 @@ public sealed class SetBagPaidInExcelCommandHandler : IRequestHandler<SetBagPaid
         if (space.LedgerStartDate is not { } ledgerStart)
             return Result.Failure(Error.ValidationFailure("LedgerStartDate", "Set the ledger start date first"));
 
-        // The flag is a cutover input, like the ledger start itself (DS-37).
+        // The flag is a cutover input, like the ledger start itself.
         if (await _settlementRepository.HasLedgerSettlementAsync(spaceId, cancellationToken))
             return Result.Failure(Error.LedgerStartLocked());
 

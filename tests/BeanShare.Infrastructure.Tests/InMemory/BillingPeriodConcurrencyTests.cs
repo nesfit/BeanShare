@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeanShare.Infrastructure.Tests.InMemory;
 
-// T-INF-06 (C1 part): a stale or racing period transition can no longer regress a period.
+// A stale or racing period transition can no longer regress a period.
 [Collection(InMemoryContainerCollection.Name)]
 public sealed class BillingPeriodConcurrencyTests
 {
@@ -34,7 +34,7 @@ public sealed class BillingPeriodConcurrencyTests
         (await container.SendAsync(scenario.Admin, new ReopenBillingPeriodCommand(periodId))).IsSuccess.Should().BeTrue();
     }
 
-    // T-INF-07: ports of Probe_ReopenRacingGenerate_* (InMemory asserts the outcome only, DS-39).
+    // Ports of Probe_ReopenRacingGenerate_* (InMemory asserts the outcome only).
     [Fact(Timeout = 10000)]
     public async Task ReopenHeld_RacingGeneration_TheHeldReopenGetsConcurrencyConflict()
     {

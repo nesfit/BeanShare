@@ -10,7 +10,7 @@ public sealed record HistoryPreviewMemberDto(string Member, Guid? UserId, int Cu
 public sealed record HistoryPreviewRowErrorDto(string Block, int LineNumber, string Text, IReadOnlyList<string> Errors);
 
 /// <summary>
-/// The preview of an Excel history paste (design §8.3; DS-16). Nothing is saved. It can be committed
+/// The preview of an Excel history paste. Nothing is saved. It can be committed
 /// when <see cref="CanCommit"/> is true.
 /// </summary>
 public sealed record HistoryImportPreviewDto(

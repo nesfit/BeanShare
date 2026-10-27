@@ -368,7 +368,7 @@ public sealed class BagCommandTests
         bag.DepletedAt.Should().BeNull();
     }
 
-    // T-STK-01 (C1 part): the bag's payer is credited, not necessarily the admin who recorded it.
+    // The bag's payer is credited, not necessarily the admin who recorded it.
     [Fact]
     public async Task AddPurchase_WithPaidBy_MakesThatMemberTheEffectivePayerOfEveryBag()
     {
@@ -437,7 +437,7 @@ public sealed class BagCommandTests
         bag.Version.Should().BeGreaterThan(versionBefore);
     }
 
-    // T-STK-01 (C2 part): write-offs bill only current members (DS-34) and stamp each bag drawn (B4).
+    // Write-offs bill only current members and stamp each bag drawn.
     [Fact]
     public async Task MarkBagEmpty_SkipsDrinkersWhoAreNoLongerMembers_AndRenormalises()
     {
@@ -499,7 +499,7 @@ public sealed class BagCommandTests
     public void ConsumeStock_RequiresASpaceAdmin()
     {
         typeof(ConsumeStockCommand).GetCustomAttributes(typeof(Application.Common.Authorization.RequireSpaceAdminAttribute), false)
-            .Should().ContainSingle("drawing stock without a cup destroys the payer's credit (DS-36)");
+            .Should().ContainSingle("drawing stock without a cup destroys the payer's credit");
     }
 
     private static IBillingPeriodRepository BillingPeriods()
@@ -579,7 +579,7 @@ public sealed class BagCommandTests
         userContext.CurrentUserId.Returns(_admin);
         return (coffeeStockRepo, spaceRepo, userContext);
     }
-    // T-STK-01, C4 part (DS-33): the equal split leaves placeholders out.
+    // The equal split leaves placeholders out.
     [Fact]
     public async Task MarkBagEmpty_WithNoConsumptionHistory_SplitsEquallyAmongPeopleWithAccounts()
     {
@@ -596,7 +596,7 @@ public sealed class BagCommandTests
         world.Cups.Select(c => c.UserId).Should().BeEquivalentTo(new[] { world.Admin, alice });
         world.Cups.Sum(c => c.Quantity.Grams).Should().Be(1000m);
     }
-    // T-STK-02 (Z2, B25; DR7 R7-1): deleting write-off shares keeps the bag's counters honest.
+    // Deleting write-off shares keeps the bag's counters honest.
     [Fact]
     public async Task DeletingWriteOffShares_ThenDiscardAndUndo_RestoresExactlyTheDiscard()
     {
@@ -630,7 +630,7 @@ public sealed class BagCommandTests
         bag.RemainingGrams.Grams.Should().Be(300m);
     }
 
-    // A10-3: like deleting a cup (B22), "Undo empty" removes no share dated before the ledger start.
+    // Like deleting a cup, "Undo empty" removes no share dated before the ledger start.
     [Fact]
     public async Task UndoingAnEmptying_WhoseSharesAreBeforeTheLedgerStart_IsRefused()
     {
@@ -660,7 +660,7 @@ public sealed class BagCommandTests
         bag.RemainingGrams.Grams.Should().Be(0m);
     }
 
-    // T-STK-02, rev9 (H8): a write-off share cannot be edited, and the bag stays as it is.
+    // A write-off share cannot be edited, and the bag stays as it is.
     [Fact]
     public async Task EditingAWriteOffShare_IsRefused()
     {

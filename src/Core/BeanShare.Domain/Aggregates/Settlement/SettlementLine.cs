@@ -26,7 +26,7 @@ public sealed class SettlementLine : Entity
     public decimal? AdjustmentsAmount { get; private set; }
     public decimal? RoundingAmount { get; private set; }
 
-    /// <summary>The merge sweep (DS-32): −pre-sweep Net on a merged placeholder, +that on its target.</summary>
+    /// <summary>The merge sweep: −pre-sweep Net on a merged placeholder, +that on its target.</summary>
     public decimal? MergeTransferAmount { get; private set; }
     public decimal? NetAmount { get; private set; }
     public LineResolution? Resolution { get; private set; }

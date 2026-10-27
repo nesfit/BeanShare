@@ -4,7 +4,7 @@ using BeanShare.Application.Services;
 namespace BeanShare.Infrastructure.Identity;
 
 /// <summary>
-/// What the web keeps of an OIDC principal (W2, X6). Extracted from BlazorWeb's token-validated handler so
+/// What the web keeps of an OIDC principal. Extracted from BlazorWeb's token-validated handler so
 /// it can be tested: the cookie must stay small (nginx header limits), but it must keep the claims sync
 /// and the link page read.
 /// </summary>
@@ -35,7 +35,7 @@ public static class OidcClaimFilter
     }
 
     /// <summary>
-    /// Drops every pending-link claim the identity provider may have sent (X6); only a PlaceholderLinkPending
+    /// Drops every pending-link claim the identity provider may have sent; only a PlaceholderLinkPending
     /// outcome of sync adds one back.
     /// </summary>
     public static void RemoveLinkPending(ClaimsPrincipal principal)

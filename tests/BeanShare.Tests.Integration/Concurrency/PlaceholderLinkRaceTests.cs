@@ -17,8 +17,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeanShare.Tests.Integration.Concurrency;
 
-// T-PLH-10 (X5, Y4) and the Npgsql race of T-PLH-05 (U6): a link answer, a merge and a confirm share the space and
-// settlement tokens, so exactly one of two commits, with no partial state (DS-39).
+// The placeholder races on PostgreSQL: a link answer, a merge and a confirm share the space and
+// settlement tokens, so exactly one of two commits, with no partial state.
 public sealed class PlaceholderLinkRaceTests : IClassFixture<PostgreSqlFixture>, IAsyncLifetime
 {
     private readonly PostgreSqlFixture _fixture;

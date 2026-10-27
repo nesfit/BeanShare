@@ -4,7 +4,7 @@ using BeanShare.Domain.Enums;
 
 namespace BeanShare.Application.Features.Billing;
 
-/// <summary>DS-26: a live period may only start after the end of the latest settled live period; history is ignored.</summary>
+/// <summary>A live period may only start after the end of the latest settled live period; history is ignored.</summary>
 internal static class BillingPeriodOrdering
 {
     public static Error? CheckStartsAfterLastSettled(DateTime startDate, IEnumerable<BillingPeriod> spacePeriods)

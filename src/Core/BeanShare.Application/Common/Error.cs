@@ -86,7 +86,7 @@ public readonly record struct Error(string Code, string Message)
         public const string PlaceholderLinkPending = "PLACEHOLDER_LINK_PENDING";
         public const string HistoryImportInvalid = "HISTORY_IMPORT_INVALID";
 
-        // Cutover tools (DS-41, DS-42)
+        // Cutover tools
         public const string BagPaidInExcel = "BAG_PAID_IN_EXCEL";
         public const string NotVoidable = "NOT_VOIDABLE";
     }

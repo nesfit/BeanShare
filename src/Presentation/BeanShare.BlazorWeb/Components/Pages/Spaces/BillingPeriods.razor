@@ -287,7 +287,7 @@
             isAdmin = result.Value.Members.Any(m => m.UserId == UserContext.CurrentUserId.Value && m.Role == "Admin");
     }
 
-    // ---- history import (D23, DS-16) ----
+    // ---- history import ----
 
     private const int MaxPasteLength = PasteLimits.MaxLength;
     private bool showImportModal;

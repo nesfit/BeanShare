@@ -16,7 +16,8 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.Features.Spaces;
 
-// T-PLH-01 (D21, DS-14), T-PLH-06 (DS-33) and the placeholder part of T-DOM-04.
+// Placeholder members: creation and editing, what they cannot become, the notifications they never get, and how their
+// emails show.
 public sealed class PlaceholderTests
 {
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);

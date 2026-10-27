@@ -202,7 +202,7 @@ public sealed class GetUserConsumptionHistoryHandler : IRequestHandler<GetUserCo
                 }
             }
 
-            // Cups before the ledger start are never billed, so they cannot be edited either (B22).
+            // Cups before the ledger start are never billed, so they cannot be edited either.
             var beforeLedgerStart = space?.LedgerStartDate is { } ledgerStart && c.ConsumedAt < ledgerStart;
             var canEdit = !beforeLedgerStart && (c.BillingPeriodId == null || editablePeriodIds.Contains(c.BillingPeriodId.Value));
 

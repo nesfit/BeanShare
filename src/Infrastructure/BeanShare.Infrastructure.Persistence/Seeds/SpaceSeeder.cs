@@ -107,7 +107,7 @@ public class SpaceSeeder : IDataSeeder
 
         spaces.Add(executiveSpace);
 
-        // Each space's creator is its treasurer, so settlements can be generated in dev (N7).
+        // Each space's creator is its treasurer, so settlements can be generated in dev.
         foreach (var space in spaces)
             space.SetTreasurer(space.Members.First(m => m.IsAdmin).UserId);
 

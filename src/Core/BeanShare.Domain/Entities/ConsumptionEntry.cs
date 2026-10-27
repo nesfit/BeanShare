@@ -170,7 +170,7 @@ public sealed class ConsumptionEntry : AggregateRoot
 
     /// <summary>
     /// Drops the period stamp of a cup re-dated out of its (still open) period, so the next close stamps
-    /// it again by date (DS-27). The caller ensures the stamped period is neither Closed nor Settled.
+    /// it again by date. The caller ensures the stamped period is neither Closed nor Settled.
     /// </summary>
     public void ClearBillingPeriod()
     {

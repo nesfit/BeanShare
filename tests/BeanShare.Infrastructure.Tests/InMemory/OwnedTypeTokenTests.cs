@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BeanShare.Infrastructure.Tests.InMemory;
 
-// T-INF-08: saves that replace owned value objects still pass the Version token check and bump it.
+// Saves that replace owned value objects still pass the Version token check and bump it.
 [Collection(InMemoryContainerCollection.Name)]
 public sealed class OwnedTypeTokenTests
 {

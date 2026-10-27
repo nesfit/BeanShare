@@ -60,7 +60,7 @@ public sealed class MergePlaceholderCommandHandler : IRequestHandler<MergePlaceh
         if (!space.HasMember(placeholderId))
             return Result.Failure(Error.MemberNotFound(command.PlaceholderUserId, command.SpaceId));
 
-        // Both sides are read uncached (DS-30): a claim, a merge or a deactivation elsewhere counts at once.
+        // Both sides are read uncached: a claim, a merge or a deactivation elsewhere counts at once.
         var placeholderStatus = await _userRepository.GetAccessStatusAsync(placeholderId, cancellationToken);
         if (placeholderStatus is null || !placeholderStatus.Exists || !placeholderStatus.IsPlaceholder)
             return Result.Failure(Error.NotPlaceholder());
@@ -94,7 +94,7 @@ public sealed class MergePlaceholderCommandHandler : IRequestHandler<MergePlaceh
         placeholder.MarkMergedInto(targetId);
         placeholder.ReleaseEmail();
 
-        // Close the revival path at its source: emptied bags it paid for now name the target (V1).
+        // Close the revival path at its source: emptied bags it paid for now name the target.
         foreach (var bag in bags)
             coffeeStock!.SetPurchasePaidBy(bag.Id, targetId, _clock);
         if (coffeeStock is not null && bags.Count > 0)
@@ -103,7 +103,7 @@ public sealed class MergePlaceholderCommandHandler : IRequestHandler<MergePlaceh
         foreach (var import in await _historyImportRepository.GetBySpaceIdAsync(spaceId, cancellationToken))
             import.MoveMember(placeholderId, targetId);
 
-        // A racing confirm or generation now conflicts, so the debt can never move twice (U6).
+        // A racing confirm or generation now conflicts, so the debt can never move twice.
         space.BumpLedgerVersion();
         await _spaceRepository.UpdateAsync(space, cancellationToken);
         if (await _settlementRepository.GetLatestLedgerForUpdateAsync(spaceId, cancellationToken) is { } latest)

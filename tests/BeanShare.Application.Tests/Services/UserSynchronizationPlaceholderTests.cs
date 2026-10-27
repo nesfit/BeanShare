@@ -14,7 +14,7 @@ using NSubstitute.ExceptionExtensions;
 
 namespace BeanShare.Application.Tests.Services;
 
-// T-PLH-02 (DS-29/30/31, D24, D28; U7, X3, X5, Y4): the sync outcome matrix and the link answer.
+// The sync outcome matrix and the link answer.
 public sealed class UserSynchronizationPlaceholderTests
 {
     private const string Subject = "idp-subject-1";
@@ -145,7 +145,7 @@ public sealed class UserSynchronizationPlaceholderTests
     [Fact]
     public async Task AMergedPlaceholderWithAMatchingEmail_IsNeverPending_AndCannotBeResolved()
     {
-        // Only possible if the email were not released; the merged flag alone must keep it out (X3).
+        // Only possible if the email were not released; the merged flag alone must keep it out.
         Placeholder.MarkMergedInto(_world.Admin);
 
         var outcome = await Service().SyncFromClaimsAsync(Principal("pete@example.org", "true"));
@@ -175,7 +175,7 @@ public sealed class UserSynchronizationPlaceholderTests
         _userService.Received().Evict(_placeholder, Arg.Any<string[]>());
         await NothingCreatedAsync();
 
-        // The access check reads uncached, so the claimed id can act at once (U7).
+        // The access check reads uncached, so the claimed id can act at once.
         (await _userRepository.GetAccessStatusAsync(_placeholder)).CanAct.Should().BeTrue();
     }
 

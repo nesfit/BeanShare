@@ -98,7 +98,7 @@ public sealed class CommitHistoryImportHandler : IRequestHandler<CommitHistoryIm
 
         await _historyImportRepository.AddAsync(import, cancellationToken);
 
-        // Serializes with a ledger-start change, which must stay after every historical end (DS-37).
+        // Serializes with a ledger-start change, which must stay after every historical end.
         space.BumpLedgerVersion();
         await _spaceRepository.UpdateAsync(space, cancellationToken);
 

@@ -8,7 +8,7 @@ using Xunit;
 
 namespace BeanShare.Application.Tests.Features;
 
-// Rewritten for the money ledger (design-tests §11.2): Paid is now Credit — the stamped cost of cups
+// Rewritten for the money ledger: Paid is now Credit — the stamped cost of cups
 // drawn from the payer's bags — and every non-zero position, plus the treasurer, gets a line.
 public sealed class SettlementGenerationTests
 {
@@ -108,7 +108,7 @@ public sealed class SettlementGenerationTests
 
         var result = await _world.GenerateAsync(period);
 
-        result.IsSuccess.Should().BeTrue("a period with nothing to settle no longer blocks the next one (B8)");
+        result.IsSuccess.Should().BeTrue("a period with nothing to settle no longer blocks the next one");
         result.Value.Lines.Should().BeEmpty();
         result.Value.Status.Should().Be(nameof(SettlementStatus.Completed));
     }

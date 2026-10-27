@@ -9,7 +9,7 @@ namespace BeanShare.Infrastructure.Persistence;
 
 public sealed class UnitOfWork : IUnitOfWork
 {
-    // Unique indexes that guard the money ledger against racing generations (design §6).
+    // Unique indexes that guard the money ledger against racing generations.
     private static readonly HashSet<string> LedgerUniqueIndexes = new(StringComparer.Ordinal)
     {
         "IX_Settlements_BillingPeriodId",

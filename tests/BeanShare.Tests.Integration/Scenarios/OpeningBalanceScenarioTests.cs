@@ -3,7 +3,7 @@ using FluentAssertions;
 
 namespace BeanShare.Tests.Integration.Scenarios;
 
-// The E2E scenario's own arithmetic (design-tests §12), checked without Docker: the pasted texts carry the stated
+// The E2E scenario's own arithmetic, checked without Docker: the pasted texts carry the stated
 // totals, and every expected settlement nets to zero.
 public sealed class OpeningBalanceScenarioTests
 {
@@ -27,7 +27,7 @@ public sealed class OpeningBalanceScenarioTests
         cups.Sum(r => int.Parse(r[4], CultureInfo.InvariantCulture)).Should().Be(OpeningBalanceScenario.HistoryCupsTotal);
         purchases.Sum(r => Amount(r[5])).Should().Be(OpeningBalanceScenario.HistoryCostTotal);
         purchases.Select(r => r[0]).Should().BeSubsetOf(cups.Select(r => r[0]));
-        DateTime.Parse(cups.Last()[2], CultureInfo.InvariantCulture).Should().BeBefore(_scenario.C, "every historical End is before C (DS-37)");
+        DateTime.Parse(cups.Last()[2], CultureInfo.InvariantCulture).Should().BeBefore(_scenario.C, "every historical End is before C");
     }
 
     [Fact]

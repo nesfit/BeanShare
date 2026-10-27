@@ -9,11 +9,11 @@ using FluentAssertions;
 namespace BeanShare.Infrastructure.Tests.Cutover;
 
 /// <summary>
-/// T-CUT-04 (rev9 H1–H3, rev10 I1/I2): the runbook's worked example (design-delivery §7.4) on the real lot
+/// The runbook's worked example on the real lot
 /// back-fill, <see cref="CoffeeStock"/>, <see cref="Purchase"/> (with the write-off-aware restore and the void)
-/// and <see cref="SettlementLedgerCalculator"/>. AD8/AD9's probes, inverted into the runbook. The DS-41 input
-/// rules of <c>LedgerSnapshotService</c> (flagged bags out of the fallback set, their stamped cups priced as
-/// fallback cups) are applied as written; T-CUT-02 tests them on the service itself.
+/// and <see cref="SettlementLedgerCalculator"/>. Earlier review probes, inverted into the runbook. The "Paid in Excel"
+/// input rules of <c>LedgerSnapshotService</c> (flagged bags out of the fallback set, their stamped cups priced as
+/// fallback cups) are applied as written; CutoverFallbackTests tests them on the service itself.
 /// T is the sole payer and the treasurer; every bag is 1000 g for 600.00 (0.60 per g). Pure: no database.
 /// </summary>
 public sealed class CutoverRunbookTests
@@ -24,7 +24,7 @@ public sealed class CutoverRunbookTests
     /// <summary>Step 5: X in full plus Y's pre-C share, 600.00 × 250 / 1000.</summary>
     private const decimal Excel = 600m + 600m * 250m / 1000m;
 
-    /// <summary>H1: Σ g_pre over the bags opened before C plus Σ Q over the Paid-in-Excel bags.</summary>
+    /// <summary>Σ g_pre over the bags opened before C plus Σ Q over the Paid-in-Excel bags.</summary>
     private const decimal Phantom = 250m + 1000m;
 
     private static CoffeeProduct Beta() => CoffeeProduct.Create("Beta", "Roaster", CoffeeType.Espresso);
@@ -103,7 +103,7 @@ public sealed class CutoverRunbookTests
             return grams;
         }
 
-        /// <summary>DeleteConsumption: its own bag for a stamped row (write-off aware, Z2), product-wide otherwise.</summary>
+        /// <summary>DeleteConsumption: its own bag for a stamped row (write-off aware), product-wide otherwise.</summary>
         public void Delete(Row row)
         {
             if (row.Lot is { } lot)
@@ -113,7 +113,7 @@ public sealed class CutoverRunbookTests
             Rows.Remove(row);
         }
 
-        /// <summary>VoidPhantomRows (DS-42): a share's grams leave for the voided counter; an unstamped row touches no bag.</summary>
+        /// <summary>VoidPhantomRows: a share's grams leave for the voided counter; an unstamped row touches no bag.</summary>
         public void Void(Row row)
         {
             if (row.WriteOff && row.Lot is { } lot)
@@ -126,7 +126,7 @@ public sealed class CutoverRunbookTests
         /// <summary>Step 6 re-bill: the drinker −amount, counterparty the payer T.</summary>
         public void ReBill(UserId drinker, decimal amount) => Entries.Add(new LedgerEntry(drinker, T, -amount));
 
-        /// <summary>The first settlement, with DS-41's input rules.</summary>
+        /// <summary>The first settlement, with the "Paid in Excel" input rules.</summary>
         public LedgerCalculation Settle(Purchase paidInExcel)
         {
             Stock.SetPurchaseExcludedFromLedgerCredit(paidInExcel.Id, true, Clock);
@@ -201,7 +201,7 @@ public sealed class CutoverRunbookTests
 
         foreach (var row in w.Rows.Where(r => r.WriteOff).ToList())
             w.Delete(row);
-        (y.WrittenOffGrams, z.WrittenOffGrams).Should().Be((0m, 0m), "the write-off-aware restore (Z2)");
+        (y.WrittenOffGrams, z.WrittenOffGrams).Should().Be((0m, 0m), "the write-off-aware restore");
         (w.Discard(y) + w.Discard(z)).Should().Be(Phantom);
 
         var calc = w.Settle(x);
@@ -267,9 +267,9 @@ public sealed class CutoverRunbookTests
         w.ReBill(w.A, 30m);
         w.ReBill(w.B, 30m);
 
-        w.DrinkersPay(w.Settle(x)).Should().Be(1050m, "paper 3's extra 100 g were billed once, by the re-bill (I2)");
+        w.DrinkersPay(w.Settle(x)).Should().Be(1050m, "paper 3's extra 100 g were billed once, by the re-bill");
 
-        // Reading step 7 without I2 would add the same grams again.
+        // Reading step 7 without the re-bill rule would add the same grams again.
         w.Entries.Add(new LedgerEntry(w.A, w.T, -30m));
         w.Entries.Add(new LedgerEntry(w.B, w.T, -30m));
         w.DrinkersPay(w.Settle(x)).Should().Be(1110m);

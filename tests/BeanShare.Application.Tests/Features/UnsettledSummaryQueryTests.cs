@@ -14,7 +14,7 @@ namespace BeanShare.Application.Tests.Features;
 /// <summary>
 /// "What do I owe since the last settlement?" — the tally must ignore anything a settlement has
 /// already covered, must not lose cups that were logged outside a billing period, and shows each
-/// member's running balance from the settlement calculator (design-tests §11.2).
+/// member's running balance from the settlement calculator.
 /// </summary>
 public sealed class UnsettledSummaryQueryTests
 {

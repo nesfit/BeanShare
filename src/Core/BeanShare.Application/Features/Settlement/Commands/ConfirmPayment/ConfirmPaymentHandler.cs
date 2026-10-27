@@ -45,7 +45,7 @@ public sealed class ConfirmPaymentHandler(
         if (line is null)
             return Result.Failure(Error.SettlementLineNotFound(command.MemberUserId));
 
-        // Uncached (V1): a merge done in the other head must count at once.
+        // Uncached: a merge done in the other head must count at once.
         if ((await userRepository.GetAccessStatusAsync(memberUserId, cancellationToken))?.MergedIntoUserId is { } mergedInto)
         {
             var target = await userService.GetByIdAsync(mergedInto, cancellationToken);

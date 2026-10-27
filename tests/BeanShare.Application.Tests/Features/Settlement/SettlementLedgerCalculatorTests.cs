@@ -8,7 +8,7 @@ using SettlementAggregate = BeanShare.Domain.Aggregates.Settlement.Settlement;
 
 namespace BeanShare.Application.Tests.Features.Settlement;
 
-// T-CALC-01..04: the single money calculation (design §4).
+// The single money calculation.
 public sealed class SettlementLedgerCalculatorTests
 {
     public static IEnumerable<object[]> Seeds => Enumerable.Range(1, 200).Select(seed => new object[] { seed });
@@ -59,7 +59,6 @@ public sealed class SettlementLedgerCalculatorTests
         return new LedgerCalculationInput(cups, fallback, entries, carried, t, 2);
     }
 
-    // T-CALC-01 (I1)
     [Theory]
     [MemberData(nameof(Seeds))]
     public void NetsAlwaysSumToExactlyZero(int seed)
@@ -72,7 +71,7 @@ public sealed class SettlementLedgerCalculatorTests
         result.Lines.All(l => decimal.Round(l.Net, 2) == l.Net).Should().BeTrue();
     }
 
-    // T-CALC-01, rev4 (V1, I13): 0–3 merged users per scenario, with their cups, credits, carries and fallback cups.
+    // 0–3 merged users per scenario, with their cups, credits, carries and fallback cups.
     [Theory]
     [MemberData(nameof(Seeds))]
     public void MergedUsers_AreSweptToTheirTargets_AndNetsStillSumToZero(int seed)
@@ -113,7 +112,7 @@ public sealed class SettlementLedgerCalculatorTests
         after.FallbackRate.Should().Be(before.FallbackRate);
     }
 
-    // T-CALC-03 (I3) and the residual rule (§4.4)
+    // The rounding residual rule
     [Theory]
     [MemberData(nameof(Seeds))]
     public void StarTransfersSettleEveryLineExactly_AndOnlyTheTreasurerCarriesRounding(int seed)
@@ -136,7 +135,6 @@ public sealed class SettlementLedgerCalculatorTests
             result.Lines.Should().Contain(l => l.UserId == treasurer);
     }
 
-    // T-CALC-02 (I2)
     [Theory]
     [MemberData(nameof(Seeds))]
     public void CarryOutSumsToZeroForAnyConfirmedOrOpenMix(int seed)
@@ -163,7 +161,6 @@ public sealed class SettlementLedgerCalculatorTests
         settlement.Lines.Should().NotContain(l => l.Resolution == LineResolution.Open);
     }
 
-    // T-CALC-04
     [Fact]
     public void ACupFromXsBagDrunkByY_DebitsYAndCreditsX()
     {
@@ -265,7 +262,6 @@ public sealed class SettlementLedgerCalculatorTests
         result.LineFor(treasurer)!.Net.Should().Be(548m);
     }
 
-    // Code round 1, F5 (AD N1).
     [Fact]
     public void WithoutATreasurer_TheResidualIsReportedInsteadOfLost()
     {

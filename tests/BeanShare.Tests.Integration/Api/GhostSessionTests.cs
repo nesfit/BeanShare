@@ -16,7 +16,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace BeanShare.Tests.Integration.Api;
 
-// T-INT-09 (DS-30, U8): an identity without a user row cannot act, and sync never answers 500.
+// An identity without a user row cannot act, and sync never answers 500.
 public sealed class GhostSessionTests : IClassFixture<PostgreSqlFixture>
 {
     private readonly PostgreSqlFixture _fixture;

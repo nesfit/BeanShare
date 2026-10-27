@@ -80,7 +80,7 @@ public sealed class AuthenticationService : IAuthenticationService
         if (password.Length < 8)
             return (false, null, "Password must be at least 8 characters");
 
-        // Emails compare case-insensitively (B20).
+        // Emails compare case-insensitively.
         var emailLower = email.Trim().ToLowerInvariant();
         var existingUser = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Email.ToLower() == emailLower);
@@ -108,8 +108,8 @@ public sealed class AuthenticationService : IAuthenticationService
         if (string.IsNullOrWhiteSpace(password))
             return (false, null, "Password is required");
 
-        // Any account with a password, whatever provider a verified SSO match linked since (B24); emails
-        // compare case-insensitively (B20).
+        // Any account with a password, whatever provider a verified SSO match linked since; emails
+        // compare case-insensitively.
         var emailLower = email.Trim().ToLowerInvariant();
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Email.ToLower() == emailLower && u.PasswordHash != null);

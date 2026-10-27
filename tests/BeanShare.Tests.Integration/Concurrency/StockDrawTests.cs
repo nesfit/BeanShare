@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BeanShare.Tests.Integration.Concurrency;
 
-// T-INT-10 (Npgsql only): racing cups on one bag both land through ConcurrencyRetryBehavior;
+// Racing cups on one bag both land through ConcurrencyRetryBehavior;
 // two edits of the same cup never become a silent last-writer-wins.
 public sealed class StockDrawTests : IClassFixture<PostgreSqlFixture>, IAsyncLifetime
 {

@@ -6,7 +6,7 @@ using BeanShare.Application.Tests.TestHelpers;
 
 namespace BeanShare.Application.Tests.Features.Stock;
 
-// Purchase counters: the write-off-aware restore (T-STK-02; Z2, B25) and the void (T-CUT-05; J1, J2).
+// Purchase counters: the write-off-aware restore and the void.
 public sealed class PurchaseTests
 {
     private readonly MutableClock _clock = new(new DateTime(2026, 10, 26, 10, 0, 0, DateTimeKind.Utc));

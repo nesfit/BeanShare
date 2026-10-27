@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BeanShare.Tests.Integration.Concurrency;
 
-// T-INF-08 (Npgsql variant): replacing owned value objects (table-split columns) still passes the
+// Replacing owned value objects (table-split columns) still passes the
 // owner's Version token and bumps it.
 public sealed class OwnedTypeTokenNpgsqlTests : IClassFixture<PostgreSqlFixture>, IAsyncLifetime
 {

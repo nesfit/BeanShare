@@ -7,9 +7,9 @@ using BeanShare.Domain.Entities;
 namespace BeanShare.Application.Features.Spaces.Services;
 
 /// <summary>
-/// Creates placeholder members (D21, DS-14) for the add dialog and for the paste previews, inside the
+/// Creates placeholder members for the add dialog and for the paste previews, inside the
 /// caller's unit of work: <see cref="IUserRepository.AddAsync"/> does not save, so a racing duplicate email
-/// surfaces through the UoW translation as EMAIL_IN_USE and a paste stays all or nothing (U10).
+/// surfaces through the UoW translation as EMAIL_IN_USE and a paste stays all or nothing.
 /// </summary>
 public static class PlaceholderMembers
 {

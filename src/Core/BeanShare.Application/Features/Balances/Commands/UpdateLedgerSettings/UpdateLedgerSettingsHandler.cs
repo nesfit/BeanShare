@@ -67,7 +67,7 @@ public sealed class UpdateLedgerSettingsHandler : IRequestHandler<UpdateLedgerSe
             return Result<LedgerSettingsDto>.Failure(Error.LedgerStartLocked());
 
         // A "Paid in Excel" bag must stay before the ledger start, so C cannot move onto or before it, and
-        // cannot be cleared while any bag is flagged (H4, I4).
+        // cannot be cleared while any bag is flagged.
         if (ledgerStart != space.LedgerStartDate
             && await _coffeeStockRepository.GetBySpaceIdAsync(spaceId, cancellationToken) is { } stock
             && stock.Purchases.Where(p => p.ExcludedFromLedgerCredit).ToList() is { Count: > 0 } flagged
@@ -76,7 +76,7 @@ public sealed class UpdateLedgerSettingsHandler : IRequestHandler<UpdateLedgerSe
             return Result<LedgerSettingsDto>.Failure(Error.BagPaidInExcel(BagNames.Of(blocking)));
         }
 
-        // History never touches money: every imported period must end before the ledger starts (DS-37), so while
+        // History never touches money: every imported period must end before the ledger starts, so while
         // history exists the start can neither move into it nor be cleared.
         if (ledgerStart != space.LedgerStartDate)
         {
@@ -94,7 +94,7 @@ public sealed class UpdateLedgerSettingsHandler : IRequestHandler<UpdateLedgerSe
             space.SetTreasurer(treasurer);
         space.SetLedgerStartDate(ledgerStart, hasLedgerSettlement);
 
-        // Serializes settings changes against generation, demotion and removal (DS-28).
+        // Serializes settings changes against generation, demotion and removal.
         space.BumpLedgerVersion();
         await _spaceRepository.UpdateAsync(space, cancellationToken);
 

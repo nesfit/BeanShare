@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeanShare.Infrastructure.Tests.InMemory;
 
-// T-INF-09: a version mismatch is translated, never a 500, and the scope stays usable.
+// A version mismatch is translated, never a 500, and the scope stays usable.
 [Collection(InMemoryContainerCollection.Name)]
 public sealed class ConcurrencyTranslationTests
 {

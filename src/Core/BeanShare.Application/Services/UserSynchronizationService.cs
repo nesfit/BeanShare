@@ -16,14 +16,14 @@ namespace BeanShare.Application.Services;
 public interface IUserSynchronizationService
 {
     /// <summary>
-    /// Synchronizes a user from OIDC claims (DS-29/30/31). Matches by provider subject, then by a verified
+    /// Synchronizes a user from OIDC claims. Matches by provider subject, then by a verified
     /// <c>email</c> claim; a verified match on an unclaimed placeholder is left pending for the person to
     /// accept or decline. Throws when the principal is unusable; callers treat that as Refused(SYNC_FAILED).
     /// </summary>
     Task<UserSyncOutcome> SyncFromClaimsAsync(ClaimsPrincipal principal, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// The person's answer to a pending placeholder link (D28, DS-31). Accept claims the placeholder (same
+    /// The person's answer to a pending placeholder link. Accept claims the placeholder (same
     /// user id); decline releases its email and creates the person's own account, in one save.
     /// </summary>
     Task<LinkResolveOutcome> ResolvePlaceholderLinkAsync(ClaimsPrincipal principal, bool accept, CancellationToken cancellationToken = default);
@@ -48,14 +48,14 @@ public enum LinkResolveOutcome
     Claimed,
     Declined,
 
-    /// <summary>The placeholder was merged, claimed or edited meanwhile (a lost race, W5); sign in again.</summary>
+    /// <summary>The placeholder was merged, claimed or edited meanwhile (a lost race); sign in again.</summary>
     ChangedMeanwhile,
 
     /// <summary>The principal has no verified pending link.</summary>
     NotPending
 }
 
-/// <summary>Host settings for sync (D24). Placeholders always need a verified email, whatever this says.</summary>
+/// <summary>Host settings for sync. Placeholders always need a verified email, whatever this says.</summary>
 public sealed class UserSyncSettings
 {
     /// <summary><c>Authentication:RequireVerifiedEmailForLinking</c>; off only relaxes ordinary accounts.</summary>
@@ -113,7 +113,7 @@ public sealed class UserSynchronizationService : IUserSynchronizationService
             return new UserSyncOutcome.Synced(existingUser);
         }
 
-        // Only the email claim, never preferred_username (F21); its owner must have verified it (D24).
+        // Only the email claim, never preferred_username; its owner must have verified it.
         var email = OidcClaims.EmailOf(principal)
             ?? throw new InvalidOperationException("Email claim not found");
         if (User.IsSentinelEmail(email))
@@ -171,7 +171,7 @@ public sealed class UserSynchronizationService : IUserSynchronizationService
     public async Task<LinkResolveOutcome> ResolvePlaceholderLinkAsync(ClaimsPrincipal principal, bool accept, CancellationToken cancellationToken = default)
     {
         // The pending state is re-derived from the verified email, never from a claim: the web checks its own
-        // pending claim before calling, and the API never reads one (X6).
+        // pending claim before calling, and the API never reads one.
         if (principal.Identity?.IsAuthenticated != true
             || !OidcClaims.IsEmailVerified(principal)
             || OidcClaims.EmailOf(principal) is not { } email
@@ -186,7 +186,7 @@ public sealed class UserSynchronizationService : IUserSynchronizationService
         if (await _userService.GetByProviderUserIdAsync(provider, subject, cancellationToken) is not null)
             return LinkResolveOutcome.NotPending;
 
-        // Re-read tracked and re-check: a merge or an edit may have won meanwhile (X3, W5).
+        // Re-read tracked and re-check: a merge or an edit may have won meanwhile.
         var found = await _userRepository.FindByEmailAsync(email, cancellationToken);
         if (found is null)
             return LinkResolveOutcome.ChangedMeanwhile;
@@ -212,7 +212,7 @@ public sealed class UserSynchronizationService : IUserSynchronizationService
             await _userRepository.AddAsync(declinedAccount, cancellationToken);
         }
 
-        // Shares the token a concurrent merge bumps, so only one of them commits (V4).
+        // Shares the token a concurrent merge bumps, so only one of them commits.
         foreach (var space in spaces)
         {
             space.BumpLedgerVersion();

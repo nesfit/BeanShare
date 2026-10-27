@@ -26,14 +26,14 @@ public interface IUserRepository
     Task<int> CountByRoleAsync(SystemRole role, CancellationToken ct = default);
 
     /// <summary>
-    /// Uncached, untracked primary-key projection for the access checks (DS-30): every command and every
+    /// Uncached, untracked primary-key projection for the access checks: every command and every
     /// merged-state check reads it, so a claim, a deactivation or a merge is seen at once in both heads.
     /// </summary>
     Task<UserAccessStatus> GetAccessStatusAsync(UserId id, CancellationToken ct = default);
 
     /// <summary>
     /// Of the given users, those merged into another (userId → target), uncached and not filtered by
-    /// membership (DS-32, W1).
+    /// membership.
     /// </summary>
     Task<IReadOnlyDictionary<UserId, UserId>> GetMergedMapAsync(IReadOnlyCollection<UserId> userIds, CancellationToken ct = default);
 
@@ -46,7 +46,7 @@ public sealed record UserAccessStatus(bool Exists, bool IsActive, bool IsPlaceho
 {
     public static readonly UserAccessStatus Missing = new(false, false, false, null);
 
-    /// <summary>A real, active account that may act (DS-30).</summary>
+    /// <summary>A real, active account that may act.</summary>
     public bool CanAct => Exists && IsActive && !IsPlaceholder;
 
     public bool IsMerged => MergedIntoUserId.HasValue;

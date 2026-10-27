@@ -12,7 +12,7 @@ namespace BeanShare.Application.Tests.Features.Consumption;
 
 /// <summary>
 /// The recent-cups list offers Edit and Delete separately: a write-off share can only be deleted (the edit command
-/// refuses it, H8), and nothing in a Closed or Settled period can be changed.
+/// refuses it), and nothing in a Closed or Settled period can be changed.
 /// </summary>
 public sealed class RecentConsumptionsActionTests
 {

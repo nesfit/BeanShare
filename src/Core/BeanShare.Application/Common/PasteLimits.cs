@@ -1,7 +1,7 @@
 namespace BeanShare.Application.Common;
 
 /// <summary>
-/// The one cap on pasted text (balance entries and history), shared by the dialogs and the handlers (I10).
+/// The one cap on pasted text (balance entries and history), shared by the dialogs and the handlers.
 /// A text that reaches it may have been cut by the textarea, so it is refused rather than read short.
 /// </summary>
 public static class PasteLimits

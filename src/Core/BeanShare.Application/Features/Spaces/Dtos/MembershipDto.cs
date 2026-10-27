@@ -9,7 +9,7 @@
 
         public string UserName { get; init; } = "Unknown User";
 
-        /// <summary>A member without an account (D21); shown with a "no login" badge.</summary>
+        /// <summary>A member without an account; shown with a "no login" badge.</summary>
         public bool IsPlaceholder { get; init; }
     }
 }

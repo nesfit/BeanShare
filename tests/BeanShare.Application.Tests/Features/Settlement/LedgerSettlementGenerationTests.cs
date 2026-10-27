@@ -7,7 +7,7 @@ using SettlementAggregate = BeanShare.Domain.Aggregates.Settlement.Settlement;
 
 namespace BeanShare.Application.Tests.Features.Settlement;
 
-// T-GEN-01..09: guards, lines, inclusion and auto-confirm of ledger generation.
+// Guards, lines, inclusion and auto-confirm of ledger generation.
 public sealed class LedgerSettlementGenerationTests
 {
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -26,7 +26,6 @@ public sealed class LedgerSettlementGenerationTests
         _world.Space.SetTreasurer(_world.Admin);
     }
 
-    // T-GEN-01 (G4)
     [Fact]
     public async Task WithoutATreasurer_GenerationFailsWithTreasurerRequired()
     {
@@ -50,7 +49,6 @@ public sealed class LedgerSettlementGenerationTests
         result.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.TreasurerRequired);
     }
 
-    // T-GEN-02 (G2, G3)
     [Theory]
     [InlineData(BillingState.Draft)]
     [InlineData(BillingState.Open)]
@@ -77,7 +75,6 @@ public sealed class LedgerSettlementGenerationTests
         result.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.SettlementOrder);
     }
 
-    // T-GEN-03 (B3, B8, ADV-7)
     [Fact]
     public async Task BalanceOnlyMembersAndNonDrinkingBuyersGetLines()
     {
@@ -111,7 +108,6 @@ public sealed class LedgerSettlementGenerationTests
         _world.SettlementOf(period).Status.Should().Be(SettlementStatus.Completed);
     }
 
-    // T-GEN-04
     [Fact]
     public async Task CupsStampedToThePeriodAndUnstampedCupsUpToItsEnd_AreIncludedAndStamped()
     {
@@ -135,7 +131,6 @@ public sealed class LedgerSettlementGenerationTests
         afterEnd.BillingPeriodId.Should().BeNull();
     }
 
-    // T-GEN-05 (I10)
     [Fact]
     public async Task ACupBeforeTheLedgerStart_IsNeverBilled()
     {
@@ -151,7 +146,6 @@ public sealed class LedgerSettlementGenerationTests
         before.BillingPeriodId.Should().BeNull();
     }
 
-    // T-GEN-06 (B7)
     [Fact]
     public async Task ACupBackDatedIntoASettledRange_IsBilledByTheNextSettlementExactlyOnce()
     {
@@ -169,7 +163,7 @@ public sealed class LedgerSettlementGenerationTests
         _world.SettlementOf(january).Lines.Should().NotContain(l => l.UserId == _bob);
     }
 
-    // T-GEN-07 (ADV-1): legacy-billed cups carry their period stamp (backfill), so the ledger skips them.
+    // Legacy-billed cups carry their period stamp (backfill), so the ledger skips them.
     [Fact]
     public async Task CupsBilledByALegacySettlement_AreNotBilledAgain()
     {
@@ -189,7 +183,6 @@ public sealed class LedgerSettlementGenerationTests
         result.Value.Lines.Single(l => l.UserId == _alice.Value).CarriedIn.Should().Be(0m, "legacy lines are never carried");
     }
 
-    // T-GEN-08 (I5)
     [Fact]
     public async Task EntriesUpToTheEnd_AreIncludedOnceAndLocked()
     {
@@ -211,7 +204,6 @@ public sealed class LedgerSettlementGenerationTests
         later.IncludedInSettlementId.Should().Be(_world.SettlementOf(february).Id);
     }
 
-    // T-GEN-09 (D5, B9, T6)
     [Fact]
     public async Task OnlyAZeroNetAutoConfirms_ADebtorWithoutCupsStaysOpen_AndTheTreasurerNever()
     {

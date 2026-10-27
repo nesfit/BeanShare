@@ -10,7 +10,7 @@ using NSubstitute;
 
 namespace BeanShare.Infrastructure.Tests.Identity;
 
-// T-PLH-03 (D24, DS-15): the email fallback never maps to a placeholder and needs a verified email.
+// The email fallback never maps to a placeholder and needs a verified email.
 public sealed class OidcClaimsTransformationTests
 {
     private static readonly DateTime Now = new(2026, 10, 26, 10, 0, 0, DateTimeKind.Utc);

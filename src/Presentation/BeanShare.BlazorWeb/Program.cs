@@ -155,7 +155,7 @@ if (useOidc)
             },
             OnTokenValidated = async context =>
             {
-                // Only sync may mark a pending placeholder link; drop any such claim the IdP sent (X6).
+                // Only sync may mark a pending placeholder link; drop any such claim the IdP sent.
                 if (context.Principal != null)
                 {
                     OidcClaimFilter.RemoveLinkPending(context.Principal);
@@ -213,7 +213,7 @@ if (useOidc)
                     }
                     catch (Exception ex)
                     {
-                        // A failed sync refuses the sign-in; it never issues a cookie (DS-30, U8).
+                        // A failed sync refuses the sign-in; it never issues a cookie.
                         var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
                         logger.LogError(ex, "Failed to sync user from OIDC claims");
                         outcome = new BeanShare.Application.Services.UserSyncOutcome.Refused(BeanShare.Application.Common.Error.Codes.SyncFailed);
@@ -295,7 +295,7 @@ app.UseStatusCodePagesWithReExecute("/not-found");
 app.UseAuthentication();
 app.UseAuthorization();
 
-// A session waiting for its placeholder link may only see the link page, the problem page and logout (DS-31).
+// A session waiting for its placeholder link may only see the link page, the problem page and logout.
 app.Use(async (context, next) =>
 {
     if (context.User.Identity?.IsAuthenticated == true

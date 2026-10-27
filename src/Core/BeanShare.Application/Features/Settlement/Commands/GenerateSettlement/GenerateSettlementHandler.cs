@@ -11,9 +11,9 @@ using MediatR;
 namespace BeanShare.Application.Features.Settlement.Commands.GenerateSettlement;
 
 /// <summary>
-/// Generates the ledger settlement of a closed period: guards G1–G5, one snapshot line per non-zero
-/// position plus the treasurer, the previous settlement's open lines carried in, and every included
-/// cup and entry stamped in the same unit of work.
+/// Generates the ledger settlement of a closed period: the ordering, treasurer and one-per-period guards, one
+/// snapshot line per non-zero position plus the treasurer, the previous settlement's open lines carried in, and
+/// every included cup and entry stamped in the same unit of work.
 /// </summary>
 public sealed class GenerateSettlementHandler : IRequestHandler<GenerateSettlementCommand, Result<SettlementDto>>
 {
@@ -57,7 +57,7 @@ public sealed class GenerateSettlementHandler : IRequestHandler<GenerateSettleme
             return Result<SettlementDto>.Failure(Error.BillingPeriodNotFound(command.BillingPeriodId));
         }
 
-        // G1 (repeated in the guards, which the preview shares)
+        // The period must be closed (checked again by the guards, which the preview shares).
         if (billingPeriod.State != Domain.Enums.BillingState.Closed)
         {
             return Result<SettlementDto>.Failure(
@@ -81,7 +81,6 @@ public sealed class GenerateSettlementHandler : IRequestHandler<GenerateSettleme
             return Result<SettlementDto>.Failure(guardError);
         }
 
-        // G5
         if (await _settlementRepository.GetByBillingPeriodIdAsync(billingPeriodId, cancellationToken) != null)
         {
             return Result<SettlementDto>.Failure(Error.SettlementAlreadyExists(command.BillingPeriodId));

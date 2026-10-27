@@ -10,7 +10,7 @@ using SettlementAggregate = BeanShare.Domain.Aggregates.Settlement.Settlement;
 
 namespace BeanShare.Application.Tests.Features.Spaces;
 
-// T-MEM-01: who may leave or be removed under the running balance (§3.4, B13, DS-34).
+// Who may leave or be removed under the running balance.
 public sealed class MemberRemovalGuardTests
 {
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -79,7 +79,7 @@ public sealed class MemberRemovalGuardTests
 
         var result = await LeaveAsync(_alice);
 
-        result.IsSuccess.Should().BeTrue("the carried line was confirmed in the settlement it was carried into (B13)");
+        result.IsSuccess.Should().BeTrue("the carried line was confirmed in the settlement it was carried into");
         _world.Space.HasMember(_alice).Should().BeFalse();
     }
 

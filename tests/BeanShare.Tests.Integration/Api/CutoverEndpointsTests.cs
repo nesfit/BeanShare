@@ -13,7 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeanShare.Tests.Integration.Api;
 
-// T-INT-08, rev8 (DS-41) and rev10 (DS-42): the paid-in-Excel and void-phantom endpoints.
+// The paid-in-Excel and void-phantom endpoints.
 public sealed class CutoverEndpointsTests : IClassFixture<PostgreSqlFixture>
 {
     private readonly PostgreSqlFixture _fixture;

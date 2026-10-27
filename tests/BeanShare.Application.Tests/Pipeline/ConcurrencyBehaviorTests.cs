@@ -11,7 +11,7 @@ using NSubstitute.ExceptionExtensions;
 
 namespace BeanShare.Application.Tests.Pipeline;
 
-// T-DOM-06: concurrency conflicts become CONCURRENCY_CONFLICT results, never exceptions.
+// Concurrency conflicts become CONCURRENCY_CONFLICT results, never exceptions.
 public sealed class ConcurrencyBehaviorTests
 {
     public sealed record PlainCommand : ICommand<Result<int>>;

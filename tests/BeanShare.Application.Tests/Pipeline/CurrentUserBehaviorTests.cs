@@ -14,7 +14,7 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.Pipeline;
 
-// T-PLH-04 (DS-30, U8): an unknown, inactive or placeholder identity cannot act.
+// An unknown, inactive or placeholder identity cannot act.
 public sealed class CurrentUserBehaviorTests
 {
     private readonly IUserContext _userContext = Substitute.For<IUserContext>();

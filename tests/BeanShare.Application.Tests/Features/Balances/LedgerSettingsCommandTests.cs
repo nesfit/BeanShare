@@ -19,7 +19,7 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.Features.Balances;
 
-// T-DOM-04 (C1 part): treasurer and ledger-start rules, and the LedgerVersion bumps (DS-28).
+// Treasurer and ledger-start rules, and the LedgerVersion bumps.
 public sealed class LedgerSettingsCommandTests
 {
     private static readonly DateTime Now = new(2026, 10, 26, 10, 0, 0, DateTimeKind.Utc);

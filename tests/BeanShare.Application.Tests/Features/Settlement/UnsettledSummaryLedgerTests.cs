@@ -5,7 +5,7 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.Features.Settlement;
 
-// T-QRY-01: the unsettled card shows the running balance, carry + adjustments + credit − cost (§5.3).
+// The unsettled card shows the running balance, carry + adjustments + credit − cost.
 public sealed class UnsettledSummaryLedgerTests
 {
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -70,7 +70,7 @@ public sealed class UnsettledSummaryLedgerTests
         summary.TotalCups.Should().Be(0);
     }
 
-    // Code round 1, F1: the running balance asks the database only for unsettled candidates.
+    // The running balance asks the database only for unsettled candidates.
     [Fact]
     public async Task TheRunningBalance_DoesNotLoadCupsOfSettledPeriods()
     {
@@ -91,7 +91,7 @@ public sealed class UnsettledSummaryLedgerTests
         criteria(openCup).Should().BeTrue();
     }
 
-    // Rev8 (B26): a later-ending historical period is statistics and does not move the settled watermark.
+    // A later-ending historical period is statistics and does not move the settled watermark.
     [Fact]
     public async Task AHistoricalPeriod_DoesNotMoveTheSettledWatermark()
     {
@@ -110,7 +110,7 @@ public sealed class UnsettledSummaryLedgerTests
         asked!.Criteria.Compile()(openCup).Should().BeTrue();
     }
 
-    // CR5-2: the "Since …" of the card names the last live settled period; imported history never counts.
+    // The "Since …" of the card names the last live settled period; imported history never counts.
     [Fact]
     public async Task AHistoricalPeriod_IsNotTheLastSettledPeriod()
     {
@@ -124,7 +124,7 @@ public sealed class UnsettledSummaryLedgerTests
         summary.HasEverBeenSettled.Should().BeFalse();
     }
 
-    // Code round 1, F5: without a treasurer the rounding residual is shown, so the balances still net to zero.
+    // Without a treasurer the rounding residual is shown, so the balances still net to zero.
     [Fact]
     public async Task WithoutATreasurer_TheRoundingResidualIsShownSoBalancesNetToZero()
     {

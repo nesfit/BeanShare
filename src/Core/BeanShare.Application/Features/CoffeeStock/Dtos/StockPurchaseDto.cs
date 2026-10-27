@@ -43,9 +43,9 @@ public sealed class StockPurchaseDto
     /// <summary>The member credited when cups are drawn from this bag.</summary>
     public Guid EffectivePayerId => PaidByUserId ?? PurchasedBy;
 
-    /// <summary>"Paid in Excel" (DS-41): the bag earns no BeanShare credit and is left out of the fallback price.</summary>
+    /// <summary>"Paid in Excel": the bag earns no BeanShare credit and is left out of the fallback price.</summary>
     public bool ExcludedFromLedgerCredit { get; init; }
 
-    /// <summary>Grams of phantom write-off rows an admin voided (DS-42); gone for good, billed to nobody.</summary>
+    /// <summary>Grams of phantom write-off rows an admin voided; gone for good, billed to nobody.</summary>
     public decimal VoidedGrams { get; init; }
 }

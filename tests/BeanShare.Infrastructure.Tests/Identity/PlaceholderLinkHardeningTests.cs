@@ -16,7 +16,7 @@ namespace BeanShare.Infrastructure.Tests.Identity;
 /// <summary>
 /// Sync, the placeholder link and the claims transformation together (InMemory, real services). The API runs the
 /// transformation before every endpoint, so sync must still see the provider's subject, and a sentinel address
-/// never links or maps anything (T-PLH-02/03, ported from code-adv-5).
+/// never links or maps anything.
 /// </summary>
 [Collection(InMemoryContainerCollection.Name)]
 public sealed class PlaceholderLinkHardeningTests
@@ -75,7 +75,7 @@ public sealed class PlaceholderLinkHardeningTests
         return (c, new UserId(placeholder.Value.UserId));
     }
 
-    // ---- The provider subject survives the API's transformation (A5-2) ----
+    // ---- The provider subject survives the API's transformation ----
 
     [Fact(Timeout = 20000)]
     public async Task AnApiSync_AfterTheTransformation_KeepsTheProviderLink()
@@ -173,7 +173,7 @@ public sealed class PlaceholderLinkHardeningTests
         return json.RootElement.GetProperty("Jwt").GetProperty("Issuer").GetString()!;
     }
 
-    // ---- Sentinel addresses never link or map (A5-1) ----
+    // ---- Sentinel addresses never link or map ----
 
     [Fact(Timeout = 20000)]
     public async Task SentinelEmails_AreRefusedEverywhere()
@@ -209,7 +209,7 @@ public sealed class PlaceholderLinkHardeningTests
         OidcClaims.ProviderSubjectOf(principal).Should().Be("kc-mallory");
     }
 
-    // ---- A sign-in that already has an account cannot answer a link (CR5-1, A5-4) ----
+    // ---- A sign-in that already has an account cannot answer a link ----
 
     [Fact(Timeout = 20000)]
     public async Task Resolve_ForASignInThatAlreadyHasAnAccount_IsNotPending()

@@ -107,7 +107,7 @@ public sealed class Space : AggregateRoot
         ));
     }
     
-    /// <summary>Adds a placeholder as an ordinary member; the event tells handlers not to notify (F11).</summary>
+    /// <summary>Adds a placeholder as an ordinary member; the event tells handlers not to notify.</summary>
     public void AddPlaceholderMember(UserId userId, IClock clock)
     {
         if (HasMember(userId))

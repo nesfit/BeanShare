@@ -7,7 +7,7 @@ using FluentAssertions;
 
 namespace BeanShare.Tests.Integration.Api;
 
-// T-INT-08 (placeholders, design-tables-ui §9.4): create, edit and merge, and the merged guard (W1).
+// Create, edit and merge, and the merged guard.
 public sealed class PlaceholderEndpointsTests : IClassFixture<PostgreSqlFixture>
 {
     private readonly PostgreSqlFixture _fixture;

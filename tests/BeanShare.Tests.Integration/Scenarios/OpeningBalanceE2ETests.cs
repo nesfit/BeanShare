@@ -30,7 +30,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace BeanShare.Tests.Integration.Scenarios;
 
 /// <summary>
-/// The opening-balance E2E scenario of design-tests §12, from the Excel cutover through settlements, the
+/// The opening-balance E2E scenario, from the Excel cutover through settlements, the
 /// placeholder link and merge, to the history delete. Needs Docker (<see cref="PostgreSqlFixture"/>):
 /// <c>nix develop -c dotnet test tests/BeanShare.Tests.Integration --filter "FullyQualifiedName~OpeningBalanceE2ETests"</c>.
 /// Emails go to a capturing <see cref="IEmailService"/>. The scenario's arithmetic is checked Docker-free by
@@ -151,7 +151,7 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
         for (var i = 0; i < 6; i++)
             await LogCupAsync(_h, y, "Beta", _s.AtC(7));
         await OkAsync(_asH.PutAsJsonAsync($"/api/billing-periods/{l1}/close", new { }));
-        (await ReadAsync(db => db.Consumptions.CountAsync(c => c.BillingPeriodId == new BillingPeriodId(l1)))).Should().Be(25, "the close persists the stamps (B1)");
+        (await ReadAsync(db => db.Consumptions.CountAsync(c => c.BillingPeriodId == new BillingPeriodId(l1)))).Should().Be(25, "the close persists the stamps");
 
         // 8. The running balances: H sees everyone, A only their own.
         var unsettledH = await UnsettledAsync(_asH);
@@ -200,7 +200,7 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
         BalanceOf(afterS1, _p[27]).Should().Be(-270.00m);
         BalanceOf(afterS1, _h).Should().Be(270.00m);
 
-        // 10b. Exports, and the S1 emails: exactly H, A, B, P01 and P03 (N4, D25).
+        // 10b. Exports, and the S1 emails: exactly H, A, B, P01 and P03.
         await PdfExportAsync(s1.Id);
         var excel = await _asH.GetAsync($"/api/settlements/{s1.Id}/export/excel");
         excel.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -257,7 +257,7 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
         (await SettlementAsync(s2.Id)).SupersededBySettlementId.Should().Be(s3.Id);
         s3.Lines.Sum(l => l.TotalCoffeeGrams).Should().Be(0m, "neither the C−2 cup nor any history is ever included");
 
-        // 15. A superseded settlement still exports, but its emails are refused (N-2; the 400 shape as built).
+        // 15. A superseded settlement still exports, but its emails are refused (the 400 shape as built).
         await PdfExportAsync(s1.Id);
         (await FailsAsync(_asH.PostAsJsonAsync($"/api/settlements/{s1.Id}/send-emails", new { }), HttpStatusCode.BadRequest))
             .Should().Contain("Cannot send emails for settlement in carried-forward state");
@@ -335,13 +335,13 @@ public sealed class OpeningBalanceE2ETests : IClassFixture<PostgreSqlFixture>, I
             new { FromUserId = _h, ToUserId = _p[5], Amount = 50.00m }
         });
 
-        // 16h. B is paid out in cash; S5 then mails only H and A (D25).
+        // 16h. B is paid out in cash; S5 then mails only H and A.
         await OkAsync(_asH.PostAsJsonAsync($"/api/spaces/{_space}/balance-entries", new
         {
             UserId = _b, CounterpartyUserId = _h, Amount = -630.00m, EffectiveDate = D, Note = "paid out in cash", Kind = "Correction"
         }));
-        // L5 lies in the future on purpose (Y7): L4 had to end today because the 16e write-off shares are dated now,
-        // and DS-26 needs L5 to start after L4's End. Nothing refuses a future period, and no cup is logged into it.
+        // L5 lies in the future on purpose: L4 had to end today because the 16e write-off shares are dated now,
+        // and a live period must start after the last settled End. Nothing refuses a future period, and no cup is logged into it.
         var l5 = await OpenPeriodAsync("L5", D.AddDays(1), D.AddDays(2));
         await OkAsync(_asH.PutAsJsonAsync($"/api/billing-periods/{l5}/close", new { }));
         var s5 = await GenerateAsync(l5);

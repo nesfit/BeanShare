@@ -5,7 +5,7 @@ using FluentAssertions;
 
 namespace BeanShare.Infrastructure.Tests.Identity;
 
-// T-PLH-08 (W2, X6): the cookie claim filter keeps what sync and the link page read, and the pending claim
+// The cookie claim filter keeps what sync and the link page read, and the pending claim
 // can only come from sync.
 public sealed class OidcClaimFilterTests
 {

@@ -11,8 +11,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeanShare.Tests.Integration.Api;
 
-// DS-30 for the avatar upload, which runs no command: an unknown, deactivated or placeholder account gets 401 with the
-// code before any file is looked at. Pure unit tests (FastEndpoints' Factory, a stub repository); no database.
+// The active-account check for the avatar upload, which runs no command: an unknown, deactivated or placeholder
+// account gets 401 with the code before any file is looked at. Pure unit tests (FastEndpoints' Factory, a stub
+// repository); no database.
 [Collection(FastEndpointsFactoryCollection.Name)]
 public sealed class AvatarUploadAccessTests
 {
@@ -58,7 +59,7 @@ public sealed class AvatarUploadAccessTests
             users);
     }
 
-    // A10-4: a principal whose id claim is missing or not a GUID gets the same 401, not a 500.
+    // A principal whose id claim is missing or not a GUID gets the same 401, not a 500.
     [Fact]
     public async Task APrincipalWithoutAUsableIdClaim_Gets401WithItsCode()
     {

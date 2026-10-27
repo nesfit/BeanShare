@@ -44,7 +44,7 @@ public sealed class GetBillingPeriodByIdHandler : IRequestHandler<GetBillingPeri
 
         var consumptions = await _consumptionRepository.GetBySpaceIdAsync(billingPeriod.SpaceId, cancellationToken);
 
-        // A historical period's cups live in its import (DS-16), never in the live consumption table.
+        // A historical period's cups live in its import, never in the live consumption table.
         var periodConsumptions = billingPeriod.IsHistorical
             ? []
             : consumptions

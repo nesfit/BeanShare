@@ -6,7 +6,7 @@ using BeanShare.Domain.Enums;
 
 namespace BeanShare.Application.Tests.Features.Balances;
 
-// T-CUT-02 (DS-41, D32; AD6 R6-4; H5, H8): "Paid in Excel" bags in the fallback price and credit.
+// "Paid in Excel" bags in the fallback price and credit.
 public sealed class CutoverFallbackTests
 {
     private static readonly DateTime C = new(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -74,7 +74,7 @@ public sealed class CutoverFallbackTests
         var (x, _, _) = Bags();
         BagLessCups();
         var stamped = _world.Drink(_eve, 10m, C.AddDays(3), x);
-        stamped.CostAmount.Should().Be(6.00m, "the cup keeps its stamped price (H6)");
+        stamped.CostAmount.Should().Be(6.00m, "the cup keeps its stamped price");
 
         var calc = (await SnapshotAsync()).Calculation;
 

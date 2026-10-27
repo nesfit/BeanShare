@@ -7,6 +7,6 @@ public enum MembershipChangeType
     MemberDemoted,
     MemberRemoved,
 
-    /// <summary>An admin added a placeholder member (D21); notifies nobody (F11).</summary>
+    /// <summary>An admin added a placeholder member; notifies nobody.</summary>
     PlaceholderAdded
 }

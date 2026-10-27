@@ -16,7 +16,7 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.Features.Spaces;
 
-// T-PLH-05 (DS-32): merging a placeholder moves its money by the calculator sweep, never by an entry.
+// Merging a placeholder moves its money by the calculator sweep, never by an entry.
 public sealed class MergePlaceholderTests
 {
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -184,7 +184,7 @@ public sealed class MergePlaceholderTests
             .Handle(new MarkBagEmptyCommand(_world.Space.Id.Value, bag.Id), default)).IsSuccess.Should().BeTrue();
 
         (await _world.MergeAsync(_placeholder, _alice)).IsSuccess.Should().BeTrue();
-        bag.EffectivePayer.Should().Be(_alice, "an emptied bag it paid for now names the target (V1)");
+        bag.EffectivePayer.Should().Be(_alice, "an emptied bag it paid for now names the target");
 
         (await new UndoBagEmptyCommandHandler(
                 _world.CoffeeStockRepository, _world.ConsumptionRepository, _world.BillingPeriodRepository, _world.SpaceRepository, _world.UserContext, _world.Clock)

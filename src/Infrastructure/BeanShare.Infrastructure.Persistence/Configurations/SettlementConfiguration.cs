@@ -161,7 +161,7 @@ public sealed class SettlementConfiguration : IEntityTypeConfiguration<Settlemen
             linesConfig.Property(l => l.CarriedToSettlementId)
                 .HasConversion(NullableSettlementIdConverter);
 
-            // Each open line of a settlement is carried at most once (I6).
+            // Each open line of a settlement is carried at most once.
             linesConfig.HasIndex(nameof(SettlementLine.CarriedFromSettlementId), nameof(SettlementLine.UserId))
                 .IsUnique()
                 .HasFilter("\"CarriedFromSettlementId\" IS NOT NULL");

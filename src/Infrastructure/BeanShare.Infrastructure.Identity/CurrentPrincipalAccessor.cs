@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace BeanShare.Infrastructure.Identity;
 
-/// <summary>The principal of the current HTTP request (V3).</summary>
+/// <summary>The principal of the current HTTP request.</summary>
 public sealed class CurrentPrincipalAccessor : ICurrentPrincipalAccessor
 {
     private readonly IHttpContextAccessor _httpContextAccessor;

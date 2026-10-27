@@ -117,7 +117,7 @@ public sealed class ConsumptionRepositoryTests : IClassFixture<DatabaseFixture>
         cups.Select(c => c.Id).Should().BeEquivalentTo(new[] { unstampedEarly.Id, stampedLater.Id });
     }
 
-    // T-INF-02: the B1 regression. Close stamped cups loaded AsNoTracking, so nothing was ever saved.
+    // A regression test: close used to stamp cups loaded AsNoTracking, so nothing was ever saved.
     [Fact]
     public async Task GetBySpecForUpdate_ThenStamp_PersistsTheStamp()
     {

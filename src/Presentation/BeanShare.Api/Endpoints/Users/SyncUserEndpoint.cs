@@ -45,7 +45,7 @@ public sealed class SyncUserEndpoint : EndpointWithoutRequest<SyncUserResponse>
         }
         catch (Exception ex)
         {
-            // Any failure refuses the sign-in instead of a 500 (DS-30).
+            // Any failure refuses the sign-in instead of a 500.
             _logger.LogError(ex, "User sync failed");
             outcome = new UserSyncOutcome.Refused(Error.Codes.SyncFailed);
         }

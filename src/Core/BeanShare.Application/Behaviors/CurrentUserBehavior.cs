@@ -7,7 +7,7 @@ using MediatR;
 namespace BeanShare.Application.Behaviors;
 
 /// <summary>
-/// DS-30: no refused, pending or unknown identity can act. For an authenticated caller, every command and
+/// No refused, pending or unknown identity can act. For an authenticated caller, every command and
 /// every <see cref="IAuthorize"/> request needs an existing, active, non-placeholder user row, read
 /// uncached. Unauthenticated requests pass through unchanged; later behaviours decide about them.
 /// </summary>

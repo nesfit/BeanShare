@@ -27,7 +27,7 @@ public sealed class GetPendingPlaceholderLinkQueryHandler : IRequestHandler<GetP
 
     public async Task<PendingPlaceholderLinkDto?> Handle(GetPendingPlaceholderLinkQuery request, CancellationToken cancellationToken)
     {
-        // The guard (V3): only a pending principal with a verified email, keyed by that email alone.
+        // The guard: only a pending principal with a verified email, keyed by that email alone.
         var principal = _principalAccessor.Principal;
         if (principal?.Identity?.IsAuthenticated != true
             || !OidcClaims.HasLinkPending(principal)

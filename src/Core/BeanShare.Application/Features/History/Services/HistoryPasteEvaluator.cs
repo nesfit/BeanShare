@@ -7,7 +7,7 @@ using BeanShare.Domain.Common;
 namespace BeanShare.Application.Features.History.Services;
 
 /// <summary>
-/// The two history paste grammars (design §8.3; D23): <c>period;start;end;member;cups</c> and
+/// The two history paste grammars: <c>period;start;end;member;cups</c> and
 /// <c>period;date;paidBy;description;grams;cost</c>. Shared by the preview and the all-or-nothing commit.
 /// </summary>
 public static class HistoryPasteEvaluator
@@ -59,7 +59,7 @@ public static class HistoryPasteEvaluator
         var rowErrors = new List<HistoryPreviewRowErrorDto>();
 
         if (ledgerStartDate is null)
-            errors.Add("Set the ledger start date first: history must end before it (DS-16)");
+            errors.Add("Set the ledger start date first: history must end before it");
 
         var periods = new Dictionary<string, Period>(StringComparer.OrdinalIgnoreCase);
         var cupRows = new List<CupRow>();

@@ -8,7 +8,7 @@ using FluentAssertions;
 
 namespace BeanShare.Tests.Integration.Api;
 
-// T-INT-01: the money-ledger endpoints answer with the expected status codes, refuse non-admins and
+// The money-ledger endpoints answer with the expected status codes, refuse non-admins and
 // show members only their own entries.
 public sealed class LedgerEndpointsTests : IClassFixture<PostgreSqlFixture>
 {
@@ -162,7 +162,7 @@ public sealed class LedgerEndpointsTests : IClassFixture<PostgreSqlFixture>
         return (created!.SpaceId, created.InviteCode);
     }
 
-    /// <summary>A new user (with the profile row every command needs, DS-30) joins the space.</summary>
+    /// <summary>A new user (with the profile row every command needs) joins the space.</summary>
     private async Task<Guid> JoinAsync(string inviteCode)
     {
         var userId = Guid.NewGuid();

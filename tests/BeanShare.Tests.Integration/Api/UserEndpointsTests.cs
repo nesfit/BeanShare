@@ -41,7 +41,7 @@ public sealed class UserEndpointsTests : IClassFixture<PostgreSqlFixture>
 
         var response = await _client.PutAsJsonAsync("/api/me/profile", request);
 
-        // The fixture seeds user 1111…, so the profile exists (U2).
+        // The fixture seeds user 1111…, so the profile exists.
         response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent);
     }
 
@@ -52,7 +52,7 @@ public sealed class UserEndpointsTests : IClassFixture<PostgreSqlFixture>
 
         var response = await _client.PutAsJsonAsync("/api/me/preferred-currency", request);
 
-        // The fixture seeds user 1111…, so the profile exists (U2).
+        // The fixture seeds user 1111…, so the profile exists.
         response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent);
     }
 
@@ -60,7 +60,7 @@ public sealed class UserEndpointsTests : IClassFixture<PostgreSqlFixture>
     public async Task SyncUser_WithMockAuth_IsRefusedWithSyncFailed()
     {
         // The mock principal has no OIDC "email" claim, so sync cannot match or create anyone: the endpoint
-        // refuses with 403 SYNC_FAILED instead of throwing (DS-30).
+        // refuses with 403 SYNC_FAILED instead of throwing.
         var response = await _client.PostAsync("/api/users/sync", null);
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);

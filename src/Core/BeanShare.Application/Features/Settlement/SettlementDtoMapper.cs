@@ -7,7 +7,7 @@ using SettlementAggregate = BeanShare.Domain.Aggregates.Settlement.Settlement;
 
 namespace BeanShare.Application.Features.Settlement;
 
-/// <summary>Builds the settlement DTO from the stored snapshot only (I7), never from live data.</summary>
+/// <summary>Builds the settlement DTO from the stored snapshot only, never from live data.</summary>
 internal static class SettlementDtoMapper
 {
     public static IEnumerable<UserId> UserIdsOf(SettlementAggregate settlement) =>

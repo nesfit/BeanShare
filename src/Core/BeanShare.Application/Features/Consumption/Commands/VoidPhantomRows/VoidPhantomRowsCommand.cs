@@ -6,7 +6,7 @@ using FluentValidation;
 namespace BeanShare.Application.Features.Consumption.Commands.VoidPhantomRows;
 
 /// <summary>
-/// Removes phantom write-off rows without returning anything to stock (DS-42): a write-off share's grams
+/// Removes phantom write-off rows without returning anything to stock: a write-off share's grams
 /// move to its bag's voided counter, so no bag revives; an unstamped row touches no bag. All or nothing.
 /// The guard cannot prove a row is phantom; the cutover runbook decides that.
 /// </summary>

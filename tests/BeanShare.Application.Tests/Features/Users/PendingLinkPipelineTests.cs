@@ -13,7 +13,7 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.Features.Users;
 
-// T-PLH-07 (V3): the pending person reads its link summary through the real pipeline, and nothing else.
+// The pending person reads its link summary through the real pipeline, and nothing else.
 public sealed class PendingLinkPipelineTests
 {
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);

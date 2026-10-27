@@ -12,7 +12,7 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.Features.Balances;
 
-// A settings change touches only what it names (code round 1, N2), and every ledger date is normalised
+// A settings change touches only what it names, and every ledger date is normalised
 // the same way (CR-4).
 public sealed class LedgerSettingsInputTests
 {

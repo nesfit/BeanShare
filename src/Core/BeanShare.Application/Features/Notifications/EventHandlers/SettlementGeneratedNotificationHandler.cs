@@ -19,7 +19,7 @@ public sealed class SettlementGeneratedNotificationHandler(
         var space = await spaceRepository.GetByIdAsync(notification.SpaceId, cancellationToken);
         if (space is null) return;
 
-        // Placeholders cannot sign in, so they get no notifications (DS-33).
+        // Placeholders cannot sign in, so they get no notifications.
         var placeholders = (await userService.GetByIdsAsync(space.Members.Select(m => m.UserId), cancellationToken))
             .Where(u => u.IsPlaceholder)
             .Select(u => u.Id)

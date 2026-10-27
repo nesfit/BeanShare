@@ -9,7 +9,7 @@ using BeanShare.Domain.ValueObjects;
 namespace BeanShare.Application.Features.Balances.Services;
 
 /// <summary>
-/// The <c>member;amount;note</c> paste grammar (design §8.3): one record per line, <c>;</c>-separated,
+/// The <c>member;amount;note</c> paste grammar: one record per line, <c>;</c>-separated,
 /// trimmed cells, blank lines and an optional <c>member</c> header skipped, <c>.</c> or <c>,</c> decimals.
 /// Shared by the preview and the all-or-nothing commit, so both judge rows identically.
 /// </summary>
@@ -30,7 +30,7 @@ public static partial class BalancePasteEvaluator
         public bool IsValid => Errors.Count == 0 && Rows.Count > 0 && Rows.All(r => r.IsValid);
         public decimal Total => Rows.Where(r => r.IsValid).Sum(r => r.Amount ?? 0m);
 
-        /// <summary>The distinct member texts that become placeholders on commit (DS-17), in first-seen order.</summary>
+        /// <summary>The distinct member texts that become placeholders on commit, in first-seen order.</summary>
         public IReadOnlyList<string> PlaceholdersToCreate => Rows
             .Where(r => r.IsNewPlaceholder)
             .Select(r => r.MemberText.Trim())
@@ -55,7 +55,7 @@ public static partial class BalancePasteEvaluator
             space.Currency,
             space.LedgerStartDate);
 
-    /// <param name="createPlaceholders">An unknown member becomes a placeholder instead of an error (DS-17).</param>
+    /// <param name="createPlaceholders">An unknown member becomes a placeholder instead of an error.</param>
     public static Evaluation Evaluate(string? text, Batch batch, MemberResolver members, IClock clock, bool createPlaceholders = false)
     {
         var errors = new List<string>();

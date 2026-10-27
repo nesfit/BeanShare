@@ -5,7 +5,7 @@ using BeanShare.Domain.ValueObjects;
 namespace BeanShare.Domain.Specifications;
 
 /// <summary>
-/// The cups a ledger calculation bills (design §5.1). For a settlement of period P: cups stamped to P
+/// The cups a ledger calculation bills. For a settlement of period P: cups stamped to P
 /// (any date), or unstamped cups dated up to P's end. For the running balance (no period): the cheap
 /// database pre-filter — unstamped, or dated after <c>settledThrough</c>, the end of the latest settled
 /// period — after which callers keep only <see cref="IsUnsettled"/> cups. Both modes skip cups dated
@@ -57,7 +57,7 @@ public sealed class LedgerConsumptionsSpecification : ISpec<ConsumptionEntry>
             if (_upTo is { } upTo)
                 criteria = criteria.And(c => c.ConsumedAt <= upTo);
 
-            // Cups stamped to a not-yet-settled period lie after the last settled end (DS-26), so only
+            // Cups stamped to a not-yet-settled period lie after the last settled end, so only
             // unstamped cups need reading from before it.
             if (_settledThrough is { } settledThrough)
                 criteria = criteria.And(c => c.BillingPeriodId == null || c.ConsumedAt > settledThrough);

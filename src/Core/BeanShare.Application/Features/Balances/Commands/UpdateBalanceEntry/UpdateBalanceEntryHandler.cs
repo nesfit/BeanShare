@@ -58,7 +58,7 @@ public sealed class UpdateBalanceEntryHandler : IRequestHandler<UpdateBalanceEnt
                 return Result<BalanceEntryDto>.Failure(Error.MemberNotFound(party.Value, command.SpaceId));
         }
 
-        // An entry naming a merged user can still be deleted, but not edited (W5).
+        // An entry naming a merged user can still be deleted, but not edited.
         if (await _userRepository.AnyMergedAsync(new[] { entry.UserId, entry.CounterpartyUserId, userId, counterpartyId }, cancellationToken))
             return Result<BalanceEntryDto>.Failure(Error.MemberMerged());
 

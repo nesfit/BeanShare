@@ -7,7 +7,7 @@ using BeanShare.Domain.Common;
 namespace BeanShare.Application.Features.Spaces.Commands;
 
 /// <summary>
-/// Who may not leave or be removed (design §3.4): the treasurer, a member with an unconfirmed legacy line,
+/// Who may not leave or be removed: the treasurer, a member with an unconfirmed legacy line,
 /// the payer of a bag that still holds coffee, anyone whose running balance is not zero, and a merged
 /// placeholder.
 /// </summary>
@@ -21,7 +21,7 @@ internal static class MemberDepartureGuard
         IUserRepository userRepository,
         CancellationToken cancellationToken)
     {
-        // A merged placeholder stays a hidden member for later sweeps (W1); read uncached.
+        // A merged placeholder stays a hidden member for later sweeps; read uncached.
         if (await userRepository.IsMergedAsync(member, cancellationToken))
             return Error.MemberMerged();
 

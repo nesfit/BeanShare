@@ -59,7 +59,7 @@ public sealed class GetSpaceBillingPeriodsHandler : IRequestHandler<GetSpaceBill
 
         foreach (var period in billingPeriods.OrderByDescending(p => p.StartDate))
         {
-            // A historical period's cups live in its import (DS-16), never in the live consumption table.
+            // A historical period's cups live in its import, never in the live consumption table.
             var periodConsumptions = period.IsHistorical
                 ? []
                 : consumptions

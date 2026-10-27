@@ -11,7 +11,7 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.Features.Stock;
 
-// T-CUT-01 (DS-41, D32; H4, I4): the "Paid in Excel" flag and the guards that keep it valid.
+// The "Paid in Excel" flag and the guards that keep it valid.
 public sealed class SetBagPaidInExcelTests
 {
     private static readonly DateTime LedgerStart = new(2026, 8, 17, 0, 0, 0, DateTimeKind.Utc);

@@ -62,7 +62,7 @@ public sealed class CommitBalanceEntriesPasteHandler
             return Result<IReadOnlyList<BalanceEntryDto>>.Failure(errors);
         }
 
-        // New placeholders join in the same unit of work, so the batch stays all or nothing (U10).
+        // New placeholders join in the same unit of work, so the batch stays all or nothing.
         var created = new Dictionary<string, UserId>(StringComparer.OrdinalIgnoreCase);
         foreach (var text in evaluation.PlaceholdersToCreate)
         {

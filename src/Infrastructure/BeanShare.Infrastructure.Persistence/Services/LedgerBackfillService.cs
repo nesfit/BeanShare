@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace BeanShare.Infrastructure.Persistence.Services;
 
 /// <summary>
-/// Prepares data written before the money ledger (design §7.2): cups already billed by a legacy settlement,
+/// Prepares data written before the money ledger: cups already billed by a legacy settlement,
 /// or by a settled period without one, get that period's stamp so the ledger never bills them again; legacy
 /// lines get their purchase-based "Paid" frozen. Idempotent; runs on every start, after seeding.
 /// </summary>
@@ -43,7 +43,7 @@ public sealed class LedgerBackfillService
         }
 
         // 2. Settled live periods without a settlement (seed-style data): cups logged before they were settled.
-        //    Imported history has no settlement by design and never owns live cups (B26).
+        //    Imported history has no settlement by design and never owns live cups.
         var stampedBySettledPeriod = 0;
         foreach (var period in periods.Where(p => p.State == BillingState.Settled && !p.IsHistorical && !periodsWithSettlement.Contains(p.Id)))
         {

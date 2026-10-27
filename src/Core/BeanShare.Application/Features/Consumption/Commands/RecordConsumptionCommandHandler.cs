@@ -38,7 +38,7 @@ public sealed class RecordConsumptionCommandHandler : IRequestHandler<RecordCons
     {
         var spaceId = new SpaceId(request.SpaceId);
 
-        // Always loaded: the ledger start date gates every cup (DS-20).
+        // Always loaded: the ledger start date gates every cup.
         var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(spaceId), cancellationToken);
         if (space == null)
             return Result<ConsumptionEntryDto>.Failure(Error.SpaceNotFound(request.SpaceId));

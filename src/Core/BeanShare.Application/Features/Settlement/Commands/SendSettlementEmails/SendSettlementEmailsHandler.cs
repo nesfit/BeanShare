@@ -126,7 +126,7 @@ public sealed class SendSettlementEmailsHandler : IRequestHandler<SendSettlement
     }
 
     /// <summary>
-    /// DS-40: a deliverable address, and something to read or do — consumption in this settlement, a
+    /// A deliverable address, and something to read or do — consumption in this settlement, a
     /// non-zero net, or (the treasurer) at least one transfer. Legacy settlements mail every line with an address.
     /// </summary>
     private static bool IsRecipient(SettlementReportData report, SettlementLineReportData line)

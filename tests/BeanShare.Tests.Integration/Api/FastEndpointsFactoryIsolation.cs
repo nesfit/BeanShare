@@ -7,7 +7,7 @@ namespace BeanShare.Tests.Integration.Api;
 
 /// <summary>
 /// Pure endpoint tests built with FastEndpoints' <c>Factory.Create</c>. They run in this non-parallel collection,
-/// alone, and reset FastEndpoints' process-wide resolver before each test (fix round L, L2).
+/// alone, and reset FastEndpoints' process-wide resolver before each test.
 /// </summary>
 [CollectionDefinition(Name, DisableParallelization = true)]
 public sealed class FastEndpointsFactoryCollection : ICollectionFixture<StaleFastEndpointsResolverFixture>

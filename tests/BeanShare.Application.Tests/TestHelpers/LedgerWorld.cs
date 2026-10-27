@@ -110,7 +110,7 @@ public sealed class LedgerWorld
         return user.Id;
     }
 
-    /// <summary>A placeholder member (D21); without an email it gets the sentinel address.</summary>
+    /// <summary>A placeholder member; without an email it gets the sentinel address.</summary>
     public UserId AddPlaceholder(string name, string? email = null)
     {
         var user = User.CreatePlaceholder(name, email, Clock.UtcNow);

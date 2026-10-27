@@ -5,8 +5,8 @@ using NSubstitute;
 
 namespace BeanShare.Application.Tests.Features.Settlement;
 
-// T-CALC-05 (W1): AD4's "merged placeholder removed from the space falls out of the membership-keyed map",
-// inverted. The merged map is built from every user in the calculation inputs, not from the members.
+// A merged placeholder removed from the space must not fall out of the merged map: the map is built from every user
+// in the calculation inputs, not from the members.
 public sealed class MergedMapLoaderTests
 {
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);

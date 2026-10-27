@@ -6,7 +6,7 @@ using BeanShare.Domain.ValueObjects;
 
 namespace BeanShare.Application.Tests.Features.Settlement;
 
-// T-GEN-10: unresolved lines carry into the next settlement exactly once (D6, I6).
+// Unresolved lines carry into the next settlement exactly once.
 public sealed class SettlementCarryTests
 {
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);

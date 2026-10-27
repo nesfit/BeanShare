@@ -50,13 +50,13 @@ public sealed class Purchase : Entity
     public decimal DiscardedGrams { get; private set; }
 
     /// <summary>
-    /// Grams of phantom write-off rows an admin voided (DS-42, J1): gone like a discard, billed to nobody, and
+    /// Grams of phantom write-off rows an admin voided: gone like a discard, billed to nobody, and
     /// never brought back by <see cref="UndoWriteOff"/>.
     /// </summary>
     public decimal VoidedGrams { get; private set; }
 
     /// <summary>
-    /// "Paid in Excel" (DS-41): the bag was settled in the old spreadsheet, so it earns no BeanShare credit and
+    /// "Paid in Excel": the bag was settled in the old spreadsheet, so it earns no BeanShare credit and
     /// is left out of the fallback price.
     /// </summary>
     public bool ExcludedFromLedgerCredit { get; private set; }
@@ -157,7 +157,7 @@ public sealed class Purchase : Entity
         };
     }
 
-    /// <summary>Grams still available in this bag; voided grams (DS-42) are gone for good.</summary>
+    /// <summary>Grams still available in this bag; voided grams are gone for good.</summary>
     public Weight RemainingGrams => Weight.FromGrams(Quantity.Grams - ConsumedGrams - DiscardedGrams - VoidedGrams);
 
     /// <summary>Full-precision price per gram for this bag (round only the final cup cost).</summary>
@@ -200,7 +200,7 @@ public sealed class Purchase : Entity
         }
     }
 
-    /// <summary>Marks the bag "Paid in Excel" (DS-41) or clears it; a change bumps <see cref="Version"/>.</summary>
+    /// <summary>Marks the bag "Paid in Excel" or clears it; a change bumps <see cref="Version"/>.</summary>
     public void SetExcludedFromLedgerCredit(bool excluded)
     {
         if (ExcludedFromLedgerCredit == excluded)
@@ -352,7 +352,7 @@ public sealed class Purchase : Entity
 
     /// <summary>
     /// Reverse a prior draw (used when a consumption is edited or deleted). A deleted write-off share
-    /// (<paramref name="writeOff"/>) also leaves the write-off counter (Z2, B25), so a later "Undo empty"
+    /// (<paramref name="writeOff"/>) also leaves the write-off counter, so a later "Undo empty"
     /// restores only what is still written off; a normal cup leaves that counter alone.
     /// </summary>
     public void Restore(Weight grams, IClock clock, bool writeOff = false)
@@ -380,10 +380,10 @@ public sealed class Purchase : Entity
     }
 
     /// <summary>
-    /// Voids <paramref name="grams"/> of phantom write-off shares (DS-42, J1): they leave the consumed and
+    /// Voids <paramref name="grams"/> of phantom write-off shares: they leave the consumed and
     /// written-off counters for <see cref="VoidedGrams"/>, so <see cref="RemainingGrams"/> and
     /// <see cref="Status"/> stay as they are, nothing returns to stock and <see cref="UndoWriteOff"/> never
-    /// brings them back. At most the consumed grams are moved (J2). Returns the grams voided.
+    /// brings them back. At most the consumed grams are moved. Returns the grams voided.
     /// </summary>
     public Weight VoidWriteOff(Weight grams)
     {

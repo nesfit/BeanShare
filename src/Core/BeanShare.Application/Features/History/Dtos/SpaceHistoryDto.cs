@@ -1,7 +1,7 @@
 namespace BeanShare.Application.Features.History.Dtos;
 
 /// <summary>
-/// The History view (DS-16): imported periods with their cups and purchases, per-member all-time cups
+/// The History view: imported periods with their cups and purchases, per-member all-time cups
 /// (history plus live cups after the last historical end) and purchases per year. Statistics only.
 /// </summary>
 public sealed record SpaceHistoryDto(

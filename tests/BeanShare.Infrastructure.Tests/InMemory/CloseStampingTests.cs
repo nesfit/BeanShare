@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeanShare.Infrastructure.Tests.InMemory;
 
-// T-INF-02m: the B1 regression without Docker — closing a period really saves the cup stamps.
+// A regression test without Docker: closing a period really saves the cup stamps.
 [Collection(InMemoryContainerCollection.Name)]
 public sealed class CloseStampingTests
 {
@@ -46,6 +46,6 @@ public sealed class CloseStampingTests
 
         var stamp = await container.ReadAsync(db => db.Consumptions.AsNoTracking()
             .Where(c => c.Id == new ConsumptionEntryId(cupId)).Select(c => c.BillingPeriodId).SingleAsync());
-        stamp.Should().BeNull("the old Close path edited untracked copies (F1)");
+        stamp.Should().BeNull("the old Close path edited untracked copies");
     }
 }

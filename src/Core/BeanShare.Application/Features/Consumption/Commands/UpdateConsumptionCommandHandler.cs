@@ -57,12 +57,12 @@ public sealed class UpdateConsumptionCommandHandler
         }
 
         var space = await _spaceRepository.GetSingleBySpecAsync(new SpaceByIdSpecification(entry.SpaceId), cancellationToken);
-        // Neither a cup before the ledger start nor a re-date across it: a cup before C is never billed (B22).
+        // Neither a cup before the ledger start nor a re-date across it: a cup before C is never billed.
         var ledgerStart = space?.LedgerStartDate;
         if (ledgerStart is { } c && entry.ConsumedAt < c)
             return Result<ConsumptionEntryDto>.Failure(Error.BeforeLedgerStart(c));
 
-        // Its edit path would re-draw the share as an ordinary cup (H8). Checked after the refusals that apply to a
+        // Its edit path would re-draw the share as an ordinary cup. Checked after the refusals that apply to a
         // delete as well, so "delete it instead" is only said when a delete would go through.
         if (entry.IsWriteOff)
             return Result<ConsumptionEntryDto>.Failure(Error.ValidationFailure(
@@ -89,7 +89,7 @@ public sealed class UpdateConsumptionCommandHandler
             return Result<ConsumptionEntryDto>.Failure(Error.DomainError(ex.Message));
         }
 
-        // A cup re-dated out of its open period loses the stamp; the next close stamps it again (DS-27).
+        // A cup re-dated out of its open period loses the stamp; the next close stamps it again.
         if (stampedPeriod != null && !stampedPeriod.ContainsDate(entry.ConsumedAt))
             entry.ClearBillingPeriod();
 

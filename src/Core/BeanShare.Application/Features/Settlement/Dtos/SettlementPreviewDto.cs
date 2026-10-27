@@ -1,7 +1,7 @@
 namespace BeanShare.Application.Features.Settlement.Dtos;
 
 /// <summary>What generating the settlement of a period would produce right now; nothing is saved.</summary>
-/// <param name="FallbackRateMissing">Some cups have no bag price and no fallback price, so they cost nothing (H5).</param>
+/// <param name="FallbackRateMissing">Some cups have no bag price and no fallback price, so they cost nothing.</param>
 public sealed record SettlementPreviewDto(
     Guid BillingPeriodId,
     string BillingPeriodName,

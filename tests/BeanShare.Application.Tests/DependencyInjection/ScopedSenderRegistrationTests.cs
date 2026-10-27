@@ -10,7 +10,7 @@ namespace BeanShare.Application.Tests.DependencyInjection;
 [CollectionDefinition(nameof(ScopedSenderRegistrationTests), DisableParallelization = true)]
 public sealed class ScopedSenderCollection;
 
-// T-DI-01: MediatR's interfaces stay MediatR's; IScopedSender is separate, so sending can never recurse.
+// MediatR's interfaces stay MediatR's; IScopedSender is separate, so sending can never recurse.
 [Collection(nameof(ScopedSenderRegistrationTests))]
 public sealed partial class ScopedSenderRegistrationTests
 {

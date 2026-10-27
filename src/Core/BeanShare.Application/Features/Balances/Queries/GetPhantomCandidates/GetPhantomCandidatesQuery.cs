@@ -5,9 +5,9 @@ using BeanShare.Application.Common.Authorization;
 namespace BeanShare.Application.Features.Balances.Queries.GetPhantomCandidates;
 
 /// <summary>
-/// The rows the cutover may void (DS-42): write-off shares and bag-less rows dated on or after the ledger
+/// The rows the cutover may void: write-off shares and bag-less rows dated on or after the ledger
 /// start and not in a Settled period, grouped into events. By default only write-offs and split-like rows
-/// are listed (J7); <paramref name="IncludeAllBagLess"/> adds every other bag-less row.
+/// are listed; <paramref name="IncludeAllBagLess"/> adds every other bag-less row.
 /// </summary>
 [RequireSpaceAdmin("SpaceId")]
 public sealed record GetPhantomCandidatesQuery(Guid SpaceId, bool IncludeAllBagLess = false)

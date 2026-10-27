@@ -57,8 +57,8 @@ public sealed class UpdateStockPurchaseCommandHandler
         if (coffeeStock == null)
             return Result<StockPurchaseDto>.Failure(Error.StockNotFound(command.SpaceId));
 
-        // A "Paid in Excel" bag must stay before the ledger start (H4), and a date change is a ledger input,
-        // so it shares the space token with UpdateLedgerSettings (I4).
+        // A "Paid in Excel" bag must stay before the ledger start, and a date change is a ledger input,
+        // so it shares the space token with UpdateLedgerSettings.
         var existing = coffeeStock.Purchases.FirstOrDefault(p => p.Id == command.PurchaseId);
         if (existing is { ExcludedFromLedgerCredit: true } && space.LedgerStartDate is { } ledgerStart && command.PurchasedAt >= ledgerStart)
             return Result<StockPurchaseDto>.Failure(Error.BagPaidInExcel(BagNames.Of(existing)));

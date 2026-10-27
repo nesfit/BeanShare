@@ -18,7 +18,7 @@ namespace BeanShare.Application.Features.Balances.Services;
 /// </summary>
 /// <param name="FallbackRateMissing">
 /// Some cup is priced by the fallback rate, but the fallback set has no grams or no cost, so those cups
-/// cost nothing (H5).
+/// cost nothing.
 /// </param>
 public sealed record LedgerSnapshot(
     LedgerCalculation Calculation,
@@ -31,7 +31,7 @@ public sealed record LedgerSnapshot(
 
 /// <summary>
 /// Loads everything a ledger calculation needs and runs <see cref="SettlementLedgerCalculator"/>. Generation,
-/// the settlement preview, the unsettled summary and the Balances page all go through here (DS-19).
+/// the settlement preview, the unsettled summary and the Balances page all go through here.
 /// </summary>
 public sealed class LedgerSnapshotService
 {
@@ -62,8 +62,8 @@ public sealed class LedgerSnapshotService
     }
 
     /// <summary>
-    /// The settlement of <paramref name="period"/>, with exactly the generation parameters (T20): cups by the
-    /// §5.1 predicate up to the period end, entries dated up to it, FallbackRate(end), carry from the latest
+    /// The settlement of <paramref name="period"/>, with exactly the generation parameters: cups by the
+    /// ledger inclusion rule up to the period end, entries dated up to it, FallbackRate(end), carry from the latest
     /// ledger settlement. <paramref name="forUpdate"/> loads the cups tracked so they can be stamped.
     /// </summary>
     public async Task<LedgerSnapshot> ForPeriodAsync(Space space, BillingPeriod period, bool forUpdate, CancellationToken cancellationToken)
@@ -77,11 +77,11 @@ public sealed class LedgerSnapshotService
         return await BuildAsync(space, cups, entries, period.EndDate, cancellationToken);
     }
 
-    /// <summary>The running balance as of now (design §5.3): every unsettled cup and every unincluded entry.</summary>
+    /// <summary>The running balance as of now: every unsettled cup and every unincluded entry.</summary>
     public async Task<LedgerSnapshot> RunningAsync(Space space, CancellationToken cancellationToken)
     {
         var periods = await _billingPeriodRepository.GetBySpaceIdAsync(space.Id, cancellationToken);
-        // Live periods only: imported history is statistics and must not move the watermark (B26).
+        // Live periods only: imported history is statistics and must not move the watermark.
         var settled = periods.Where(p => p.State == BillingState.Settled && !p.IsHistorical).ToList();
         var settledPeriodIds = settled.Select(p => p.Id).ToHashSet();
         var settledThrough = settled.Select(p => (DateTime?)p.EndDate).Max();
@@ -111,7 +111,7 @@ public sealed class LedgerSnapshotService
         var stock = await _coffeeStockRepository.GetBySpaceIdAsync(space.Id, cancellationToken);
         var currency = space.Currency;
 
-        // "Paid in Excel" bags earn no BeanShare credit and stay out of the fallback price (DS-41).
+        // "Paid in Excel" bags earn no BeanShare credit and stay out of the fallback price.
         var purchases = stock?.Purchases ?? [];
         var paidInExcel = purchases.Where(p => p.ExcludedFromLedgerCredit).Select(p => p.Id).ToHashSet();
         var bagPayers = purchases.ToDictionary(p => p.Id, p => p.EffectivePayer);
@@ -138,7 +138,7 @@ public sealed class LedgerSnapshotService
         var carriedIn = previous?.GetCarryOut() ?? new Dictionary<UserId, decimal>();
         var ledgerEntries = entries.Select(e => new LedgerEntry(e.UserId, e.CounterpartyUserId, e.Amount)).ToList();
 
-        // Every user the calculation can touch, member or not (W1), read uncached (DS-30).
+        // Every user the calculation can touch, member or not, read uncached.
         var inputUsers = carriedIn.Keys
             .Concat(ledgerCups.Select(c => c.Drinker))
             .Concat(ledgerCups.Where(c => c.Payer.HasValue).Select(c => c.Payer!.Value))

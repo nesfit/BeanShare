@@ -67,7 +67,7 @@ public sealed class GetSpaceByIdQueryHandler : IRequestHandler<GetSpaceByIdQuery
             return m;
         }).ToList();
 
-        // Merged placeholders stay members for later sweeps but are hidden everywhere (DS-32); read uncached.
+        // Merged placeholders stay members for later sweeps but are hidden everywhere; read uncached.
         var merged = await _userRepository.GetMergedMapAsync(userIds, cancellationToken);
         var visibleMembers = enrichedMembers.Where(m => !merged.ContainsKey(new UserId(m.UserId))).ToList();
 

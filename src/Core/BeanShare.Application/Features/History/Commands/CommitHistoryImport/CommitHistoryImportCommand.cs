@@ -5,7 +5,7 @@ using BeanShare.Application.Common.Authorization;
 namespace BeanShare.Application.Features.History.Commands.CommitHistoryImport;
 
 /// <summary>
-/// Saves an Excel history paste as historical Settled periods with cup counts and purchases (DS-16), all or
+/// Saves an Excel history paste as historical Settled periods with cup counts and purchases, all or
 /// nothing; unknown members can become placeholders in the same save.
 /// </summary>
 [RequireSpaceAdmin("SpaceId")]

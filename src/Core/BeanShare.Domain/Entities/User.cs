@@ -22,10 +22,10 @@ public sealed class User
     public bool IsActive { get; private set; }
     public DateTime? DeactivatedAt { get; private set; }
 
-    /// <summary>A member an admin created for someone without an account (D21); cannot log in.</summary>
+    /// <summary>A member an admin created for someone without an account; cannot log in.</summary>
     public bool IsPlaceholder { get; private set; }
 
-    /// <summary>Set when an admin merged this placeholder into a member (DS-32); its money is swept there.</summary>
+    /// <summary>Set when an admin merged this placeholder into a member; its money is swept there.</summary>
     public UserId? MergedIntoUserId { get; private set; }
 
     private User()
@@ -175,7 +175,7 @@ public sealed class User
 
     public bool IsSystemAdmin => SystemRole == SystemRole.SystemAdmin;
 
-    /// <summary>Domain of the sentinel address a placeholder without an email gets (RFC 6761 `.invalid`, DS-14).</summary>
+    /// <summary>Domain of the sentinel address a placeholder without an email gets (RFC 6761 `.invalid`).</summary>
     public const string SentinelEmailDomain = "placeholder.invalid";
 
     public static string SentinelEmailFor(UserId id) => $"placeholder-{id.Value:N}@{SentinelEmailDomain}";
@@ -186,12 +186,12 @@ public sealed class User
     /// <summary>False for a sentinel address: nothing can be delivered to it.</summary>
     public bool HasDeliverableEmail => !IsSentinelEmail(Email);
 
-    /// <summary>The email to show or mail; "" for a sentinel (DS-33).</summary>
+    /// <summary>The email to show or mail; "" for a sentinel.</summary>
     public string PublicEmail => HasDeliverableEmail ? Email : string.Empty;
 
     public bool IsMerged => MergedIntoUserId.HasValue;
 
-    /// <summary>A member without an account; without an email it gets the sentinel address (DS-14).</summary>
+    /// <summary>A member without an account; without an email it gets the sentinel address.</summary>
     public static User CreatePlaceholder(string name, string? email, DateTime createdAt)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -215,7 +215,7 @@ public sealed class User
         Email = string.IsNullOrWhiteSpace(email) ? SentinelEmailFor(Id) : NormalizeEmail(email);
     }
 
-    /// <summary>The person accepted the link (DS-31): same id, now a normal user with the provider link.</summary>
+    /// <summary>The person accepted the link: same id, now a normal user with the provider link.</summary>
     public void ClaimPlaceholder(AuthenticationProvider provider, string providerUserId, DateTime now)
     {
         EnsurePlaceholder();
@@ -229,7 +229,7 @@ public sealed class User
         LastLoginAt = now;
     }
 
-    /// <summary>Stores the provider link of a verified email match (D24, DS-29).</summary>
+    /// <summary>Stores the provider link of a verified email match.</summary>
     public void LinkProvider(AuthenticationProvider provider, string providerUserId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(providerUserId);

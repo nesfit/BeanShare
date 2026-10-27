@@ -69,7 +69,7 @@ internal sealed class ConsumptionRepository : IConsumptionRepository
     {
         ArgumentNullException.ThrowIfNull(specification);
 
-        // Tracked: callers stamp the cups (B1).
+        // Tracked: callers stamp the cups.
         return await _context.Consumptions
             .Where(specification.Criteria)
             .OrderBy(c => c.ConsumedAt)

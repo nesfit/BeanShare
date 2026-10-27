@@ -6,7 +6,7 @@ using SettlementAggregate = BeanShare.Domain.Aggregates.Settlement.Settlement;
 
 namespace BeanShare.Application.Tests.Features.Settlement;
 
-// T-CNF-01: who may confirm which ledger line, and how the treasurer's line resolves (DS-4, T6).
+// Who may confirm which ledger line, and how the treasurer's line resolves.
 public sealed class ConfirmPaymentLedgerTests
 {
     private static readonly DateTime Jan1 = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -114,7 +114,7 @@ public sealed class ConfirmPaymentLedgerTests
         legacy.GetLineForUser(_alice)!.Resolution.Should().BeNull();
     }
 
-    // Code round 1, F2: the settlement's treasurer loses the confirm right with their membership.
+    // The settlement's treasurer loses the confirm right with their membership.
     [Fact]
     public async Task AFormerTreasurerWhoLeftTheSpace_MayNotConfirm()
     {

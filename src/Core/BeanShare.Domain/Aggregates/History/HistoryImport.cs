@@ -4,7 +4,7 @@ using BeanShare.Domain.ValueObjects;
 namespace BeanShare.Domain.Aggregates.History;
 
 /// <summary>
-/// One paste of the Excel history (D9, D23; DS-16): the cup counts per historical period and member, and
+/// One paste of the Excel history: the cup counts per historical period and member, and
 /// the purchases of those periods. Statistics only; money never reads it. The periods themselves are
 /// historical billing periods pointing back here, deleted with the import.
 /// </summary>
@@ -75,7 +75,7 @@ public sealed class HistoryImport : AggregateRoot
     }
 
     /// <summary>
-    /// A merged placeholder's history moves to the target (DS-32): cup counts summed per period, and the
+    /// A merged placeholder's history moves to the target: cup counts summed per period, and the
     /// purchases it paid for. Returns whether anything changed.
     /// </summary>
     public bool MoveMember(UserId from, UserId to)
@@ -131,7 +131,7 @@ public sealed class HistoricalCupCount
     internal void Reassign(UserId userId) => UserId = userId;
 }
 
-/// <summary>A coffee purchase of a historical period; date and payer may be unknown (ADV-9).</summary>
+/// <summary>A coffee purchase of a historical period; date and payer may be unknown.</summary>
 public sealed class HistoricalPurchase
 {
     public const int MaxDescriptionLength = 200;

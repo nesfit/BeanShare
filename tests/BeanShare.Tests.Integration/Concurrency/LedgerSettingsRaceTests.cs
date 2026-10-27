@@ -9,8 +9,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BeanShare.Tests.Integration.Concurrency;
 
-// T-DOM-04 (Npgsql variant): SetTreasurer and Demote both bump Space.LedgerVersion, so a racing pair
-// never leaves a non-admin treasurer (DS-28).
+// SetTreasurer and Demote both bump Space.LedgerVersion, so a racing pair
+// never leaves a non-admin treasurer.
 public sealed class LedgerSettingsRaceTests : IClassFixture<PostgreSqlFixture>, IAsyncLifetime
 {
     private readonly PostgreSqlFixture _fixture;
