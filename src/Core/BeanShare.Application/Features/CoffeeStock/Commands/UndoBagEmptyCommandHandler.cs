@@ -98,7 +98,7 @@ public sealed class UndoBagEmptyCommandHandler : IRequestHandler<UndoBagEmptyCom
         // and removing it would only hand its grams back to the bag.
         if (space.LedgerStartDate is { } ledgerStart && entries.Any(e => e.ConsumedAt < ledgerStart))
             return Result<UndoBagEmptyResult>.Failure(
-                Error.CannotUndoBagEmpty($"its cups are dated before the ledger start ({ledgerStart:yyyy-MM-dd}), and those cannot be removed"));
+                Error.CannotUndoBagEmpty($"its cups are dated before the ledger start ({ledgerStart:yyyy-MM-dd}); until the first ledger settlement, move the ledger start back, undo the emptying, then set it again"));
 
         Weight restored;
         try

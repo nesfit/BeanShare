@@ -654,7 +654,7 @@ public sealed class BagCommandTests
             .Handle(new UndoBagEmptyCommand(world.Space.Id.Value, bag.Id), CancellationToken.None);
 
         undo.Errors.Should().ContainSingle().Which.Code.Should().Be(Error.Codes.CannotUndoBagEmpty);
-        undo.Errors[0].Message.Should().Contain("ledger start");
+        undo.Errors[0].Message.Should().Contain("ledger start").And.Contain("move the ledger start back", "the refusal names the way out");
         world.Cups.Where(c => c.IsWriteOff).Should().BeEquivalentTo(shares);
         bag.WrittenOffGrams.Should().Be(300m);
         bag.RemainingGrams.Grams.Should().Be(0m);
