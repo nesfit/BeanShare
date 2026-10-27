@@ -18,6 +18,25 @@ public sealed class SettlementPdfGenerator
     }
 
     /// <summary>
+    /// An amount with its currency's own decimals (none for JPY, three for KWD), as the settlement emails show it;
+    /// two for a code the app does not know.
+    /// </summary>
+    public static string FormatAmount(decimal amount, string currency)
+    {
+        int decimals;
+        try
+        {
+            decimals = Domain.ValueObjects.Currency.Create(currency).DecimalPlaces;
+        }
+        catch (ArgumentException)
+        {
+            decimals = 2;
+        }
+
+        return amount.ToString($"N{decimals}");
+    }
+
+    /// <summary>
     /// Generates a PDF settlement report containing space info, summary statistics,
     /// a detailed member breakdown table, and payment confirmations.
     /// </summary>
@@ -121,7 +140,7 @@ public sealed class SettlementPdfGenerator
             .Padding(PdfLayoutConstants.SectionPadding).Row(row =>
         {
             ComposeSummaryItem(row.RelativeItem(), "Total Amount",
-                $"{data.TotalAmount:N2} {data.Currency}", Colors.Brown.Darken2);
+                $"{FormatAmount(data.TotalAmount, data.Currency)} {data.Currency}", Colors.Brown.Darken2);
             ComposeSummaryItem(row.RelativeItem(), "Participants",
                 $"{data.TotalParticipants}", null);
             ComposeSummaryItem(row.RelativeItem(), "Total Coffee",
@@ -202,7 +221,7 @@ public sealed class SettlementPdfGenerator
                     ComposeTableCell(table, bgColor, $"{line.CoffeeGrams:N1}");
                     ComposeTableCell(table, bgColor, line.MilkMl.HasValue ? $"{line.MilkMl:N1}" : "-");
                     ComposeTableCell(table, bgColor, $"{line.ConsumptionPercentage:N1}%");
-                    ComposeTableCell(table, bgColor, $"{line.AmountDue:N2} {data.Currency}", semiBold: true);
+                    ComposeTableCell(table, bgColor, $"{FormatAmount(line.AmountDue, data.Currency)} {data.Currency}", semiBold: true);
 
                     var statusColor = line.IsPaid ? Colors.Green.Darken1 : Colors.Orange.Darken1;
                     var statusText = line.IsPaid ? "Paid" : "Pending";
@@ -263,14 +282,14 @@ public sealed class SettlementPdfGenerator
                         });
 
                     ComposeTableCell(table, bgColor, $"{line.CoffeeGrams:N1}");
-                    ComposeTableCell(table, bgColor, $"{line.AmountDue:N2}");
-                    ComposeTableCell(table, bgColor, $"{line.Credit ?? 0:N2}");
-                    ComposeTableCell(table, bgColor, $"{line.CarriedIn ?? 0:N2}");
-                    ComposeTableCell(table, bgColor, $"{line.Adjustments ?? 0:N2}");
-                    ComposeTableCell(table, bgColor, $"{line.MergeTransfer:N2}");
+                    ComposeTableCell(table, bgColor, $"{FormatAmount(line.AmountDue, data.Currency)}");
+                    ComposeTableCell(table, bgColor, $"{FormatAmount(line.Credit ?? 0, data.Currency)}");
+                    ComposeTableCell(table, bgColor, $"{FormatAmount(line.CarriedIn ?? 0, data.Currency)}");
+                    ComposeTableCell(table, bgColor, $"{FormatAmount(line.Adjustments ?? 0, data.Currency)}");
+                    ComposeTableCell(table, bgColor, $"{FormatAmount(line.MergeTransfer, data.Currency)}");
                     if (showRounding)
-                        ComposeTableCell(table, bgColor, $"{line.Rounding ?? 0:N2}");
-                    ComposeTableCell(table, bgColor, $"{line.Net ?? 0:N2} {data.Currency}", semiBold: true);
+                        ComposeTableCell(table, bgColor, $"{FormatAmount(line.Rounding ?? 0, data.Currency)}");
+                    ComposeTableCell(table, bgColor, $"{FormatAmount(line.Net ?? 0, data.Currency)} {data.Currency}", semiBold: true);
 
                     var status = LedgerStatus(line);
                     var statusColor = status switch
@@ -302,7 +321,7 @@ public sealed class SettlementPdfGenerator
                     foreach (var transfer in transfers)
                     {
                         column.Item().PaddingTop(PdfLayoutConstants.SmallSpacing)
-                            .Text($"  {transfer.FromName} pays {transfer.ToName}: {transfer.Amount:N2} {data.Currency}");
+                            .Text($"  {transfer.FromName} pays {transfer.ToName}: {FormatAmount(transfer.Amount, data.Currency)} {data.Currency}");
                     }
                 });
             }
