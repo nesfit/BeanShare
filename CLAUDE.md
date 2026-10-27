@@ -150,10 +150,15 @@ A member's **Net** is positive when the space owes the member.
 - **Legacy settlements** (made before the ledger) keep their old model and their frozen "Paid"; their open lines
   are not part of the running balance.
 - **Concurrency:** version tokens on `Space.LedgerVersion`, `Settlement`, `BillingPeriod`, `Purchase`,
-  `BalanceEntry` and `ConsumptionEntry`. Anything that changes a ledger input bumps `Space.LedgerVersion` (new cups,
-  creating and opening a period, and placeholder edits included), so a racing generation, confirmation or departure
-  gets `CONCURRENCY_CONFLICT` (409 in the API; the web reloads). A new cup that loses only on bag counters or on this
-  token is retried, at most twice, and its drinker's membership is checked again.
+  `BalanceEntry` and `ConsumptionEntry`. `Space.LedgerVersion` is bumped by the ledger settings (treasurer, ledger
+  start), balance entries and pastes, period create, open, close, reopen and delete, generation, new cups (single,
+  preset, CSV), cup edits and deletes, write-off shares (emptying a bag, splitting the remaining stock) and their undo,
+  voiding phantom rows, Paid-in-Excel flags, purchase date changes, history import and delete, demotion, leaving and
+  removal, merges, placeholder edits and link answers. Two of these racing in one space give the later one
+  `CONCURRENCY_CONFLICT` (409 in the API; the web reloads). Other bag changes (discard, adding a purchase, purchase
+  edits other than the date) rely on `Purchase.Version`, and a confirmation on the settlement's version, which a merge
+  also bumps. A new cup that loses only on bag counters or on this token is retried, at most twice, with its drinker's
+  membership checked again; a cup edit or delete is retried only for bag counters.
 - **Settlement emails** go to every line with a deliverable address and something to read or do: consumption in
   the settlement, a non-zero Net, or (the treasurer) at least one transfer. Placeholders without an email are
   skipped. Every recipient gets the full PDF, and the wording follows the line's state ("you paid … confirmed").
