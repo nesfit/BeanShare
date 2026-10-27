@@ -126,7 +126,8 @@ A member's **Net** is positive when the space owes the member.
 
 - **Inputs:** cups (cost to the drinker, the same amount as **credit** to the bag's payer, `Purchase.EffectivePayer`
   = `PaidByUserId ?? PurchasedBy`), two-party **balance entries** (`BalanceEntry`, kinds Opening and Correction,
-  member vs counterparty, default counterparty the treasurer), and the **carry** from the previous settlement.
+  member vs counterparty; the counterparty defaults to the entering admin, the caller, and the cutover runbook sets
+  the treasurer explicitly), and the **carry** from the previous settlement.
   One calculator does it all (`SettlementLedgerCalculator`, pure): generation, the settlement preview, the
   running balance and the Balances page go through `LedgerSnapshotService`, so ΣNet = 0 exactly.
 - **Pricing:** a cup uses its stamped cost; a cup without one (legacy, or before bags existed) is a fallback cup
@@ -149,8 +150,10 @@ A member's **Net** is positive when the space owes the member.
 - **Legacy settlements** (made before the ledger) keep their old model and their frozen "Paid"; their open lines
   are not part of the running balance.
 - **Concurrency:** version tokens on `Space.LedgerVersion`, `Settlement`, `BillingPeriod`, `Purchase`,
-  `BalanceEntry` and `ConsumptionEntry`. Anything that changes a ledger input bumps `Space.LedgerVersion`, so a
-  racing generation or confirmation gets `CONCURRENCY_CONFLICT` (409 in the API; the web reloads).
+  `BalanceEntry` and `ConsumptionEntry`. Anything that changes a ledger input bumps `Space.LedgerVersion` (new cups,
+  creating and opening a period, and placeholder edits included), so a racing generation, confirmation or departure
+  gets `CONCURRENCY_CONFLICT` (409 in the API; the web reloads). A new cup that loses only on bag counters or on this
+  token is retried, at most twice, and its drinker's membership is checked again.
 - **Settlement emails** go to every line with a deliverable address and something to read or do: consumption in
   the settlement, a non-zero Net, or (the treasurer) at least one transfer. Placeholders without an email are
   skipped. Every recipient gets the full PDF, and the wording follows the line's state ("you paid … confirmed").

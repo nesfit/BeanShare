@@ -425,15 +425,20 @@ Equivalent NixOS module setup:
 The release with running balances, placeholders and the history import changes the schema (migrations
 `AddBalanceLedger` and `AddHistoryAndPlaceholders`). Treat them as **forward-only**: their `Down` would drop
 the new columns and tables, and with them every balance entry, ledger line field and imported history. An older
-build cannot run on the new schema; to go back, restore the backup from step 1.
+build must not run on the new schema: it would start, because every new column is nullable or has a default, but it
+does not know the ledger's rules. To go back, restore the backup from step 1.
 
 1. **Back up the database** (`pg_dump --format=custom`) before deploying.
-2. **Deploy the API and the web together.** Both apply pending migrations at startup and share the schema.
-3. At startup the ledger back-fill runs once and is idempotent: cups that legacy settlements (or Settled periods
-   without a settlement) already billed are stamped to those periods, and the "Paid" of legacy settlement lines
-   is frozen. Check the startup log for both migrations and the back-fill counts.
-4. Nothing is billed by the new ledger until a space has a treasurer and a ledger start date. Spaces that keep
-   using the spreadsheet until a planned cutover follow the runbook below.
+2. **Deploy the API and the web together.** Both apply pending migrations at startup and share the schema. Deploy
+   them back to back, and do not generate or confirm settlements until both run the new version: an older build would,
+   for example, accept a confirmation of a carried line.
+3. The ledger back-fill runs at every startup and is idempotent, so after the first start it changes nothing.
+   It stamps the cups that legacy settlements (or Settled periods without a settlement) already billed to those
+   periods, and freezes the "Paid" of legacy settlement lines. Check the startup log for both migrations and the
+   back-fill counts.
+4. Nothing is billed by the new ledger until a space has a treasurer. Without a ledger start date every unsettled
+   cup counts, so set C first if older cups must stay unbilled. Spaces that keep using the spreadsheet until a planned
+   cutover follow the runbook below.
 
 ### API changes for clients
 
@@ -473,6 +478,9 @@ The 401 answers listed here also carry the Bearer challenge.
 **Deploy the API before the MAUI app.** A new MAUI build shows Delete only where `CanDelete` is true; an older API does
 not send it, so the app would hide Delete on every cup. An older MAUI build against the new API still shows Delete
 under `CanEdit`, so it hides Delete on write-off shares only.
+
+**The app has no placeholder-link screen.** A person whose email matches a placeholder signs in on the web first,
+accepts (or declines) the link there, and then uses the app.
 
 ---
 
@@ -628,6 +636,8 @@ production only when the copy's result matches the Excel expectation.
    - The safe default stays: `Authentication__RequireVerifiedEmailForLinking` is on, and an unverified person sees
      "verify your email". The admin can instead clear the placeholder's email, let the person sign in (this
      creates a new account), and then **merge** the placeholder into it (Members → Merge).
+   - A person with a placeholder signs in on the **web** first and accepts the link there. The mobile app has no link
+     screen: until then its sign-in sync is refused (409 `PLACEHOLDER_LINK_PENDING`), and the app shows no spaces.
 10. **Bulk-paste the opening balances** (Balances → Paste) from the final Excel round, which includes the step-5
     Excel shares and the full price of every Paid-in-Excel bag. Use counterparty = treasurer, effective date = C,
     note "Excel cutoff". The preview shows the entry sum and the treasurer's resulting total. Reconcile it against

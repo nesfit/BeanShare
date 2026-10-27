@@ -150,8 +150,10 @@ nix develop -c dotnet test tests/BeanShare.Tests.Integration \
   barrier, which assert only the outcome, because EF InMemory is not atomic) and the pure classes (`Cutover/*`,
   `Identity/*`, `Services/*`). The PostgreSQL variants of the races, which also assert the end state, live in
   `BeanShare.Tests.Integration/Concurrency`.
-- A few Integration classes need no container and can run anywhere: `ResultMappingTests`,
-  `MockAuthenticationGuardTests` and `OpeningBalanceScenarioTests`.
+- Five Integration classes need no container and can run anywhere: `ResultMappingTests`, `PlaceholderLinkEndpointTests`,
+  `AvatarUploadAccessTests`, `MockAuthenticationGuardTests` and `OpeningBalanceScenarioTests`. The gate runs them in one
+  process with
+  `--filter "FullyQualifiedName~MockAuthenticationGuardTests|FullyQualifiedName~PlaceholderLinkEndpointTests|FullyQualifiedName~ResultMappingTests|FullyQualifiedName~OpeningBalanceScenarioTests|FullyQualifiedName~AvatarUploadAccessTests"`.
 - Under the Integration mock authentication, `IUserContext` follows the `X-Test-UserId` header, while
   `ICurrentPrincipalAccessor` returns the `MockAuthenticationHandler` principal (user `2222…`). A test of a
   principal-based path, such as the pending placeholder link, must build its own principal (the E2E calls
