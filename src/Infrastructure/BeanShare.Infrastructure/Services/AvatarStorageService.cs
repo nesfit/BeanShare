@@ -1,6 +1,7 @@
 using BeanShare.Application.Abstractions;
 using BeanShare.Domain.Common;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BeanShare.Infrastructure.Services;
 
@@ -13,12 +14,14 @@ public sealed class AvatarStorageService
     private const long MaxAvatarSizeBytes = 5 * 1024 * 1024;
 
     private readonly IConfiguration _configuration;
-    private readonly IUserRepository _users;
+    private readonly IServiceScopeFactory _scopes;
 
-    public AvatarStorageService(IConfiguration configuration, IUserRepository users)
+    // The access check reads through a short-lived scope: the web profile page keeps this service for its whole
+    // circuit, which must not hold a DbContext that long (DS-24, a fresh DbContext per operation).
+    public AvatarStorageService(IConfiguration configuration, IServiceScopeFactory scopes)
     {
         _configuration = configuration;
-        _users = users;
+        _scopes = scopes;
     }
 
     public string GetUploadsRootPath()
@@ -42,7 +45,7 @@ public sealed class AvatarStorageService
     {
         // DS-30 for every caller (the API endpoint and the web profile page): only an active, non-placeholder account
         // may replace its photo, and a refused one leaves the stored files untouched.
-        if (!(await _users.GetAccessStatusAsync(new UserId(userId), cancellationToken)).CanAct)
+        if (!await CanActAsync(userId, cancellationToken))
         {
             return new AvatarUploadResult(false, null, "This account cannot change its photo");
         }
@@ -83,5 +86,12 @@ public sealed class AvatarStorageService
         await source.CopyToAsync(destination, cancellationToken);
 
         return new AvatarUploadResult(true, $"/uploads/avatars/{storedFileName}", null);
+    }
+
+    private async Task<bool> CanActAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        await using var scope = _scopes.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+        return (await users.GetAccessStatusAsync(new UserId(userId), cancellationToken)).CanAct;
     }
 }

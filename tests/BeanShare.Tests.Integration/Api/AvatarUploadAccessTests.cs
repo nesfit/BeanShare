@@ -7,6 +7,7 @@ using BeanShare.Infrastructure.Services;
 using FastEndpoints;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BeanShare.Tests.Integration.Api;
 
@@ -52,7 +53,8 @@ public sealed class AvatarUploadAccessTests
         var users = AccessStatusOnly.For(status);
         return Factory.Create<UploadAvatarEndpoint>(
             context ?? new CallerContext(),
-            new AvatarStorageService(new ConfigurationBuilder().Build(), users),
+            new AvatarStorageService(new ConfigurationBuilder().Build(),
+                new ServiceCollection().AddScoped(_ => users).BuildServiceProvider().GetRequiredService<IServiceScopeFactory>()),
             users);
     }
 

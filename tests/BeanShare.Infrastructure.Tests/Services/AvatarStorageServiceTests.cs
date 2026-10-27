@@ -2,6 +2,7 @@ using BeanShare.Application.Abstractions;
 using BeanShare.Domain.Common;
 using BeanShare.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BeanShare.Infrastructure.Tests.Services;
 
@@ -17,6 +18,7 @@ public sealed class AvatarStorageServiceTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), "beanshare-avatar-tests-" + Guid.NewGuid());
     private readonly Guid _user = Guid.NewGuid();
     private readonly IUserRepository _users = Substitute.For<IUserRepository>();
+    private int _repositoryResolutions;
 
     [Theory]
     [InlineData(false, false, false)]
@@ -49,6 +51,20 @@ public sealed class AvatarStorageServiceTests : IDisposable
         File.ReadAllBytes(Path.Combine(_root, "avatars", $"{_user}.png")).Should().Equal(Png);
     }
 
+    // CR14-2: the service holds no repository; each upload reads the access status through its own short-lived scope.
+    [Fact]
+    public async Task TheAccessCheck_UsesAFreshScopePerUpload()
+    {
+        Access(new UserAccessStatus(true, true, false, null));
+        var service = Service();
+        _repositoryResolutions.Should().Be(0);
+
+        (await SaveAsync("me.png", service)).Success.Should().BeTrue();
+        (await SaveAsync("me.png", service)).Success.Should().BeTrue();
+
+        _repositoryResolutions.Should().Be(2);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root))
@@ -66,13 +82,24 @@ public sealed class AvatarStorageServiceTests : IDisposable
         return path;
     }
 
-    private async Task<AvatarUploadResult> SaveAsync(string fileName)
+    private AvatarStorageService Service()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["UploadsRootPath"] = _root })
             .Build();
+        var services = new ServiceCollection();
+        services.AddScoped(_ =>
+        {
+            _repositoryResolutions++;
+            return _users;
+        });
+        var scopes = services.BuildServiceProvider(validateScopes: true).GetRequiredService<IServiceScopeFactory>();
+        return new AvatarStorageService(configuration, scopes);
+    }
+
+    private async Task<AvatarUploadResult> SaveAsync(string fileName, AvatarStorageService? service = null)
+    {
         using var source = new MemoryStream(Png);
-        return await new AvatarStorageService(configuration, _users)
-            .SaveAvatarAsync(_user, fileName, "image/png", Png.Length, source);
+        return await (service ?? Service()).SaveAvatarAsync(_user, fileName, "image/png", Png.Length, source);
     }
 }
