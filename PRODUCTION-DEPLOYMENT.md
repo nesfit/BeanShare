@@ -450,12 +450,16 @@ mean the running balance. These status codes change:
 | `POST /api/users/sync/placeholder-link` (new) | — | `{ "accept": true \| false }` → 200 with the outcome; 404 when nothing is pending; 409 `CONCURRENCY_CONFLICT`; 403 `SYNC_FAILED` |
 | Placeholder create/edit (new) | — | 409 `EMAIL_IN_USE` for an address another user already has |
 | `DELETE /api/consumptions/{id}`, `PUT /api/consumptions/{id}` | A cup before the ledger start could be deleted, or re-dated past it | 400 `BEFORE_LEDGER_START` for a cup before the ledger start, and for a re-date across it in either direction |
-| `POST /api/me/avatar` | Any signed-in caller could upload | 401 `UNAUTHENTICATED`, with the code and the Bearer challenge, for an unknown, deactivated or placeholder account |
+| `POST /api/me/avatar` | Any signed-in caller could upload | 401 `UNAUTHENTICATED`, with the code and the Bearer challenge, for an unknown, deactivated or placeholder account, or a token without a usable user id; the web profile page refuses such an account too, before any file is written |
 | `GET /api/spaces/{SpaceId}/consumption` (recent cups), and the `Consumption` part of `GET /api/spaces/{SpaceId}/dashboard` | `CanEdit` offered both Edit and Delete | New `CanDelete` offers Delete. `CanEdit` offers Edit only and is now false for a write-off share, which can only be deleted |
 
 Queries (GET) keep their own failure shapes. A body "with the code" is the shared problem-details shape
-(`application/problem+json`): each entry of `Errors` carries an error code in `Reason`, and `Detail` carries the first
-error's message. The endpoints that already sent this shape now also send `Detail`, and their 401s the Bearer challenge.
+(`application/problem+json`): each entry of `Errors` carries an error code in `Reason`. `Detail`, the first error's
+message, comes only with the command endpoints' 401, 403 and 409 answers, every failure of generate-settlement and
+confirm-payment, and the endpoints that answer through the shared status mapping (for example promote/demote member,
+the balance, history and placeholder endpoints). The other business failures, such as an endpoint's own 400 or 404
+(the cups' `BEFORE_LEDGER_START` included) and FastEndpoints' own validation and binding 400s, carry the code without
+`Detail`. The 401 answers listed here also carry the Bearer challenge.
 
 **Deploy the API before the MAUI app.** A new MAUI build shows Delete only where `CanDelete` is true; an older API does
 not send it, so the app would hide Delete on every cup. An older MAUI build against the new API still shows Delete
